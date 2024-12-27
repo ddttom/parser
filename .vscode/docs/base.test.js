@@ -1,4 +1,4 @@
-import { parse, name } from '../../src/services/parser/parsers/base.js';
+import { parse, name } from './base.js';
 
 describe('Base Parser', () => {
   describe('Input Validation', () => {

@@ -12,7 +12,7 @@
  *  - when checking confidence levels do not use <0.90 use <= 0.90
  */
 
-import { createLogger } from '../../../utils/logger.js';
+import { createLogger } from '../../src/utils/logger.js';
 
 // Initialize logger at module level
 const logger = createLogger('BaseParser');
