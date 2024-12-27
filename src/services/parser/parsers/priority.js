@@ -9,7 +9,8 @@ const PRIORITY_LEVELS = {
   high: 2,
   medium: 3,
   normal: 4,
-  low: 5
+  low: 5,
+  important: 2 // Adding important as equivalent to high priority
 };
 
 const VALID_PRIORITIES = new Set(Object.keys(PRIORITY_LEVELS));
@@ -57,6 +58,14 @@ function extractPriorityValue(match, pattern) {
       };
     }
 
+    case 'hashtag': {
+      const term = match[1].toLowerCase();
+      return {
+        priority: term === 'high-priority' ? 'high' : term,
+        confidence: 0.95
+      };
+    }
+
     default:
       return null;
   }
@@ -76,36 +85,48 @@ export async function parse(text) {
     numeric: /\bp([1-5])\b/i,
     shorthand: /^(!{1,3})$/,
     prefix: /\b(urgent|high|medium|normal|low)\s+priority\b/i,
-    contextual: /\b(asap|urgent|critical|blocking)\b/i
+    contextual: /\b(asap|urgent|critical|blocking)\b/i,
+    hashtag: /#(urgent|important|high-priority)\b/i
   };
 
   try {
     let bestMatch = null;
     let highestConfidence = 0;
+    let tags = [];
 
     for (const [pattern, regex] of Object.entries(patterns)) {
-      const match = text.match(regex);
-      if (match) {
-        const result = parse.extractPriorityValue(match, pattern);
+      const matches = text.match(new RegExp(regex, 'gi')) || [];
+      for (const match of matches) {
+        const result = extractPriorityValue(new RegExp(regex, 'i').exec(match), pattern);
         if (result && result.priority && VALID_PRIORITIES.has(result.priority) && result.confidence > highestConfidence) {
           highestConfidence = result.confidence;
           bestMatch = {
             type: 'priority',
             value: {
-              priority: result.priority
+              priority: result.priority,
+              tags: [match.replace('#', '')]
             },
             metadata: {
               confidence: result.confidence,
               pattern,
-              originalMatch: match[0],
-              level: PRIORITY_LEVELS[result.priority]
+              originalMatch: match
             }
           };
+          if (!tags.includes(match.replace('#', ''))) {
+            tags.push(match.replace('#', ''));
+          }
         }
       }
     }
 
+    if (!bestMatch) {
+      return null;
+    }
+
+    // Ensure all tags are included even if they weren't the highest confidence match
+    bestMatch.value.tags = tags;
     return bestMatch;
+
   } catch (error) {
     logger.error('Error in priority parser:', error);
     return {

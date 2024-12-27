@@ -19,6 +19,111 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
   - Progress tracking
   - Cost information
 
+### Parser System
+
+1. **Standardized Parser Architecture**
+   - Common base parser template
+   - Consistent confidence scoring system:
+     - High confidence (explicit patterns): >= 0.90
+     - Medium confidence (standard patterns): >= 0.80
+     - Low confidence (implicit patterns): <= 0.80
+     - Invalid/uncertain matches: <= 0.70
+   - Pattern-based matching with priority
+   - Rich metadata generation
+   - Best match selection
+   - Confidence adjustments:
+     - Position bonus: +0.05
+     - Context bonus: +0.05
+     - Multiple indicators: +0.05
+     - Weak indicators: -0.05
+
+2. **Core Parsers:**
+   - Date:
+     - ISO format (YYYY-MM-DD)
+     - Natural language (January 1st, 2024)
+     - Relative dates:
+       - Simple (today, tomorrow, yesterday)
+       - Next weekday calculation:
+         1. Add 7 days to current date
+         2. While current day is not target weekday:
+            - Add 1 day
+         3. Return resulting date
+         Example: "next wednesday" on Monday Jan 1st:
+         - Start: Jan 1st (Monday)
+         - Add 7 days: Jan 8th (Monday)
+         - Add days until Wednesday: Jan 10th
+   - Time (12/24h, periods)
+   - Project (explicit, references)
+   - Status (explicit, progress)
+   - Tags (hashtags, categories)
+   - Subject (cleanup, key terms)
+   - Recurring (intervals, patterns)
+   - Reminders (time-based, relative)
+   - Priority (explicit, contextual)
+   - Additional parsers:
+     - Action (verbs, completion)
+     - Attendees (lists, roles)
+     - Categories (hierarchical)
+     - Complexity (levels, scoring)
+     - Contact (email, phone)
+     - Contexts (location, time)
+     - Dependencies (tasks)
+     - Duration (explicit, natural)
+     - Links (URLs, files)
+     - Location (rooms, addresses)
+     - Participants (lists, roles)
+
+3. **Parser Features:**
+   - Async/await support
+   - Standardized error handling via error objects
+   - Pattern-based matching with confidence scoring
+   - Rich metadata enrichment
+   - Input validation
+   - Best match selection
+   - Test coverage (see [TESTING.md](../TESTING.md) for testing standards)
+
+4. **Return Format:**
+
+   ```javascript
+   // Success (single match)
+   {
+       type: 'parsertype',
+       value: {
+           // Parser-specific structure
+       },
+       metadata: {
+           confidence: Number,
+           pattern: String,
+           originalMatch: String
+       }
+   }
+
+   // Success (multiple matches)
+   [
+       {
+           type: 'parsertype',
+           value: {
+               // Parser-specific structure
+           },
+           metadata: {
+               confidence: Number,
+               pattern: String,
+               originalMatch: String
+           }
+       }
+   ]
+
+   // No match
+   null
+
+   // Error
+   {
+       type: 'error',
+       error: 'INVALID_INPUT',
+       message: 'Input must be a non-empty string'
+   }
+   ```
+
 - **Smart Pattern Recognition**: Uses advanced pattern matching with:
   - Context-aware parsing
   - Confidence scoring
