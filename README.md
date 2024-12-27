@@ -1,4 +1,4 @@
-add a # Natural Language Parser for Personal Information Management
+# Natural Language Parser for Personal Information Management
 
 A sophisticated natural language processing library designed to parse and extract structured information from text. This library excels at understanding dates, tasks, priorities, and various metadata from natural language input.
 
@@ -123,7 +123,7 @@ Please see [contributing.md](contributing.md) for detailed contribution guidelin
 
 ## Project Structure
 
-```
+```bash
 src/
 ├── services/
 │   └── parser/
@@ -134,11 +134,11 @@ src/
 └── utils/               # Global utilities
 ```
 
-## Testing
+## Testing2
 
 The project includes comprehensive test coverage for all parsers and utilities:
 
-```
+```bash
 tests/
 └── parsers/            # Individual parser tests
     ├── date.test.js
