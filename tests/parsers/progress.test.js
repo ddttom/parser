@@ -20,8 +20,56 @@ describe('Progress Parser', () => {
       });
     });
 
-    test('returns null for text without progress', async () => {
-      const result = await parse('Regular text without progress');
+    test('should handle undefined input', async () => {
+      const result = await parse(undefined);
+      expect(result).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
+    });
+
+    test('should handle non-string input', async () => {
+      const numberResult = await parse(123);
+      expect(numberResult).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
+
+      const objectResult = await parse({});
+      expect(objectResult).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
+
+      const arrayResult = await parse([]);
+      expect(arrayResult).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
+    });
+  });
+
+  describe('Return Format', () => {
+    test('should return correct type property', async () => {
+      const result = await parse('[progress:75%]');
+      expect(result.type).toBe(name);
+    });
+
+    test('should return metadata with required fields', async () => {
+      const result = await parse('[progress:75%]');
+      expect(result.metadata).toEqual(expect.objectContaining({
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
+    });
+
+    test('should return null for no matches', async () => {
+      const result = await parse('   ');
       expect(result).toBeNull();
     });
   });
@@ -32,7 +80,8 @@ describe('Progress Parser', () => {
       expect(result).toEqual({
         type: 'progress',
         value: {
-          percentage: 75
+          percentage: 75,
+          description: null
         },
         metadata: {
           pattern: 'explicit',
@@ -42,27 +91,60 @@ describe('Progress Parser', () => {
       });
     });
 
-    test('should detect inferred progress', async () => {
+    test('should detect progress with description', async () => {
+      const result = await parse('[progress:75%, coding phase]');
+      expect(result).toEqual({
+        type: 'progress',
+        value: {
+          percentage: 75,
+          description: 'coding phase'
+        },
+        metadata: {
+          pattern: 'explicit_with_description',
+          confidence: 0.95,
+          originalMatch: '[progress:75%, coding phase]'
+        }
+      });
+    });
+
+    test('should detect percentage patterns', async () => {
       const result = await parse('Task is 50% complete');
       expect(result).toEqual({
         type: 'progress',
         value: {
-          percentage: 50
+          percentage: 50,
+          description: null
         },
         metadata: {
-          pattern: 'inferred',
-          confidence: 0.8,
+          pattern: 'percentage',
+          confidence: 0.85,
           originalMatch: '50% complete'
         }
       });
     });
 
     test('should handle various completion terms', async () => {
-      const terms = ['complete', 'done', 'finished'];
+      const terms = ['complete', 'done', 'finished', 'completed'];
       for (const term of terms) {
         const result = await parse(`25% ${term}`);
         expect(result.value.percentage).toBe(25);
       }
+    });
+
+    test('should detect fractional progress', async () => {
+      const result = await parse('Task is three-quarters done');
+      expect(result).toEqual({
+        type: 'progress',
+        value: {
+          percentage: 75,
+          description: null
+        },
+        metadata: {
+          pattern: 'fractional',
+          confidence: 0.80,
+          originalMatch: 'three-quarters done'
+        }
+      });
     });
   });
 
@@ -75,8 +157,13 @@ describe('Progress Parser', () => {
       }
     });
 
+    test('should handle decimal percentages', async () => {
+      const result = await parse('[progress:33.3%]');
+      expect(result.value.percentage).toBe(33.3);
+    });
+
     test('should reject invalid percentages', async () => {
-      const invalidPercentages = [-10, 101, 150];
+      const invalidPercentages = [-10, 101, 150, 'abc'];
       for (const percentage of invalidPercentages) {
         const result = await parse(`[progress:${percentage}%]`);
         expect(result).toBeNull();
@@ -85,14 +172,29 @@ describe('Progress Parser', () => {
   });
 
   describe('Confidence Scoring', () => {
-    test('should have higher confidence for explicit progress', async () => {
+    test('should have high confidence (>=0.90) for explicit patterns', async () => {
       const result = await parse('[progress:75%]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.9);
+      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
     });
 
-    test('should have lower confidence for inferred progress', async () => {
+    test('should have medium confidence (>=0.80) for standard patterns', async () => {
       const result = await parse('75% complete');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.8);
+      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+    });
+
+    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+      const result = await parse('about three quarters done');
+      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+    });
+
+    test('should increase confidence for progress at start of text', async () => {
+      const result = await parse('[progress:75%] of the task');
+      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
+    });
+
+    test('should not increase confidence beyond 1.0', async () => {
+      const result = await parse('[progress:75%] is confirmed');
+      expect(result.metadata.confidence).toBe(0.95);
     });
   });
 
@@ -102,9 +204,36 @@ describe('Progress Parser', () => {
       expect(result).toBeNull();
     });
 
-    test('should handle non-numeric percentages', async () => {
-      const result = await parse('[progress:abc%]');
+    test('should handle empty progress value', async () => {
+      const result = await parse('[progress: ]');
       expect(result).toBeNull();
+    });
+
+    test('should handle malformed percentages', async () => {
+      const invalidFormats = [
+        '[progress:%]',
+        '[progress:75]',
+        '[progress:75%%]',
+        '[progress:percent]'
+      ];
+
+      for (const format of invalidFormats) {
+        const result = await parse(format);
+        expect(result).toBeNull();
+      }
+    });
+
+    test('should handle invalid descriptions', async () => {
+      const invalidDescriptions = [
+        '[progress:75%, ]',
+        '[progress:75%,]',
+        '[progress:75%, @#$]'
+      ];
+
+      for (const desc of invalidDescriptions) {
+        const result = await parse(desc);
+        expect(result).toBeNull();
+      }
     });
   });
 });

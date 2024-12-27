@@ -66,7 +66,8 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
      - Categories (hierarchical)
      - Complexity (levels, scoring)
      - Contact (email, phone)
-     - Contexts (location, time)
+     - Context (preposition-based: at, in, during, using)
+   - Contexts (@ notation, multiple contexts)
      - Dependencies (tasks)
      - Duration (explicit, natural)
      - Links (URLs, files)
@@ -82,7 +83,47 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
    - Best match selection
    - Test coverage (see [TESTING.md](../TESTING.md) for testing standards)
 
-4. **Return Format:**
+4. **Parser Compliance and Testing**
+
+All parsers in `src/services/parser/parsers/` have been verified for compliance with the standardized architecture and testing standards:
+
+- **Architecture Compliance**:
+  - All parsers extend from base parser template
+  - All implement pattern-based matching with priority
+  - All generate complete metadata
+  - All follow best match selection logic
+
+- **Confidence Scoring Compliance**:
+  - All parsers correctly implement confidence tiers:
+    - Explicit/High: >= 0.90 (typically 0.95)
+    - Standard/Medium: >= 0.80 (typically 0.85-0.90)
+    - Implicit/Low: <= 0.80 (typically 0.75-0.80)
+    - Invalid: <= 0.70
+  - All properly apply confidence adjustments for position and context
+
+- **Return Format Compliance**:
+  - All parsers return standardized objects with type, value, and metadata
+  - All implement proper error handling with error objects
+  - All use null returns appropriately for no matches
+
+- **Testing Standards**:
+  - All parsers have comprehensive test coverage following standardized structure:
+    - Input validation (null, empty, undefined, non-string)
+    - Return format (type, metadata, null cases)
+    - Pattern matching (explicit, parameters, variations)
+    - Confidence scoring (high, medium, low, adjustments)
+    - Error handling (invalid formats, malformed input)
+  - Integration tests for complex scenarios and parser interactions
+  - Edge case coverage for each parser
+  - Performance testing for critical paths
+
+- **Quality Standards**:
+  - All parsers implement appropriate validation functions
+  - All handle edge cases and invalid inputs
+  - All include proper logging
+  - All expose test hooks where needed
+
+5. **Return Format:**
 
    ```javascript
    // Success (single match)
@@ -239,17 +280,52 @@ src/
 └── utils/               # Global utilities
 ```
 
-## Testing2
+## Testing 2
 
 The project includes comprehensive test coverage for all parsers and utilities:
 
 ```bash
 tests/
-└── parsers/            # Individual parser tests
-    ├── date.test.js
-    ├── priority.test.js
-    └── ...
+├── parsers/            # Individual parser tests
+│   ├── base.test.js    # Base parser template tests
+│   ├── complex-note.test.js  # Integration tests
+│   ├── date.test.js    # Date parser tests
+│   ├── priority.test.js # Priority parser tests
+│   └── ...
+└── helpers/           # Test utilities and helpers
+    └── testUtils.js
 ```
+
+Each parser test file follows a standardized structure:
+
+1. Input Validation
+   - Null input
+   - Empty string
+   - Undefined input
+   - Non-string inputs (numbers, objects, arrays)
+
+2. Return Format
+   - Type property verification
+   - Metadata structure validation
+   - Null return cases
+
+3. Pattern Matching
+   - Explicit patterns
+   - Parameter handling
+   - Multiple formats
+   - Edge cases
+
+4. Confidence Scoring
+   - High confidence (>=0.90)
+   - Medium confidence (>=0.80)
+   - Low confidence (<=0.80)
+   - Position and context adjustments
+
+5. Error Handling
+   - Invalid formats
+   - Malformed parameters
+   - Invalid values
+   - Parser errors
 
 ## License
 

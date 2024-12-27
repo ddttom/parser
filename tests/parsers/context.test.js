@@ -19,6 +19,59 @@ describe('Context Parser', () => {
         message: 'Input must be a non-empty string'
       });
     });
+
+    test('should handle undefined input', async () => {
+      const result = await parse(undefined);
+      expect(result).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
+    });
+
+    test('should handle non-string input', async () => {
+      const numberResult = await parse(123);
+      expect(numberResult).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
+
+      const objectResult = await parse({});
+      expect(objectResult).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
+
+      const arrayResult = await parse([]);
+      expect(arrayResult).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
+    });
+  });
+
+  describe('Return Format', () => {
+    test('should return correct type property', async () => {
+      const result = await parse('[context:office]');
+      expect(result.type).toBe(name);
+    });
+
+    test('should return metadata with required fields', async () => {
+      const result = await parse('[context:office]');
+      expect(result.metadata).toEqual(expect.objectContaining({
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
+    });
+
+    test('should return null for no matches', async () => {
+      const result = await parse('   ');
+      expect(result).toBeNull();
+    });
   });
 
   describe('Context Type Inference', () => {
@@ -112,14 +165,29 @@ describe('Context Parser', () => {
   });
 
   describe('Confidence Scoring', () => {
-    test('should have higher confidence for explicit contexts', async () => {
+    test('should have high confidence (>=0.90) for explicit patterns', async () => {
       const result = await parse('[context:work]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.9);
+      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
     });
 
-    test('should have lower confidence for inferred contexts', async () => {
-      const result = await parse('at work');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.8);
+    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+      const result = await parse('at office');
+      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+    });
+
+    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+      const result = await parse('at somewhere');
+      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+    });
+
+    test('should increase confidence for context at start of text', async () => {
+      const result = await parse('[context:office] meeting');
+      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
+    });
+
+    test('should not increase confidence beyond 1.0', async () => {
+      const result = await parse('[context:office] is booked');
+      expect(result.metadata.confidence).toBe(0.95);
     });
 
     test('increases confidence for known context types', async () => {

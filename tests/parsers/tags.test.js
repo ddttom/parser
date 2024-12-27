@@ -1,75 +1,265 @@
 import { name, parse } from '../../src/services/parser/parsers/tags.js';
 
 describe('Tags Parser', () => {
-    describe('Input Validation', () => {
-        test('handles null input', async () => {
-            const result = await parse(null);
-            expect(result).toEqual({
-                type: 'error',
-                error: 'INVALID_INPUT',
-                message: 'Input must be a non-empty string'
-            });
-        });
-
-        test('handles empty string', async () => {
-            const result = await parse('');
-            expect(result).toEqual({
-                type: 'error',
-                error: 'INVALID_INPUT',
-                message: 'Input must be a non-empty string'
-            });
-        });
+  describe('Input Validation', () => {
+    test('should handle null input', async () => {
+      const result = await parse(null);
+      expect(result).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
     });
 
-    describe('Pattern Matching', () => {
-        test('detects explicit tags', async () => {
-            const result = await parse('[tag:important]');
-            expect(result).toEqual({
-                type: 'tag',
-                value: ['important'],
-                metadata: {
-                    pattern: 'explicit_tag',
-                    confidence: 0.95,
-                    originalMatch: '[tag:important]'
-                }
-            });
-        });
-
-        test('detects hashtags', async () => {
-            const result = await parse('#frontend #backend');
-            expect(result).toEqual({
-                type: 'tag',
-                value: ['frontend', 'backend'],
-                metadata: {
-                    pattern: 'hashtag',
-                    confidence: 0.80,
-                    originalMatch: '#frontend #backend'
-                }
-            });
-        });
+    test('should handle empty string', async () => {
+      const result = await parse('');
+      expect(result).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
     });
 
-    describe('Confidence Scoring', () => {
-        test('should have higher confidence for explicit tags', async () => {
-            const result = await parse('[tag:important]');
-            expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.9);
-        });
-
-        test('should have lower confidence for hashtag format', async () => {
-            const result = await parse('#important');
-            expect(result.metadata.confidence).toBeLessThanOrEqual(0.8);
-        });
+    test('should handle undefined input', async () => {
+      const result = await parse(undefined);
+      expect(result).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
     });
 
-    describe('Error Handling', () => {
-        test('handles malformed tags', async () => {
-            const result = await parse('#!invalid');
-            expect(result).toBeNull();
-        });
+    test('should handle non-string input', async () => {
+      const numberResult = await parse(123);
+      expect(numberResult).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
 
-        test('handles parser errors gracefully', async () => {
-            const result = await parse('#');
-            expect(result).toBeNull();
-        });
+      const objectResult = await parse({});
+      expect(objectResult).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
+
+      const arrayResult = await parse([]);
+      expect(arrayResult).toEqual({
+        type: 'error',
+        error: 'INVALID_INPUT',
+        message: 'Input must be a non-empty string'
+      });
     });
+  });
+
+  describe('Return Format', () => {
+    test('should return correct type property', async () => {
+      const result = await parse('[tag:important]');
+      expect(result.type).toBe(name);
+    });
+
+    test('should return metadata with required fields', async () => {
+      const result = await parse('[tag:important]');
+      expect(result.metadata).toEqual(expect.objectContaining({
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
+    });
+
+    test('should return null for no matches', async () => {
+      const result = await parse('   ');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('Pattern Matching', () => {
+    test('should detect explicit tag markers', async () => {
+      const result = await parse('[tag:important]');
+      expect(result).toEqual({
+        type: 'tag',
+        value: ['important'],
+        metadata: {
+          pattern: 'explicit_tag',
+          confidence: 0.95,
+          originalMatch: '[tag:important]'
+        }
+      });
+    });
+
+    test('should detect tag with parameters', async () => {
+      const result = await parse('[tag:feature(type=enhancement)]');
+      expect(result).toEqual({
+        type: 'tag',
+        value: ['feature'],
+        parameters: {
+          type: 'enhancement'
+        },
+        metadata: {
+          pattern: 'parameterized_tag',
+          confidence: 0.95,
+          originalMatch: '[tag:feature(type=enhancement)]'
+        }
+      });
+    });
+
+    test('should detect hashtags', async () => {
+      const result = await parse('#frontend #backend');
+      expect(result).toEqual({
+        type: 'tag',
+        value: ['frontend', 'backend'],
+        metadata: {
+          pattern: 'hashtag',
+          confidence: 0.80,
+          originalMatch: '#frontend #backend'
+        }
+      });
+    });
+
+    test('should detect multiple tag formats', async () => {
+      const result = await parse('[tag:important] #frontend #backend');
+      expect(result).toEqual({
+        type: 'tag',
+        value: ['important', 'frontend', 'backend'],
+        metadata: {
+          pattern: 'mixed_format',
+          confidence: 0.90,
+          originalMatch: '[tag:important] #frontend #backend'
+        }
+      });
+    });
+
+    test('should handle tag categories', async () => {
+      const result = await parse('#feature/ui');
+      expect(result).toEqual({
+        type: 'tag',
+        value: ['feature/ui'],
+        metadata: {
+          pattern: 'categorized_tag',
+          confidence: 0.85,
+          originalMatch: '#feature/ui'
+        }
+      });
+    });
+  });
+
+  describe('Tag Validation', () => {
+    test('should validate tag names', async () => {
+      const validTags = [
+        'feature',
+        'bug-fix',
+        'ui_update',
+        'v1.0.0',
+        'api2'
+      ];
+
+      for (const tag of validTags) {
+        const result = await parse(`#${tag}`);
+        expect(result.value).toContain(tag);
+      }
+    });
+
+    test('should normalize tag names', async () => {
+      const variations = [
+        { input: 'FEATURE', expected: 'feature' },
+        { input: 'Bug-Fix', expected: 'bug-fix' },
+        { input: 'UI_Update', expected: 'ui_update' }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await parse(`#${input}`);
+        expect(result.value).toContain(expected);
+      }
+    });
+  });
+
+  describe('Confidence Scoring', () => {
+    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+      const result = await parse('[tag:important]');
+      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+    });
+
+    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+      const result = await parse('#frontend');
+      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+    });
+
+    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+      const result = await parse('tagged as important');
+      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+    });
+
+    test('should increase confidence for tags at start of text', async () => {
+      const result = await parse('[tag:important] task');
+      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
+    });
+
+    test('should not increase confidence beyond 1.0', async () => {
+      const result = await parse('[tag:important] is confirmed');
+      expect(result.metadata.confidence).toBe(0.95);
+    });
+
+    test('should increase confidence for multiple matching tags', async () => {
+      const result = await parse('#frontend #backend #api');
+      expect(result.metadata.confidence).toBeGreaterThan(0.80);
+    });
+  });
+
+  describe('Error Handling', () => {
+    test('should handle invalid tag format', async () => {
+      const result = await parse('[tag:]');
+      expect(result).toBeNull();
+    });
+
+    test('should handle empty tag value', async () => {
+      const result = await parse('[tag: ]');
+      expect(result).toBeNull();
+    });
+
+    test('should handle malformed parameters', async () => {
+      const invalidParams = [
+        '[tag:feature()]',
+        '[tag:feature(type)]',
+        '[tag:feature(type=)]',
+        '[tag:feature(=enhancement)]'
+      ];
+
+      for (const param of invalidParams) {
+        const result = await parse(param);
+        expect(result).toBeNull();
+      }
+    });
+
+    test('should handle invalid tag names', async () => {
+      const invalidTags = [
+        '#123',
+        '#!@#',
+        '#',
+        '# ',
+        '#-start',
+        '#.invalid'
+      ];
+
+      for (const tag of invalidTags) {
+        const result = await parse(tag);
+        expect(result).toBeNull();
+      }
+    });
+
+    test('should handle malformed hashtags', async () => {
+      const malformed = [
+        '# tag',
+        '#tag!',
+        '#tag@',
+        '#tag#',
+        '#tag//'
+      ];
+
+      for (const tag of malformed) {
+        const result = await parse(tag);
+        expect(result).toBeNull();
+      }
+    });
+  });
 });
