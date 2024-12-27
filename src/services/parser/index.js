@@ -33,6 +33,7 @@ class ParserService {
         this.parsers = new Map();
         this.parserStats = new Map();
         this.compiledPatterns = new Map();
+        this.totalParses = 0;
         
         // Register all parsers
         this.registerParser(actionParser.name, actionParser);
@@ -202,6 +203,33 @@ class ParserService {
         }
 
         return summary.join('\n');
+    }
+
+    // Update parser performance statistics
+    updateParserStats(parserName, duration) {
+        const stats = this.parserStats.get(parserName) || {
+            totalTime: 0,
+            count: 0,
+            avgTime: 0
+        };
+        
+        stats.totalTime += duration;
+        stats.count += 1;
+        stats.avgTime = stats.totalTime / stats.count;
+        
+        this.parserStats.set(parserName, stats);
+        this.totalParses += 1;
+    }
+
+    // Calculate overall confidence score
+    calculateOverallConfidence(confidenceScores) {
+        if (!confidenceScores || Object.keys(confidenceScores).length === 0) {
+            return 0;
+        }
+
+        const scores = Object.values(confidenceScores);
+        const total = scores.reduce((sum, score) => sum + score, 0);
+        return total / scores.length;
     }
 }
 
