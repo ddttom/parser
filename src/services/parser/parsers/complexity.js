@@ -6,97 +6,188 @@ const logger = createLogger('ComplexityParser');
 
 export const name = 'complexity';
 
-export async function parse(text) {
+const COMPLEXITY_FORMATS = {
+    high: 'Complexity: High',
+    medium: 'Complexity: Medium',
+    low: 'Complexity: Low'
+};
+
+const COMPLEXITY_ALIASES = {
+    'complex': 'high',
+    'complicated': 'high',
+    'difficult': 'high',
+    'hard': 'high',
+    'challenging': 'high',
+    'advanced': 'high',
+    'expert': 'high',
+    'moderate': 'medium',
+    'intermediate': 'medium',
+    'normal': 'medium',
+    'average': 'medium',
+    'standard': 'medium',
+    'simple': 'low',
+    'easy': 'low',
+    'basic': 'low',
+    'beginner': 'low',
+    'straightforward': 'low',
+    'trivial': 'low'
+};
+
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'ComplexityParser');
     if (validationError) {
-        return validationError;
+        return { text, corrections: [] };
     }
 
-    const patterns = {
-        level_complexity: /\b(?:complexity|difficulty)(?:\s+(?:is|level))?\s*(?::|-)?\s*(high|medium|low)\b/i,
-        numeric_level: /\b(?:complexity|difficulty)(?:\s+(?:is|level))?\s*(?::|-)?\s*(\d+)\b/i,
-        keyword_complexity: /\b(complex|complicated|simple|easy|difficult|hard|challenging)\b/i
-    };
+    try {
+        // Try explicit complexity pattern first
+        const explicitMatch = findExplicitComplexity(text);
+        if (explicitMatch) {
+            const correction = {
+                type: 'complexity_improvement',
+                original: explicitMatch.match,
+                correction: formatExplicitComplexity(explicitMatch),
+                position: {
+                    start: text.indexOf(explicitMatch.match),
+                    end: text.indexOf(explicitMatch.match) + explicitMatch.match.length
+                },
+                confidence: explicitMatch.confidence
+            };
 
-    let bestMatch = null;
-    let highestConfidence = Confidence.LOW;
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
 
-    const complexityLevels = {
-        high: 3,
-        medium: 2,
-        low: 1
-    };
-
-    const keywordMap = {
-        complex: 'high',
-        complicated: 'high',
-        difficult: 'high',
-        hard: 'high',
-        challenging: 'high',
-        simple: 'low',
-        easy: 'low'
-    };
-
-    for (const [pattern, regex] of Object.entries(patterns)) {
-        const match = text.match(regex);
-        if (match) {
-            let confidence;
-            let value;
-
-            switch (pattern) {
-                case 'level_complexity': {
-                    confidence = Confidence.HIGH;
-                    const level = match[1].toLowerCase();
-                    value = {
-                        level,
-                        score: complexityLevels[level]
-                    };
-                    break;
-                }
-
-                case 'numeric_level': {
-                    const score = parseInt(match[1], 10);
-                    // Validate numeric value
-                    if (score < 1 || score > 3) {
-                        continue;
-                    }
-                    confidence = Confidence.HIGH;
-                    value = {
-                        level: score >= 3 ? 'high' : score >= 2 ? 'medium' : 'low',
-                        score
-                    };
-                    break;
-                }
-
-                case 'keyword_complexity': {
-                    confidence = Confidence.MEDIUM;
-                    const level = keywordMap[match[1].toLowerCase()];
-                    value = {
-                        level,
-                        score: complexityLevels[level]
-                    };
-                    break;
-                }
-            }
-
-            // Update if current confidence is higher or equal priority pattern
-            const shouldUpdate = !bestMatch || 
-                (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
-                (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
-            
-            if (shouldUpdate) {
-                highestConfidence = confidence;
-                bestMatch = {
-                    complexity: {
-                        ...value,
-                        confidence,
-                        pattern,
-                        originalMatch: match[0]
-                    }
-                };
-            }
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
         }
-    }
 
-    return bestMatch;
+        // Try numeric complexity
+        const numericMatch = findNumericComplexity(text);
+        if (numericMatch) {
+            const correction = {
+                type: 'complexity_level_improvement',
+                original: numericMatch.match,
+                correction: formatNumericComplexity(numericMatch),
+                position: {
+                    start: text.indexOf(numericMatch.match),
+                    end: text.indexOf(numericMatch.match) + numericMatch.match.length
+                },
+                confidence: numericMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try keyword complexity
+        const keywordMatch = findKeywordComplexity(text);
+        if (keywordMatch) {
+            const correction = {
+                type: 'complexity_improvement',
+                original: keywordMatch.match,
+                correction: formatKeywordComplexity(keywordMatch),
+                position: {
+                    start: text.indexOf(keywordMatch.match),
+                    end: text.indexOf(keywordMatch.match) + keywordMatch.match.length
+                },
+                confidence: keywordMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        return { text, corrections: [] };
+
+    } catch (error) {
+        logger.error('Error in complexity parser:', error);
+        return { text, corrections: [] };
+    }
+}
+
+function findExplicitComplexity(text) {
+    const pattern = /\b(?:complexity|difficulty)(?:\s+(?:is|level))?\s*(?::|-)?\s*(high|medium|low)\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const level = match[1].toLowerCase();
+    if (!validateComplexity(level)) return null;
+
+    return {
+        match: match[0],
+        level,
+        confidence: Confidence.HIGH
+    };
+}
+
+function findNumericComplexity(text) {
+    const pattern = /\b(?:complexity|difficulty)(?:\s+(?:is|level))?\s*(?::|-)?\s*(\d+)\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const score = parseInt(match[1], 10);
+    if (!validateNumericLevel(score)) return null;
+
+    return {
+        match: match[0],
+        score,
+        confidence: Confidence.HIGH
+    };
+}
+
+function findKeywordComplexity(text) {
+    const keywords = Object.keys(COMPLEXITY_ALIASES).join('|');
+    const pattern = new RegExp(`\\b(${keywords})\\b`, 'i');
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const keyword = match[1].toLowerCase();
+    if (!validateKeyword(keyword)) return null;
+
+    return {
+        match: match[0],
+        keyword,
+        confidence: Confidence.MEDIUM
+    };
+}
+
+function formatExplicitComplexity({ level }) {
+    return COMPLEXITY_FORMATS[level];
+}
+
+function formatNumericComplexity({ score }) {
+    const level = score >= 3 ? 'high' : score >= 2 ? 'medium' : 'low';
+    return COMPLEXITY_FORMATS[level];
+}
+
+function formatKeywordComplexity({ keyword }) {
+    const level = COMPLEXITY_ALIASES[keyword.toLowerCase()];
+    return COMPLEXITY_FORMATS[level];
+}
+
+function validateComplexity(level) {
+    return level in COMPLEXITY_FORMATS;
+}
+
+function validateNumericLevel(score) {
+    return score >= 1 && score <= 3;
+}
+
+function validateKeyword(keyword) {
+    return keyword.toLowerCase() in COMPLEXITY_ALIASES;
 }

@@ -1,7 +1,6 @@
 import { createLogger } from '../../../utils/logger.js';
-import { validatePatternMatch, calculateBaseConfidence } from '../utils/patterns.js';
-import { Confidence } from '../utils/confidence.js';
 import { validateParserInput } from '../utils/validation.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('DateParser');
 
@@ -19,24 +18,20 @@ const MONTHS = {
     jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
 };
 
-const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+];
 
-// Map pattern names to format values
-const FORMAT_MAP = {
-    natural_date: 'natural',
-    relative_date: 'relative',
-    weekday_reference: 'weekday',
-    in_period: 'relative',
-    next_period: 'relative',
-    implicit_date: 'relative'
-};
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export const name = 'date';
 
-export async function parse(text) {
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'DateParser');
     if (validationError) {
-        return validationError;
+        return { text, corrections: [] };
     }
 
     try {
@@ -46,60 +41,64 @@ export async function parse(text) {
         for (const [pattern, regex] of Object.entries(DATE_PATTERNS)) {
             const match = text.match(regex);
             if (match) {
-                const result = await extractDateValue(match[1] || match[0], pattern, match, text);
-                // Update if current confidence is higher or equal priority pattern
-                const shouldUpdate = result && (!bestMatch || 
-                    (result.confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
-                    (result.confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW));
+                const result = await extractDateValue(match[0], pattern, match);
+                if (!result) continue;
+
+                const shouldUpdate = !bestMatch || 
+                    (result.confidence === Confidence.HIGH && bestMatch.confidence !== Confidence.HIGH) ||
+                    (result.confidence === Confidence.MEDIUM && bestMatch.confidence === Confidence.LOW);
                 
                 if (shouldUpdate) {
-                    highestConfidence = result.confidence;
+                    const improvedText = formatDateText(result.value, pattern);
                     bestMatch = {
-                        type: 'date',
-                        value: {
-                            date: result.value,
-                            format: FORMAT_MAP[pattern]
-                        },
-                        metadata: {
-                            confidence: result.confidence,
-                            pattern,
-                            originalMatch: match[0]
+                        originalText: match[0],
+                        improvedText,
+                        value: result.value,
+                        confidence: result.confidence,
+                        position: {
+                            start: match.index,
+                            end: match.index + match[0].length
                         }
                     };
+                    highestConfidence = result.confidence;
                 }
             }
         }
 
-        // Return null if no match found
+        // If no match found, return original text
         if (!bestMatch) {
-            return null;
+            return { text, corrections: [] };
         }
 
-        // Return standardized format with parser name as key
-        return {
-            date: {
-                value: bestMatch.value.date,
-                format: bestMatch.value.format,
-                confidence: bestMatch.metadata.confidence,
-                pattern: bestMatch.metadata.pattern,
-                originalMatch: bestMatch.metadata.originalMatch
-            }
+        // Create correction record
+        const correction = {
+            type: 'date_standardization',
+            original: bestMatch.originalText,
+            correction: bestMatch.improvedText,
+            position: bestMatch.position,
+            confidence: bestMatch.confidence
         };
+
+        // Apply the correction to the text
+        const before = text.substring(0, bestMatch.position.start);
+        const after = text.substring(bestMatch.position.end);
+        const perfectedText = before + bestMatch.improvedText + after;
+
+        return {
+            text: perfectedText,
+            corrections: [correction]
+        };
+
     } catch (error) {
         logger.error('Error in date parser:', error);
-        return {
-            date: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
+        return { text, corrections: [] };
     }
 }
 
-async function extractDateValue(text, format, match, fullText) {
+async function extractDateValue(text, format, match) {
     try {
         let date = null;
-        let confidence = calculateConfidence(format, match, fullText);
+        let confidence = calculateConfidence(format);
 
         switch (format) {
             case 'natural_date': {
@@ -126,12 +125,9 @@ async function extractDateValue(text, format, match, fullText) {
             case 'weekday_reference': {
                 date = new Date();
                 const weekday = text.toLowerCase().split(' ')[1];
-                const targetDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-                    .indexOf(weekday);
+                const targetDay = WEEKDAYS.map(d => d.toLowerCase()).indexOf(weekday);
                 if (targetDay !== -1) {
-                    // First add 7 days
                     date.setDate(date.getDate() + 7);
-                    // Then find next occurrence of target day
                     while (date.getDay() !== targetDay) {
                         date.setDate(date.getDate() + 1);
                     }
@@ -151,12 +147,30 @@ async function extractDateValue(text, format, match, fullText) {
         }
 
         return {
-            value: validateAndFormatDate(date),
+            value: date,
             confidence
         };
     } catch (error) {
         logger.warn('Date extraction failed:', { text, format, error });
         return null;
+    }
+}
+
+function formatDateText(date, format) {
+    const month = MONTH_NAMES[date.getMonth()];
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const weekday = WEEKDAYS[date.getDay()];
+
+    switch (format) {
+        case 'natural_date':
+            return `${month} ${day}, ${year}`;
+        case 'relative_date':
+        case 'weekday_reference':
+        case 'implicit_date':
+            return `${weekday}, ${month} ${day}, ${year}`;
+        default:
+            return `${month} ${day}, ${year}`;
     }
 }
 
@@ -179,20 +193,12 @@ function isValidDateComponents(year, month, day) {
         return false;
     }
 
-    // Check days in month, accounting for leap years
     const maxDays = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1];
     return day <= maxDays;
 }
 
 function isLeapYear(year) {
     return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-}
-
-function validateAndFormatDate(date) {
-    if (!isValidDate(date)) {
-        return null;
-    }
-    return date.toISOString().split('T')[0];
 }
 
 function isValidDate(date) {

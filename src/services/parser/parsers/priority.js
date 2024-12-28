@@ -7,185 +7,193 @@ const logger = createLogger('PriorityParser');
 export const name = 'priority';
 
 const PRIORITY_LEVELS = {
-  critical: 5,
-  urgent: 4,
-  high: 3,
-  medium: 2,
-  low: 1,
-  none: 0
+    critical: 'Critical Priority',
+    urgent: 'Urgent Priority',
+    high: 'High Priority',
+    medium: 'Medium Priority',
+    low: 'Low Priority',
+    none: 'No Priority'
 };
 
 const PRIORITY_ALIASES = {
-  highest: 'critical',
-  important: 'high',
-  normal: 'medium',
-  minor: 'low',
-  asap: 'urgent'
+    highest: 'critical',
+    important: 'high',
+    normal: 'medium',
+    minor: 'low',
+    asap: 'urgent',
+    p0: 'critical',
+    p1: 'high',
+    p2: 'medium',
+    p3: 'low',
+    blocker: 'critical',
+    critical: 'critical',
+    major: 'high',
+    moderate: 'medium',
+    trivial: 'low'
 };
 
+export async function perfect(text) {
+    const validationError = validateParserInput(text, 'PriorityParser');
+    if (validationError) {
+        return { text, corrections: [] };
+    }
+
+    try {
+        // Try hashtag pattern first
+        const hashtagMatch = findPriorityHashtag(text);
+        if (hashtagMatch) {
+            const correction = {
+                type: 'priority_hashtag_improvement',
+                original: hashtagMatch.match,
+                correction: formatPriorityHashtag(hashtagMatch),
+                position: {
+                    start: text.indexOf(hashtagMatch.match),
+                    end: text.indexOf(hashtagMatch.match) + hashtagMatch.match.length
+                },
+                confidence: hashtagMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try keyword pattern
+        const keywordMatch = findPriorityKeyword(text);
+        if (keywordMatch) {
+            const correction = {
+                type: 'priority_improvement',
+                original: keywordMatch.match,
+                correction: formatPriorityKeyword(keywordMatch),
+                position: {
+                    start: text.indexOf(keywordMatch.match),
+                    end: text.indexOf(keywordMatch.match) + keywordMatch.match.length
+                },
+                confidence: keywordMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try implicit pattern
+        const implicitMatch = findImplicitPriority(text);
+        if (implicitMatch) {
+            const correction = {
+                type: 'priority_improvement',
+                original: implicitMatch.match,
+                correction: formatImplicitPriority(implicitMatch),
+                position: {
+                    start: text.indexOf(implicitMatch.match),
+                    end: text.indexOf(implicitMatch.match) + implicitMatch.match.length
+                },
+                confidence: implicitMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        return { text, corrections: [] };
+
+    } catch (error) {
+        logger.error('Error in priority parser:', error);
+        return { text, corrections: [] };
+    }
+}
+
+function findPriorityHashtag(text) {
+    const priorityTerms = [...Object.keys(PRIORITY_LEVELS), ...Object.keys(PRIORITY_ALIASES)].join('|');
+    const pattern = new RegExp(`#(${priorityTerms})(?:-priority)?\\b`, 'i');
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const priority = match[1];
+    if (!validatePriority(priority)) return null;
+
+    return {
+        match: match[0],
+        priority,
+        confidence: Confidence.HIGH
+    };
+}
+
+function findPriorityKeyword(text) {
+    const priorityTerms = [...Object.keys(PRIORITY_LEVELS), ...Object.keys(PRIORITY_ALIASES)].join('|');
+    const pattern = new RegExp(`\\b(${priorityTerms})\\s+priority\\b(?:\\s+task)?`, 'i');
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const priority = match[1];
+    if (!validatePriority(priority)) return null;
+
+    return {
+        match: match[0],
+        priority,
+        confidence: Confidence.HIGH
+    };
+}
+
+function findImplicitPriority(text) {
+    const priorityTerms = [...Object.keys(PRIORITY_LEVELS), ...Object.keys(PRIORITY_ALIASES)].join('|');
+    const pattern = new RegExp(`\\b(${priorityTerms})\\b(?!\\s+priority)`, 'i');
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const priority = match[1];
+    if (!validatePriority(priority)) return null;
+
+    return {
+        match: match[0],
+        priority,
+        confidence: Confidence.MEDIUM
+    };
+}
+
+function formatPriorityHashtag({ priority }) {
+    const normalized = normalizePriority(priority);
+    return `#${PRIORITY_LEVELS[normalized].replace(/\s+/g, '')}`;
+}
+
+function formatPriorityKeyword({ priority, match }) {
+    const normalized = normalizePriority(priority);
+    const formatted = PRIORITY_LEVELS[normalized];
+    
+    // If original included "task", preserve it
+    if (match.toLowerCase().includes('task')) {
+        return `${formatted} Task`;
+    }
+    return formatted;
+}
+
+function formatImplicitPriority({ priority }) {
+    const normalized = normalizePriority(priority);
+    return PRIORITY_LEVELS[normalized];
+}
+
 function normalizePriority(priority) {
-  priority = priority.toLowerCase();
-  return PRIORITY_ALIASES[priority] || priority;
+    priority = priority.toLowerCase();
+    return PRIORITY_ALIASES[priority] || priority;
 }
 
 function validatePriority(priority) {
-  const normalized = normalizePriority(priority);
-  return normalized in PRIORITY_LEVELS || priority.toLowerCase() in PRIORITY_ALIASES;
-}
-
-function getPriorityScore(priority) {
-  const normalized = normalizePriority(priority);
-  return PRIORITY_LEVELS[normalized] || 0;
-}
-
-function getAllPriorityTerms() {
-  return [...Object.keys(PRIORITY_LEVELS), ...Object.keys(PRIORITY_ALIASES)];
-}
-
-export async function parse(text) {
-  const validationError = validateParserInput(text, 'PriorityParser');
-  if (validationError) {
-    return validationError;
-  }
-
-  const indicators = [];
-  const matches = [];
-  const matchedRanges = new Set();
-
-  function isOverlapping(start, end) {
-    for (const range of matchedRanges) {
-      if (start <= range.end && end >= range.start) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // Priority hashtags #urgent, #high-priority, etc.
-  const priorityTerms = getAllPriorityTerms().join('|');
-  const hashtagPattern = new RegExp(`#(${priorityTerms})(?:-priority)?\\b`, 'i');
-  const hashtagMatch = text.match(hashtagPattern);
-  if (hashtagMatch && !isOverlapping(hashtagMatch.index, hashtagMatch.index + hashtagMatch[0].length)) {
-    const priority = hashtagMatch[1];
-    if (validatePriority(priority)) {
-      const normalized = normalizePriority(priority);
-      indicators.push({
-        level: normalized,
-        confidence: Confidence.HIGH,
-        pattern: 'hashtag',
-        match: hashtagMatch[0],
-        index: hashtagMatch.index
-      });
-      matches.push({
-        0: hashtagMatch[0],
-        1: priority,
-        index: hashtagMatch.index
-      });
-      matchedRanges.add({
-        start: hashtagMatch.index,
-        end: hashtagMatch.index + hashtagMatch[0].length
-      });
-    }
-  }
-
-  // Priority keywords "high priority", "urgent task", etc.
-  const keywordPattern = new RegExp(`\\b(${priorityTerms})\\s+priority\\b\\s+task`, 'i');
-  const keywordMatch = text.match(keywordPattern);
-  if (keywordMatch && !isOverlapping(keywordMatch.index, keywordMatch.index + keywordMatch[0].length)) {
-    const priority = keywordMatch[1];
-    if (validatePriority(priority)) {
-      const normalized = normalizePriority(priority);
-      const matchText = text.slice(keywordMatch.index, keywordMatch.index + keywordMatch[1].length + 9);
-      indicators.push({
-        level: normalized,
-        confidence: Confidence.MEDIUM,
-        pattern: 'keyword',
-        match: matchText.toLowerCase(),
-        index: keywordMatch.index
-      });
-      matches.push({
-        0: matchText,
-        1: priority,
-        index: keywordMatch.index
-      });
-      matchedRanges.add({
-        start: keywordMatch.index,
-        end: keywordMatch.index + keywordMatch[0].length
-      });
-    }
-  }
-
-  // Implicit priority patterns
-  const implicitPattern = new RegExp(`\\b(${priorityTerms})\\s+priority\\b(?!\\s+task)`, 'i');
-  const implicitMatch = text.match(implicitPattern);
-  if (implicitMatch && !isOverlapping(implicitMatch.index, implicitMatch.index + implicitMatch[0].length)) {
-    const priority = implicitMatch[1];
-    if (validatePriority(priority)) {
-      const normalized = normalizePriority(priority);
-      const matchText = text.slice(implicitMatch.index, implicitMatch.index + implicitMatch[0].length);
-      indicators.push({
-        level: normalized,
-        confidence: Confidence.LOW,
-        pattern: 'implicit',
-        match: matchText,
-        index: implicitMatch.index
-      });
-      matches.push({
-        0: matchText,
-        1: priority,
-        index: implicitMatch.index
-      });
-      matchedRanges.add({
-        start: implicitMatch.index,
-        end: implicitMatch.index + implicitMatch[0].length
-      });
-    }
-  }
-
-  // Return null if no valid indicators found
-  if (indicators.length === 0) {
-    return null;
-  }
-
-  // Sort indicators by priority level first, then confidence
-  indicators.sort((a, b) => {
-    const scoreA = getPriorityScore(a.level);
-    const scoreB = getPriorityScore(b.level);
-    if (scoreA !== scoreB) return scoreB - scoreA;
-    if (a.confidence === b.confidence) return 0;
-    if (a.confidence === Confidence.HIGH) return -1;
-    if (b.confidence === Confidence.HIGH) return 1;
-    if (a.confidence === Confidence.MEDIUM) return -1;
-    return 1;
-  });
-
-  const bestIndicator = indicators[0];
-
-  // For multiple indicators, return combined result
-  if (indicators.length > 1) {
-    // Sort matches by position in text to maintain original order
-    matches.sort((a, b) => a.index - b.index);
-    
-    return {
-      priority: {
-        level: bestIndicator.level,
-        score: getPriorityScore(bestIndicator.level),
-        indicators: matches.map(m => normalizePriority(m[1])),
-        confidence: Confidence.HIGH,
-        pattern: 'multiple_indicators',
-        originalMatch: matches.map(m => m[0]).join(' ')
-      }
-    };
-  }
-
-  // For single indicator, return direct result
-  return {
-    priority: {
-      level: bestIndicator.level,
-      score: getPriorityScore(bestIndicator.level),
-      confidence: bestIndicator.confidence,
-      pattern: bestIndicator.pattern,
-      originalMatch: bestIndicator.match
-    }
-  };
+    const normalized = normalizePriority(priority);
+    return normalized in PRIORITY_LEVELS;
 }

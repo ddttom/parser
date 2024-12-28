@@ -48,6 +48,58 @@ const TAG_PATTERNS = [
     /\s*@[a-z0-9_-]+\s*/ig
 ];
 
+export async function perfect(text) {
+    const validationError = validateParserInput(text, 'SubjectParser');
+    if (validationError) {
+        return { text, corrections: [] };
+    }
+
+    // Check for invalid characters
+    if (/[\0\x08\x0B\x0C\x0E-\x1F]/.test(text)) {
+        return { text, corrections: [] };
+    }
+
+    try {
+        // Find the main subject by cleaning up metadata
+        const { text: cleanText, removedParts } = cleanupText(text);
+        if (!validateSubject(cleanText)) {
+            return { text, corrections: [] };
+        }
+
+        // Improve the subject text
+        const improvedText = improveSubject(cleanText);
+        if (improvedText === cleanText) {
+            return { text, corrections: [] };
+        }
+
+        // Create correction record
+        const correction = {
+            type: 'subject_improvement',
+            original: cleanText,
+            correction: improvedText,
+            position: {
+                start: text.indexOf(cleanText),
+                end: text.indexOf(cleanText) + cleanText.length
+            },
+            confidence: calculateConfidence(cleanText, improvedText)
+        };
+
+        // Apply the correction to the text
+        const before = text.substring(0, correction.position.start);
+        const after = text.substring(correction.position.end);
+        const perfectedText = before + improvedText + after;
+
+        return {
+            text: perfectedText,
+            corrections: [correction]
+        };
+
+    } catch (error) {
+        logger.error('Error in subject parser:', error);
+        return { text, corrections: [] };
+    }
+}
+
 function cleanupText(text) {
     const removedParts = [];
     let cleanText = text;
@@ -94,26 +146,41 @@ function cleanupText(text) {
     return { text: cleanText, removedParts };
 }
 
-function extractKeyTerms(text) {
-    const terms = new Set();
-    const words = text.toLowerCase().split(/\s+/);
+function improveSubject(text) {
+    // Split into words while preserving case
+    const words = text.split(/\s+/);
+    const improvedWords = words.map((word, index) => {
+        // Preserve acronyms and technical terms
+        if (word === word.toUpperCase() && word.length > 1) {
+            return word;
+        }
+        
+        // Capitalize first word
+        if (index === 0) {
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        }
 
-    for (const word of words) {
-        if (ACTION_VERBS.has(word)) {
-            terms.add(word);
-        } else if (word.length > 2 && !STOP_WORDS.has(word)) {
-            // Add significant terms (nouns, adjectives, etc.)
-            // Handle technical terms (uppercase words)
-            const originalWord = text.split(/\s+/).find(w => w.toLowerCase() === word);
-            if (originalWord && originalWord === originalWord.toUpperCase()) {
-                terms.add(word.toLowerCase());
-            } else if (!/^(?:and|but|or|if|then|else|when|what|where|how|why|who)$/i.test(word)) {
-                terms.add(word);
-            }
+        // Handle proper nouns (words that are already capitalized)
+        if (word.charAt(0) === word.charAt(0).toUpperCase()) {
+            return word;
+        }
+
+        // Convert other words to lowercase
+        return word.toLowerCase();
+    });
+
+    // Remove redundant words
+    const uniqueWords = [];
+    const seenWords = new Set();
+    for (const word of improvedWords) {
+        const lower = word.toLowerCase();
+        if (!STOP_WORDS.has(lower) && !seenWords.has(lower)) {
+            uniqueWords.push(word);
+            seenWords.add(lower);
         }
     }
 
-    return Array.from(terms);
+    return uniqueWords.join(' ');
 }
 
 function validateSubject(text) {
@@ -122,48 +189,18 @@ function validateSubject(text) {
     return !INVALID_START_WORDS.has(firstWord);
 }
 
-export async function parse(text) {
-    const validationError = validateParserInput(text, 'SubjectParser');
-    if (validationError) {
-        return validationError;
+function calculateConfidence(original, improved) {
+    // Higher confidence if significant improvements were made
+    const originalWords = original.split(/\s+/);
+    const improvedWords = improved.split(/\s+/);
+    
+    if (improvedWords.length < originalWords.length) {
+        return Confidence.HIGH; // Removed redundant words
     }
-
-    // Check for invalid characters
-    if (/[\0\x08\x0B\x0C\x0E-\x1F]/.test(text)) {
-        return {
-            subject: {
-                error: 'PARSER_ERROR',
-                message: 'Text contains invalid characters'
-            }
-        };
+    
+    if (improved !== original.toLowerCase() && improved !== original.toUpperCase()) {
+        return Confidence.HIGH; // Case improvements
     }
-
-    try {
-        // Clean up text
-        const { text: cleanText, removedParts } = cleanupText(text);
-        if (!validateSubject(cleanText)) return null;
-
-        const keyTerms = extractKeyTerms(cleanText);
-        const hasActionVerb = keyTerms.some(term => ACTION_VERBS.has(term));
-
-        return {
-            subject: {
-                text: cleanText,
-                keyTerms,
-                confidence: Confidence.MEDIUM,
-                pattern: 'inferred',
-                originalMatch: text,
-                hasActionVerb,
-                removedParts
-            }
-        };
-    } catch (error) {
-        logger.error('Error in subject parser:', error);
-        return {
-            subject: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
-    }
+    
+    return Confidence.MEDIUM;
 }

@@ -7,161 +7,223 @@ const logger = createLogger('ProjectParser');
 export const name = 'project';
 
 const IGNORED_TERMS = new Set([
-  'the', 'this', 'new', 'project',
-  'tomorrow', 'today', 'yesterday',
-  'morning', 'afternoon', 'evening',
-  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
+    'the', 'this', 'new', 'project',
+    'tomorrow', 'today', 'yesterday',
+    'morning', 'afternoon', 'evening',
+    'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
 ]);
 
 const PROJECT_INDICATORS = {
-  project_term: ['project', 'initiative', 'program'],
-  task_organization: ['under', 'for', 'in', 'story'],
-  stakeholder: ['client', 'team', 'department'],
-  timeline: ['roadmap', 'milestone', 'sprint']
+    project_term: ['project', 'initiative', 'program'],
+    task_organization: ['under', 'for', 'in', 'story'],
+    stakeholder: ['client', 'team', 'department'],
+    timeline: ['roadmap', 'milestone', 'sprint']
 };
 
-export function validateProjectName(name) {
-  if (!name || typeof name !== 'string') return false;
-  
-  // Length validation
-  if (name.length <= 1 || name.length > 50) return false;
-  
-  // Must start with a letter or be a number (for PRJ-123 style identifiers)
-  if (!/^[a-zA-Z0-9]/.test(name)) return false;
+const PROJECT_EXPANSIONS = {
+    'prj': 'Project',
+    'proj': 'Project',
+    'init': 'Initiative',
+    'prog': 'Program',
+    'api': 'API',
+    'ui': 'UI',
+    'ux': 'UX',
+    'fe': 'Frontend',
+    'be': 'Backend',
+    'auth': 'Authentication',
+    'admin': 'Administration',
+    'app': 'Application',
+    'dev': 'Development',
+    'prod': 'Production',
+    'qa': 'Quality Assurance',
+    'ml': 'Machine Learning',
+    'ai': 'AI',
+    'db': 'Database',
+    'docs': 'Documentation',
+    'infra': 'Infrastructure',
+    'sec': 'Security',
+    'sys': 'System'
+};
 
-  // Allow alphanumeric with spaces, hyphens, underscores
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_\s-]*[a-zA-Z0-9]$/.test(name)) return false;
-  
-  // Ignore common terms and monetary values
-  // Only check ignored terms against lowercase version
-  if (IGNORED_TERMS.has(name.toLowerCase()) || /^\d+k?$/i.test(name) || name.toLowerCase().includes('cost')) return false;
-  
-  return true;
-}
-
-function detectIndicators(text) {
-  const indicators = [];
-  const lowerText = text.toLowerCase();
-
-  for (const [type, terms] of Object.entries(PROJECT_INDICATORS)) {
-    if (terms.some(term => lowerText.includes(term))) {
-      indicators.push(type);
-    }
-  }
-
-  return indicators;
-}
-
-export async function parse(text) {
-  const validationError = validateParserInput(text, 'ProjectParser');
-  if (validationError) {
-    return validationError;
-  }
-
-  try {
-    // Detect indicators first
-    const indicators = detectIndicators(text);
-
-    const patterns = {
-      reference: /\bre:\s*(?:project\s+)?([^\s\n]+)/i,
-      identifier: /PRJ-(\d+)\b/i,
-      shorthand: /\$([A-Za-z][A-Za-z0-9_-]*)/,
-      hashtag: /#([A-Za-z][A-Za-z0-9_-]*)\b(?!\s*(?:priority|status|tag))/i,
-      contextual: /\b(?:project|initiative|program)\s+([A-Za-z][A-Za-z0-9_-]+)\b/i,
-      regarding: /\bregarding\s+(?:project\s+)?([A-Za-z][A-Za-z0-9_-]+)\b/i,
-      inferred: /\b(?:for|in|under)\s+([A-Za-z][A-Za-z0-9_-]+)(?:\s+(?:project|initiative|program))?\b/i
-    };
-
-    let bestMatch = null;
-    let highestConfidence = Confidence.LOW;
-
-    for (const [pattern, regex] of Object.entries(patterns)) {
-      const match = text.match(regex);
-      if (match) {
-        let confidence;
-        let value;
-        const projectName = match[1] || '';
-
-        // Skip empty project names
-        if (!projectName) continue;
-
-        // Validate project name (except for identifiers)
-        if (pattern !== 'identifier') {
-          const isValid = parse.validateProjectName(projectName);
-          if (!isValid) continue;
-        }
-
-        switch (pattern) {
-          case 'reference':
-          case 'shorthand': {
-            confidence = Confidence.HIGH;
-            value = {
-              project: projectName,
-              originalName: projectName
-            };
-            break;
-          }
-
-          case 'identifier': {
-            confidence = Confidence.HIGH;
-            value = {
-              project: projectName,
-              originalName: `PRJ-${projectName}`
-            };
-            break;
-          }
-
-          case 'contextual': {
-            confidence = Confidence.MEDIUM;
-            value = {
-              project: projectName,
-              originalName: projectName
-            };
-            break;
-          }
-
-          case 'regarding':
-          case 'inferred': {
-            confidence = Confidence.MEDIUM;
-            value = {
-              project: projectName,
-              originalName: projectName
-            };
-            break;
-          }
-        }
-
-        // Update if current confidence is higher or equal priority pattern
-        const shouldUpdate = !bestMatch || 
-            (confidence === Confidence.HIGH && bestMatch.project.confidence !== Confidence.HIGH) ||
-            (confidence === Confidence.MEDIUM && bestMatch.project.confidence === Confidence.LOW);
-        
-        if (shouldUpdate) {
-          highestConfidence = confidence;
-          bestMatch = {
-            project: {
-              ...value,
-              confidence,
-              pattern,
-              originalMatch: match[0],
-              indicators
-            }
-          };
-        }
-      }
+export async function perfect(text) {
+    const validationError = validateParserInput(text, 'ProjectParser');
+    if (validationError) {
+        return { text, corrections: [] };
     }
 
-    return bestMatch;
-  } catch (error) {
-    logger.error('Error in project parser:', error);
+    try {
+        // Try project reference patterns in order of specificity
+        const referenceMatch = findProjectReference(text);
+        if (referenceMatch) {
+            const correction = {
+                type: 'project_reference_improvement',
+                original: referenceMatch.match,
+                correction: formatProjectReference(referenceMatch),
+                position: {
+                    start: text.indexOf(referenceMatch.match),
+                    end: text.indexOf(referenceMatch.match) + referenceMatch.match.length
+                },
+                confidence: referenceMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try project identifier
+        const identifierMatch = findProjectIdentifier(text);
+        if (identifierMatch) {
+            const correction = {
+                type: 'project_identifier_improvement',
+                original: identifierMatch.match,
+                correction: formatProjectIdentifier(identifierMatch),
+                position: {
+                    start: text.indexOf(identifierMatch.match),
+                    end: text.indexOf(identifierMatch.match) + identifierMatch.match.length
+                },
+                confidence: identifierMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try inferred project
+        const inferredMatch = findInferredProject(text);
+        if (inferredMatch) {
+            const correction = {
+                type: 'project_improvement',
+                original: inferredMatch.match,
+                correction: formatInferredProject(inferredMatch),
+                position: {
+                    start: text.indexOf(inferredMatch.match),
+                    end: text.indexOf(inferredMatch.match) + inferredMatch.match.length
+                },
+                confidence: inferredMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        return { text, corrections: [] };
+
+    } catch (error) {
+        logger.error('Error in project parser:', error);
+        return { text, corrections: [] };
+    }
+}
+
+function findProjectReference(text) {
+    const pattern = /\b(?:re:\s*|regarding\s+|for\s+|in\s+|under\s+)(?:project\s+)?([A-Za-z][A-Za-z0-9_-]+)\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const projectName = match[1];
+    if (!validateProjectName(projectName)) return null;
+
     return {
-      project: {
-        error: 'PARSER_ERROR',
-        message: error.message
-      }
+        match: match[0],
+        projectName,
+        confidence: Confidence.HIGH
     };
-  }
 }
 
-// Make functions available for mocking in tests
-parse.validateProjectName = validateProjectName;
+function findProjectIdentifier(text) {
+    const pattern = /\b(?:PRJ|PROJ)-(\d+)\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    return {
+        match: match[0],
+        identifier: match[1],
+        confidence: Confidence.HIGH
+    };
+}
+
+function findInferredProject(text) {
+    const pattern = /\b([A-Za-z][A-Za-z0-9_-]+)(?:\s+(?:project|initiative|program))?\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const projectName = match[1];
+    if (!validateProjectName(projectName)) return null;
+
+    return {
+        match: match[0],
+        projectName,
+        confidence: match[0].toLowerCase().includes('project') ? 
+            Confidence.MEDIUM : Confidence.LOW
+    };
+}
+
+function formatProjectReference({ projectName }) {
+    // Expand any abbreviations in project name
+    const parts = projectName.split(/[-_\s]+/);
+    const expanded = parts.map(part => {
+        const lower = part.toLowerCase();
+        return PROJECT_EXPANSIONS[lower] || 
+               (part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+    });
+
+    return `Project ${expanded.join(' ')}`;
+}
+
+function formatProjectIdentifier({ identifier }) {
+    return `Project PRJ-${identifier}`;
+}
+
+function formatInferredProject({ projectName, match }) {
+    // Expand any abbreviations in project name
+    const parts = projectName.split(/[-_\s]+/);
+    const expanded = parts.map(part => {
+        const lower = part.toLowerCase();
+        return PROJECT_EXPANSIONS[lower] || 
+               (part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+    });
+
+    // If original didn't include "project", add it
+    if (!match.toLowerCase().includes('project')) {
+        return `Project ${expanded.join(' ')}`;
+    }
+
+    return expanded.join(' ');
+}
+
+function validateProjectName(name) {
+    if (!name || typeof name !== 'string') return false;
+    
+    // Length validation
+    if (name.length <= 1 || name.length > 50) return false;
+    
+    // Must start with a letter
+    if (!/^[a-zA-Z]/.test(name)) return false;
+
+    // Allow alphanumeric with spaces, hyphens, underscores
+    if (!/^[a-zA-Z][a-zA-Z0-9_\s-]*[a-zA-Z0-9]$/.test(name)) return false;
+    
+    // Ignore common terms and monetary values
+    if (IGNORED_TERMS.has(name.toLowerCase()) || 
+        /^\d+k?$/i.test(name) || 
+        name.toLowerCase().includes('cost')) return false;
+    
+    return true;
+}

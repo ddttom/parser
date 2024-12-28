@@ -1,197 +1,244 @@
-import { name, parse } from '../../src/services/parser/parsers/categories.js';
+import { name, perfect } from '../../src/services/parser/parsers/categories.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Categories Parser', () => {
-  describe('Return Format', () => {
-    test('should return object with categories key', async () => {
-      const result = await parse('#Work');
-      expect(result).toHaveProperty('categories');
-    });
-
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
-    });
-
-    test('should include all required properties', async () => {
-      const result = await parse('#Work');
-      const expectedProps = {
-        category: expect.any(String),
-        subcategories: expect.any(Array),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      };
-      expect(result.categories).toMatchObject(expectedProps);
-    });
-  });
-
-  describe('Pattern Matching', () => {
-    test('should detect multiple hashtag categories', async () => {
-      const variations = [
-        '#Work #Projects',
-        '#Work, #Projects',
-        '#Work #Projects #Active'
-      ];
-
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.categories).toHaveProperty('categories');
-        expect(result.categories.categories.length).toBeGreaterThanOrEqual(2);
-      }
-    });
-
-    test('should detect category lists', async () => {
-      const variations = [
-        'categories: Work, Projects',
-        'tags: Work, Projects, Active',
-        'in Work, Projects',
-        'under Work, Projects'
-      ];
-
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.categories).toHaveProperty('categories');
-        expect(result.categories.categories.length).toBeGreaterThanOrEqual(2);
-      }
-    });
-
-    test('should detect nested hashtag categories', async () => {
-      const variations = [
-        '#Work/Projects/Active',
-        '#Projects/Active/High',
-        '#Tasks/Work/Important'
-      ];
-
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.categories).toMatchObject({
-          category: expect.any(String),
-          subcategories: expect.any(Array)
+    describe('Return Format', () => {
+        test('should return object with text and corrections', async () => {
+            const result = await perfect('#dev');
+            expect(result).toEqual(expect.objectContaining({
+                text: expect.any(String),
+                corrections: expect.any(Array)
+            }));
         });
-        expect(result.categories.subcategories.length).toBeGreaterThanOrEqual(1);
-      }
-    });
 
-    test('should detect nested category expressions', async () => {
-      const variations = [
-        'under Work/Projects/Active',
-        'in Projects/Active/High',
-        'category: Tasks/Work/Important'
-      ];
-
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.categories).toMatchObject({
-          category: expect.any(String),
-          subcategories: expect.any(Array)
+        test('should return original text with empty corrections for no matches', async () => {
+            const text = '   ';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
-        expect(result.categories.subcategories.length).toBeGreaterThanOrEqual(1);
-      }
-    });
 
-    test('should detect single hashtags', async () => {
-      const variations = [
-        '#Work',
-        '#Projects',
-        '#Important'
-      ];
-
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.categories).toMatchObject({
-          category: expect.any(String),
-          subcategories: []
+        test('should include all required correction properties', async () => {
+            const result = await perfect('#dev');
+            expect(result.corrections[0]).toEqual(expect.objectContaining({
+                type: expect.stringMatching(/^category_.*_improvement$/),
+                original: expect.any(String),
+                correction: expect.any(String),
+                position: expect.objectContaining({
+                    start: expect.any(Number),
+                    end: expect.any(Number)
+                }),
+                confidence: expect.any(String)
+            }));
         });
-      }
-    });
-  });
-
-  describe('Category Name Validation', () => {
-    test('should validate category names', async () => {
-      const valid = [
-        '#Work',
-        '#Project123',
-        '#Dev-Team',
-        '#Important Tasks'
-      ];
-
-      for (const input of valid) {
-        const result = await parse(input);
-        expect(result).not.toBeNull();
-      }
     });
 
-    test('should reject invalid category names', async () => {
-      const invalid = [
-        '#123Work',
-        '#Work!',
-        '#@Work',
-        '#Work.Project'
-      ];
+    describe('Text Improvement', () => {
+        test('should expand category prefixes', async () => {
+            const variations = [
+                { input: '#dev', expected: '#Development' },
+                { input: '#ui', expected: '#UserInterface' },
+                { input: '#qa', expected: '#QualityAssurance' },
+                { input: '#ops', expected: '#Operations' }
+            ];
 
-      for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
-      }
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+            }
+        });
+
+        test('should format compound categories', async () => {
+            const variations = [
+                { input: '#dev-api', expected: '#DevelopmentApi' },
+                { input: '#ui-components', expected: '#UserInterfaceComponents' },
+                { input: '#qa-tests', expected: '#QualityAssuranceTests' },
+                { input: '#ops-deploy', expected: '#OperationsDeploy' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+            }
+        });
+
+        test('should format multiple categories', async () => {
+            const variations = [
+                { 
+                    input: '#dev #ui', 
+                    expected: '#Development #UserInterface'
+                },
+                { 
+                    input: '#qa #ops', 
+                    expected: '#QualityAssurance #Operations'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+            }
+        });
+
+        test('should format category lists', async () => {
+            const variations = [
+                { 
+                    input: 'categories: dev, ui', 
+                    expected: 'Categories: Development, UserInterface'
+                },
+                { 
+                    input: 'tags: qa, ops', 
+                    expected: 'Categories: QualityAssurance, Operations'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
+        });
+
+        test('should format nested categories', async () => {
+            const variations = [
+                { 
+                    input: '#dev/api/docs', 
+                    expected: 'Category: Development/API/Documentation'
+                },
+                { 
+                    input: 'under ui/components/forms', 
+                    expected: 'Category: UserInterface/Components/Forms'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
+        });
     });
-  });
 
-  describe('Nested Category Validation', () => {
-    test('should validate nested paths', async () => {
-      const valid = [
-        '#Work/Projects/Active',
-        'under Work/Projects/Dev',
-        'category: Tasks/Important/High'
-      ];
+    describe('Position Tracking', () => {
+        test('should track position of changes at start of text', async () => {
+            const result = await perfect('#dev');
+            expect(result.corrections[0].position).toEqual({
+                start: 0,
+                end: '#dev'.length
+            });
+        });
 
-      for (const input of valid) {
-        const result = await parse(input);
-        expect(result).not.toBeNull();
-        expect(result.categories.subcategories.length).toBeGreaterThan(0);
-      }
+        test('should track position of changes with leading text', async () => {
+            const result = await perfect('Task under #dev');
+            expect(result.corrections[0].position).toEqual({
+                start: 'Task under '.length,
+                end: 'Task under #dev'.length
+            });
+        });
+
+        test('should preserve surrounding text', async () => {
+            const result = await perfect('[URGENT] #dev task!');
+            expect(result.text).toBe('[URGENT] #Development task!');
+        });
     });
 
-    test('should reject invalid nested paths', async () => {
-      const invalid = [
-        '#Work//Projects',
-        '#Work/123Projects',
-        '#Work/Projects!',
-        'under Work/@Projects'
-      ];
+    describe('Confidence Levels', () => {
+        test('should assign HIGH confidence to explicit category lists', async () => {
+            const result = await perfect('categories: dev, ui');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
 
-      for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
-      }
-    });
-  });
+        test('should assign HIGH confidence to nested categories', async () => {
+            const result = await perfect('#dev/api/docs');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
 
-  describe('Error Handling', () => {
-    test('should handle malformed expressions', async () => {
-      const malformed = [
-        'categories:',
-        'under: ',
-        'in /',
-        'category: /'
-      ];
-
-      for (const input of malformed) {
-        const result = await parse(input);
-        expect(result).toBeNull();
-      }
+        test('should assign MEDIUM confidence to single categories', async () => {
+            const result = await perfect('#dev');
+            expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+        });
     });
 
-    test('should handle invalid category lists', async () => {
-      const invalid = [
-        'categories: ,',
-        'tags: Work,,Projects',
-        'in: 123, @Work'
-      ];
+    describe('Error Handling', () => {
+        test('should handle invalid category names', async () => {
+            const invalid = [
+                '#123dev',
+                '#dev!',
+                '#@dev',
+                '#dev.api'
+            ];
 
-      for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
-      }
+            for (const input of invalid) {
+                const result = await perfect(input);
+                expect(result).toEqual({
+                    text: input,
+                    corrections: []
+                });
+            }
+        });
+
+        test('should handle malformed categories', async () => {
+            const malformed = [
+                'categories:',
+                'under: ',
+                'in /',
+                'category: /'
+            ];
+
+            for (const input of malformed) {
+                const result = await perfect(input);
+                expect(result).toEqual({
+                    text: input,
+                    corrections: []
+                });
+            }
+        });
     });
-  });
+
+    describe('Complex Cases', () => {
+        test('should handle multiple category types', async () => {
+            const variations = [
+                { 
+                    input: '#dev/api #ui/forms #qa', 
+                    expected: '#Development/API #UserInterface/Forms #QualityAssurance'
+                },
+                { 
+                    input: 'categories: dev-api, ui-forms, qa-tests', 
+                    expected: 'Categories: DevelopmentApi, UserInterfaceForms, QualityAssuranceTests'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+            }
+        });
+
+        test('should handle categories with context', async () => {
+            const variations = [
+                { 
+                    input: 'Task under #dev/api needs #qa review', 
+                    expected: 'Task under #Development/API needs #QualityAssurance review'
+                },
+                { 
+                    input: 'Update #ui/components for #ops deployment', 
+                    expected: 'Update #UserInterface/Components for #Operations deployment'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+            }
+        });
+
+        test('should preserve special characters', async () => {
+            const result = await perfect('[URGENT] Review #dev/api (#qa)');
+            expect(result.text).toBe('[URGENT] Review #Development/API (#QualityAssurance)');
+        });
+    });
 });

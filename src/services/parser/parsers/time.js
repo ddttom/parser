@@ -12,120 +12,127 @@ const TIME_PATTERNS = {
 };
 
 const TIME_OF_DAY = {
-    morning: { start: 9, end: 12 },
-    afternoon: { start: 12, end: 17 },
-    evening: { start: 17, end: 21 }
+    morning: { start: 9, end: 12, display: 'morning (09:00-12:00)' },
+    afternoon: { start: 12, end: 17, display: 'afternoon (12:00-17:00)' },
+    evening: { start: 17, end: 21, display: 'evening (17:00-21:00)' }
 };
 
 export const name = 'time';
 
-export async function parse(text) {
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'TimeParser');
     if (validationError) {
-        return validationError;
+        return { text, corrections: [] };
     }
 
     try {
+        let bestMatch = null;
+        let highestConfidence = Confidence.LOW;
+
         // Check for period words first
         const periodMatch = text.match(TIME_PATTERNS.period);
         if (periodMatch) {
             const period = periodMatch[1].toLowerCase();
             const config = TIME_OF_DAY[period];
             if (config) {
-                return {
-                    time: {
-                        period,
-                        start: config.start,
-                        end: config.end,
-                        pattern: 'period',
-                        confidence: calculateConfidence(periodMatch, text, 'period'),
-                        originalMatch: periodMatch[0]
+                const improvedText = `in the ${config.display}`;
+                bestMatch = {
+                    originalText: periodMatch[0],
+                    improvedText,
+                    confidence: calculateConfidence(periodMatch, text, 'period'),
+                    position: {
+                        start: periodMatch.index,
+                        end: periodMatch.index + periodMatch[0].length
                     }
                 };
             }
         }
 
-        // Try 24-hour format first
+        // Try 24-hour format
         const twentyFourMatch = text.match(TIME_PATTERNS.twentyFourHour);
         if (twentyFourMatch) {
             const hours = parseInt(twentyFourMatch[1], 10);
             const minutes = parseInt(twentyFourMatch[2], 10);
             
-            // Validate hours and minutes
-            if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-                return {
-                    time: {
-                        error: 'PARSER_ERROR',
-                        message: 'Invalid time values'
-                    }
-                };
-            }
+            if (isValidTime(hours, minutes)) {
+                const improvedText = formatTime(hours, minutes);
+                const confidence = Confidence.HIGH;
 
-            return {
-                time: {
-                    hours,
-                    minutes,
-                    pattern: '24hour',
-                    confidence: Confidence.HIGH,
-                    originalMatch: twentyFourMatch[0]
+                if (!bestMatch || confidence > bestMatch.confidence) {
+                    bestMatch = {
+                        originalText: twentyFourMatch[0],
+                        improvedText,
+                        confidence,
+                        position: {
+                            start: twentyFourMatch.index,
+                            end: twentyFourMatch.index + twentyFourMatch[0].length
+                        }
+                    };
                 }
-            };
+            }
         }
 
         // Try 12-hour format
         const timeMatch = text.match(TIME_PATTERNS.specific);
         if (timeMatch) {
-            // Only parse if AM/PM is present
-            if (!timeMatch[3]) {
-                return null;
-            }
             const timeValue = parseTimeComponents(
-                timeMatch[1] || timeMatch[4], // Either group 1 or 4 will have the hours
-                timeMatch[2], // Minutes (optional)
-                timeMatch[3] // AM/PM
+                timeMatch[1] || timeMatch[4],
+                timeMatch[2],
+                timeMatch[3]
             );
-            if (!timeValue) {
-                return {
-                    time: {
-                        error: 'PARSER_ERROR',
-                        message: 'Invalid time values'
-                    }
-                };
-            }
 
-            // Remove prefix from originalMatch
-            const originalMatch = timeMatch[0].replace(/^(?:at|by)\s+/i, '');
+            if (timeValue) {
+                const improvedText = formatTime(timeValue.hours, timeValue.minutes);
+                const confidence = calculateConfidence(timeMatch, text, 'specific');
 
-            return {
-                time: {
-                    ...timeValue,
-                    pattern: 'specific',
-                    confidence: calculateConfidence(timeMatch, text, 'specific'),
-                    originalMatch
+                if (!bestMatch || confidence > bestMatch.confidence) {
+                    // Remove prefix from originalMatch
+                    const originalText = timeMatch[0].replace(/^(?:at|by)\s+/i, '');
+                    bestMatch = {
+                        originalText,
+                        improvedText,
+                        confidence,
+                        position: {
+                            start: timeMatch.index,
+                            end: timeMatch.index + timeMatch[0].length
+                        }
+                    };
                 }
-            };
+            }
         }
 
-        return null;
-    } catch (error) {
-        logger.error('Error in time parser:', {
-            error: error.message,
-            stack: error.stack,
-            input: text
-        });
-        return {
-            time: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
+        // If no match found, return original text
+        if (!bestMatch) {
+            return { text, corrections: [] };
+        }
+
+        // Create correction record
+        const correction = {
+            type: 'time_standardization',
+            original: bestMatch.originalText,
+            correction: bestMatch.improvedText,
+            position: bestMatch.position,
+            confidence: bestMatch.confidence
         };
+
+        // Apply the correction to the text
+        const before = text.substring(0, bestMatch.position.start);
+        const after = text.substring(bestMatch.position.end);
+        const perfectedText = before + bestMatch.improvedText + after;
+
+        return {
+            text: perfectedText,
+            corrections: [correction]
+        };
+
+    } catch (error) {
+        logger.error('Error in time parser:', error);
+        return { text, corrections: [] };
     }
 }
 
-function formatTimeString(timeValue) {
-    if (!timeValue) return null;
-    const { hours, minutes } = timeValue;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+function formatTime(hours, minutes) {
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
 function parseTimeComponents(hours, minutes, meridian) {
@@ -133,14 +140,12 @@ function parseTimeComponents(hours, minutes, meridian) {
         let parsedHours = parseInt(hours, 10);
         const parsedMinutes = parseInt(minutes || '0', 10);
 
-        // Basic validation
-        if (isNaN(parsedHours) || isNaN(parsedMinutes)) {
+        if (!isValidTime(parsedHours, parsedMinutes)) {
             return null;
         }
 
         // Handle 12-hour format
         if (meridian) {
-            // 12-hour format with AM/PM
             if (parsedHours < 1 || parsedHours > 12) {
                 return null;
             }
@@ -149,15 +154,7 @@ function parseTimeComponents(hours, minutes, meridian) {
             } else if (meridian.toLowerCase() === 'am' && parsedHours === 12) {
                 parsedHours = 0;
             }
-        } else {
-            // 24-hour format
-            if (parsedHours < 0 || parsedHours > 23) {
-                return null;
-            }
-        }
-
-        // Minutes validation
-        if (parsedMinutes < 0 || parsedMinutes > 59) {
+        } else if (parsedHours < 0 || parsedHours > 23) {
             return null;
         }
 
@@ -171,8 +168,13 @@ function parseTimeComponents(hours, minutes, meridian) {
     }
 }
 
+function isValidTime(hours, minutes) {
+    return !isNaN(hours) && !isNaN(minutes) &&
+           hours >= 0 && hours <= 23 &&
+           minutes >= 0 && minutes <= 59;
+}
+
 function calculateConfidence(matches, text, type) {
-    // Pattern-based confidence
     switch (type) {
         case 'specific':
             return matches[2] || matches[3] ? Confidence.HIGH : Confidence.MEDIUM;

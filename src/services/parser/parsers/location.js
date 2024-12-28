@@ -6,142 +6,235 @@ const logger = createLogger('LocationParser');
 
 export const name = 'location';
 
-function parseParameters(paramStr) {
-  if (!paramStr || !paramStr.trim()) return null;
-  
-  const params = {};
-  const parts = paramStr.trim().split(/\s*,\s*/);
-  
-  for (const part of parts) {
-    // Split on first space to handle multi-word values
-    const spaceIndex = part.indexOf(' ');
-    if (spaceIndex === -1) return null;
-    
-    const key = part.substring(0, spaceIndex).trim();
-    const value = part.substring(spaceIndex + 1).trim();
-    
-    if (!key || !value) return null;
-    params[key.toLowerCase()] = value;
-  }
+const LOCATION_EXPANSIONS = {
+    'conf': 'Conference Room',
+    'mtg': 'Meeting Room',
+    'rm': 'Room',
+    'ofc': 'Office',
+    'bldg': 'Building',
+    'flr': 'Floor',
+    'lvl': 'Level',
+    'fl': 'Floor',
+    'west': 'West Wing',
+    'east': 'East Wing',
+    'north': 'North Wing',
+    'south': 'South Wing'
+};
 
-  return Object.keys(params).length > 0 ? params : null;
-}
-
-function inferLocationType(location) {
-  if (/\b(?:room|conference|meeting)\b/i.test(location)) return 'room';
-  if (/\boffice\b/i.test(location)) return 'office';
-  if (/\bbuilding\b/i.test(location)) return 'building';
-  return 'unknown';
-}
-
-export async function parse(text) {
-  const validationError = validateParserInput(text, 'LocationParser');
-  if (validationError) {
-    return validationError;
-  }
-
-  // Try location patterns
-  const patterns = {
-    room_location: /(?:(?:in|at)\s+(?:the\s+)?)?(?:room|conference room|meeting room)\s+([A-Za-z0-9-]+)(?:\s*(?:floor|level)\s+(\d+))?\b/i,
-    office_location: /(?:(?:in|at)\s+(?:the\s+)?)?(?:office)\s+([A-Za-z0-9-]+)(?:\s*(?:floor|level)\s+(\d+))?\b/i,
-    building_location: /(?:(?:in|at)\s+(?:the\s+)?)?(?:building)\s+([A-Za-z0-9-]+)(?:\s*(?:floor|level)\s+(\d+))?\b/i,
-    inferred_location: /\b(?:in|at)\s+(?:the\s+)?([^,.]+?)(?:\s*(?:floor|level)\s+(\d+))?\b(?:[,.]|\s|$)/i
-  };
-
-  let bestMatch = null;
-  let highestConfidence = Confidence.LOW;
-
-  for (const [pattern, regex] of Object.entries(patterns)) {
-    const match = text.match(regex);
-    if (match) {
-      let confidence;
-      let value;
-      let originalMatch;
-
-      switch (pattern) {
-        case 'room_location': {
-          const roomNumber = match[1].trim();
-          if (!roomNumber) continue;
-
-          confidence = Confidence.MEDIUM;
-          originalMatch = match[0].trim();
-          value = {
-            name: `Room ${roomNumber}`,
-            type: 'room'
-          };
-          if (match[2]) {
-            value.parameters = { floor: match[2] };
-          }
-          break;
-        }
-
-        case 'office_location': {
-          const officeNumber = match[1].trim();
-          if (!officeNumber) continue;
-
-          confidence = Confidence.MEDIUM;
-          originalMatch = match[0].trim();
-          value = {
-            name: `Office ${officeNumber}`,
-            type: 'office'
-          };
-          if (match[2]) {
-            value.parameters = { floor: match[2] };
-          }
-          break;
-        }
-
-        case 'building_location': {
-          const buildingId = match[1].trim();
-          if (!buildingId) continue;
-
-          confidence = Confidence.MEDIUM;
-          originalMatch = match[0].trim();
-          value = {
-            name: `Building ${buildingId}`,
-            type: 'building'
-          };
-          if (match[2]) {
-            value.parameters = { floor: match[2] };
-          }
-          break;
-        }
-
-        case 'inferred_location': {
-          const name = match[1].trim();
-          if (!name) continue;
-
-          confidence = Confidence.LOW;
-          originalMatch = match[0].trim();
-          value = {
-            name,
-            type: inferLocationType(name)
-          };
-          if (match[2]) {
-            value.parameters = { floor: match[2] };
-          }
-          break;
-        }
-      }
-
-      // Update if current confidence is higher or equal priority pattern
-      const shouldUpdate = !bestMatch || 
-          (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
-          (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
-      
-      if (shouldUpdate) {
-        highestConfidence = confidence;
-        bestMatch = {
-          location: {
-            ...value,
-            confidence,
-            pattern,
-            originalMatch
-          }
-        };
-      }
+export async function perfect(text) {
+    const validationError = validateParserInput(text, 'LocationParser');
+    if (validationError) {
+        return { text, corrections: [] };
     }
-  }
 
-  return bestMatch;
+    try {
+        // Try location patterns in order of specificity
+        const roomMatch = findRoomLocation(text);
+        if (roomMatch) {
+            const correction = {
+                type: 'location_improvement',
+                original: roomMatch.match,
+                correction: formatRoomLocation(roomMatch),
+                position: {
+                    start: text.indexOf(roomMatch.match),
+                    end: text.indexOf(roomMatch.match) + roomMatch.match.length
+                },
+                confidence: roomMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try office location
+        const officeMatch = findOfficeLocation(text);
+        if (officeMatch) {
+            const correction = {
+                type: 'location_improvement',
+                original: officeMatch.match,
+                correction: formatOfficeLocation(officeMatch),
+                position: {
+                    start: text.indexOf(officeMatch.match),
+                    end: text.indexOf(officeMatch.match) + officeMatch.match.length
+                },
+                confidence: officeMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try building location
+        const buildingMatch = findBuildingLocation(text);
+        if (buildingMatch) {
+            const correction = {
+                type: 'location_improvement',
+                original: buildingMatch.match,
+                correction: formatBuildingLocation(buildingMatch),
+                position: {
+                    start: text.indexOf(buildingMatch.match),
+                    end: text.indexOf(buildingMatch.match) + buildingMatch.match.length
+                },
+                confidence: buildingMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try inferred location
+        const inferredMatch = findInferredLocation(text);
+        if (inferredMatch) {
+            const correction = {
+                type: 'location_improvement',
+                original: inferredMatch.match,
+                correction: formatInferredLocation(inferredMatch),
+                position: {
+                    start: text.indexOf(inferredMatch.match),
+                    end: text.indexOf(inferredMatch.match) + inferredMatch.match.length
+                },
+                confidence: inferredMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        return { text, corrections: [] };
+
+    } catch (error) {
+        logger.error('Error in location parser:', error);
+        return { text, corrections: [] };
+    }
+}
+
+function findRoomLocation(text) {
+    const pattern = /(?:(?:in|at)\s+(?:the\s+)?)?(?:(?:room|conf(?:erence)?(?:\s+room)?|mtg(?:\s+room)?|rm)\s+)([A-Za-z0-9-]+)(?:\s*(?:(?:floor|flr|level|lvl)\s+)?(\d+))?\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const roomNumber = match[1].trim();
+    if (!roomNumber) return null;
+
+    return {
+        match: match[0],
+        roomNumber,
+        floor: match[2],
+        confidence: Confidence.HIGH
+    };
+}
+
+function findOfficeLocation(text) {
+    const pattern = /(?:(?:in|at)\s+(?:the\s+)?)?(?:(?:office|ofc)\s+)([A-Za-z0-9-]+)(?:\s*(?:(?:floor|flr|level|lvl)\s+)?(\d+))?\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const officeNumber = match[1].trim();
+    if (!officeNumber) return null;
+
+    return {
+        match: match[0],
+        officeNumber,
+        floor: match[2],
+        confidence: Confidence.HIGH
+    };
+}
+
+function findBuildingLocation(text) {
+    const pattern = /(?:(?:in|at)\s+(?:the\s+)?)?(?:(?:building|bldg)\s+)([A-Za-z0-9-]+)(?:\s*(?:(?:floor|flr|level|lvl)\s+)?(\d+))?\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const buildingId = match[1].trim();
+    if (!buildingId) return null;
+
+    return {
+        match: match[0],
+        buildingId,
+        floor: match[2],
+        confidence: Confidence.HIGH
+    };
+}
+
+function findInferredLocation(text) {
+    const pattern = /\b(?:in|at)\s+(?:the\s+)?([^,.]+?)(?:\s*(?:(?:floor|flr|level|lvl)\s+)?(\d+))?\b(?:[,.]|\s|$)/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const location = match[1].trim();
+    if (!location) return null;
+
+    return {
+        match: match[0],
+        location,
+        floor: match[2],
+        confidence: Confidence.LOW
+    };
+}
+
+function formatRoomLocation({ roomNumber, floor }) {
+    let formatted = `Conference Room ${roomNumber}`;
+    if (floor) {
+        formatted += `, Floor ${floor}`;
+    }
+    return formatted;
+}
+
+function formatOfficeLocation({ officeNumber, floor }) {
+    let formatted = `Office ${officeNumber}`;
+    if (floor) {
+        formatted += `, Floor ${floor}`;
+    }
+    return formatted;
+}
+
+function formatBuildingLocation({ buildingId, floor }) {
+    let formatted = `Building ${buildingId}`;
+    if (floor) {
+        formatted += `, Floor ${floor}`;
+    }
+    return formatted;
+}
+
+function formatInferredLocation({ location, floor }) {
+    // Try to expand any abbreviations
+    let formatted = location;
+    for (const [abbr, full] of Object.entries(LOCATION_EXPANSIONS)) {
+        const regex = new RegExp(`\\b${abbr}\\b`, 'i');
+        formatted = formatted.replace(regex, full);
+    }
+
+    // Capitalize first letter of each word
+    formatted = formatted.split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+
+    if (floor) {
+        formatted += `, Floor ${floor}`;
+    }
+    return formatted;
 }

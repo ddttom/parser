@@ -1,88 +1,165 @@
-import { name, parse } from '../../src/services/parser/parsers/subject.js';
+import { name, perfect } from '../../src/services/parser/parsers/subject.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Subject Parser', () => {
     describe('Return Format', () => {
-        test('should return object with subject key', async () => {
-            const result = await parse('Update documentation');
-            expect(result).toHaveProperty('subject');
-        });
-
-        test('should return null for no matches', async () => {
-            const result = await parse('   ');
-            expect(result).toBeNull();
-        });
-
-        test('should include all required properties', async () => {
-            const result = await parse('Update documentation');
-            expect(result.subject).toEqual(expect.objectContaining({
+        test('should return object with text and corrections', async () => {
+            const result = await perfect('update documentation');
+            expect(result).toEqual(expect.objectContaining({
                 text: expect.any(String),
-                keyTerms: expect.any(Array),
-                confidence: expect.any(Number),
-                pattern: expect.any(String),
-                originalMatch: expect.any(String),
-                hasActionVerb: expect.any(Boolean),
-                removedParts: expect.any(Array)
+                corrections: expect.any(Array)
+            }));
+        });
+
+        test('should return original text with empty corrections for no matches', async () => {
+            const text = '   ';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
+        });
+
+        test('should include all required correction properties', async () => {
+            const result = await perfect('update documentation');
+            expect(result.corrections[0]).toEqual(expect.objectContaining({
+                type: 'subject_improvement',
+                original: expect.any(String),
+                correction: expect.any(String),
+                position: expect.objectContaining({
+                    start: expect.any(Number),
+                    end: expect.any(Number)
+                }),
+                confidence: expect.any(String)
             }));
         });
     });
 
-    describe('Text Cleanup', () => {
-        test('removes time references', async () => {
-            const result = await parse('Review docs at 2:30pm');
-            expect(result.subject.text).toBe('Review docs');
+    describe('Text Improvement', () => {
+        test('should capitalize first word', async () => {
+            const result = await perfect('update documentation');
+            expect(result.text).toBe('Update documentation');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
         });
 
-        test('removes date references', async () => {
-            const result = await parse('Submit report by Monday');
-            expect(result.subject.text).toBe('Submit report');
+        test('should preserve technical terms', async () => {
+            const result = await perfect('update API documentation');
+            expect(result.text).toBe('Update API documentation');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
         });
 
-        test('removes project references', async () => {
-            const result = await parse('Update UI for project Alpha');
-            expect(result.subject.text).toBe('Update UI');
+        test('should preserve proper nouns', async () => {
+            const result = await perfect('update GitHub integration');
+            expect(result.text).toBe('Update GitHub integration');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
         });
 
-        test('removes priority markers', async () => {
-            const result = await parse('High priority Fix bug');
-            expect(result.subject.text).toBe('Fix bug');
+        test('should remove redundant words', async () => {
+            const result = await perfect('update the documentation the files');
+            expect(result.text).toBe('Update documentation files');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
         });
 
-        test('removes tags and mentions', async () => {
-            const result = await parse('Review PR #frontend @john');
-            expect(result.subject.text).toBe('Review PR');
-        });
-
-        test('handles multiple cleanup patterns in one text', async () => {
-            const result = await parse('High priority Review PR #frontend @john at 2:30pm by Monday for project Alpha');
-            expect(result.subject.text).toBe('Review PR');
-        });
-
-        test('preserves important text between cleanup patterns', async () => {
-            const result = await parse('Review important documentation at 2:30pm with critical updates by Monday');
-            expect(result.subject.text).toBe('Review important documentation with critical updates');
-        });
-
-        test('handles consecutive cleanup patterns', async () => {
-            const result = await parse('Update UI at 2:30pm by Monday for project Alpha #frontend @john');
-            expect(result.subject.text).toBe('Update UI');
+        test('should handle mixed case improvements', async () => {
+            const result = await perfect('UPDATE DOCUMENTATION files');
+            expect(result.text).toBe('Update documentation files');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
         });
     });
 
-    describe('Subject Validation', () => {
-        test('validates minimum length', async () => {
-            const result = await parse('a');
-            expect(result).toBeNull();
+    describe('Text Cleanup', () => {
+        test('should remove time references', async () => {
+            const result = await perfect('review docs at 2:30pm');
+            expect(result.text).toBe('Review docs');
         });
 
-        test('validates start words', async () => {
-            const invalidStarts = ['the', 'a', 'an', 'to', 'in'];
-            for (const start of invalidStarts) {
-                const result = await parse(`${start} task`);
-                expect(result).toBeNull();
+        test('should remove date references', async () => {
+            const result = await perfect('submit report by Monday');
+            expect(result.text).toBe('Submit report');
+        });
+
+        test('should remove project references', async () => {
+            const result = await perfect('update UI for project Alpha');
+            expect(result.text).toBe('Update UI');
+        });
+
+        test('should remove priority markers', async () => {
+            const result = await perfect('high priority fix bug');
+            expect(result.text).toBe('Fix bug');
+        });
+
+        test('should remove tags and mentions', async () => {
+            const result = await perfect('review PR #frontend @john');
+            expect(result.text).toBe('Review PR');
+        });
+
+        test('should handle multiple cleanup patterns', async () => {
+            const result = await perfect('high priority review PR #frontend @john at 2:30pm by Monday for project Alpha');
+            expect(result.text).toBe('Review PR');
+        });
+    });
+
+    describe('Position Tracking', () => {
+        test('should track position of changes at start of text', async () => {
+            const result = await perfect('update documentation');
+            expect(result.corrections[0].position).toEqual({
+                start: 0,
+                end: 'update documentation'.length
+            });
+        });
+
+        test('should track position of changes with leading text', async () => {
+            const result = await perfect('URGENT: update documentation');
+            expect(result.corrections[0].position).toEqual({
+                start: 'URGENT: '.length,
+                end: 'URGENT: update documentation'.length
+            });
+        });
+
+        test('should preserve surrounding text', async () => {
+            const result = await perfect('URGENT: update documentation!');
+            expect(result.text).toBe('URGENT: Update documentation!');
+        });
+    });
+
+    describe('Confidence Levels', () => {
+        test('should assign HIGH confidence for significant improvements', async () => {
+            const result = await perfect('update THE documentation THE files');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
+
+        test('should assign HIGH confidence for case corrections', async () => {
+            const result = await perfect('UPDATE DOCUMENTATION');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
+
+        test('should assign MEDIUM confidence for minor improvements', async () => {
+            const result = await perfect('Update documentation');
+            expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+        });
+    });
+
+    describe('Error Handling', () => {
+        test('should handle invalid characters gracefully', async () => {
+            const result = await perfect('Invalid \0 character');
+            expect(result).toEqual({
+                text: 'Invalid \0 character',
+                corrections: []
+            });
+        });
+
+        test('should handle control characters', async () => {
+            const controlChars = ['\x08', '\x0B', '\x0C', '\x0E', '\x1F'];
+            for (const char of controlChars) {
+                const result = await perfect(`Test${char}text`);
+                expect(result).toEqual({
+                    text: `Test${char}text`,
+                    corrections: []
+                });
             }
         });
 
-        test('rejects invalid subjects', async () => {
+        test('should handle invalid subjects', async () => {
             const invalidSubjects = [
                 'the task',
                 'a report',
@@ -91,77 +168,37 @@ describe('Subject Parser', () => {
                 'in progress'
             ];
             for (const subject of invalidSubjects) {
-                const result = await parse(subject);
-                expect(result).toBeNull();
-            }
-        });
-    });
-
-    describe('Key Terms', () => {
-        test('extracts action verbs', async () => {
-            const result = await parse('Create new documentation');
-            expect(result.subject.keyTerms).toContain('create');
-        });
-
-        test('identifies significant terms', async () => {
-            const result = await parse('Implement login feature');
-            expect(result.subject.keyTerms).toContain('implement');
-            expect(result.subject.keyTerms).toContain('login');
-            expect(result.subject.keyTerms).toContain('feature');
-        });
-
-        test('handles compound terms', async () => {
-            const result = await parse('Update user authentication system');
-            expect(result.subject.keyTerms).toContain('update');
-            expect(result.subject.keyTerms).toContain('user');
-            expect(result.subject.keyTerms).toContain('authentication');
-            expect(result.subject.keyTerms).toContain('system');
-        });
-
-        test('excludes common stop words', async () => {
-            const result = await parse('Implement the new login system with some features');
-            expect(result.subject.keyTerms).not.toContain('the');
-            expect(result.subject.keyTerms).not.toContain('with');
-            expect(result.subject.keyTerms).not.toContain('some');
-        });
-
-        test('handles multiple action verbs', async () => {
-            const result = await parse('Create and update documentation');
-            expect(result.subject.keyTerms).toContain('create');
-            expect(result.subject.keyTerms).toContain('update');
-        });
-
-        test('handles technical terms', async () => {
-            const result = await parse('Debug API endpoints');
-            expect(result.subject.keyTerms).toContain('debug');
-            expect(result.subject.keyTerms).toContain('api');
-            expect(result.subject.keyTerms).toContain('endpoints');
-        });
-    });
-
-    describe('Error Handling', () => {
-        test('handles cleanup errors gracefully', async () => {
-            const result = await parse('Invalid \0 character');
-            expect(result).toEqual({
-                subject: {
-                    error: 'PARSER_ERROR',
-                    message: expect.any(String)
-                }
-            });
-        });
-
-        test('handles invalid control characters', async () => {
-            const controlChars = ['\x08', '\x0B', '\x0C', '\x0E', '\x1F'];
-            for (const char of controlChars) {
-                const result = await parse(`Test${char}text`);
+                const result = await perfect(subject);
                 expect(result).toEqual({
-                    subject: {
-                        error: 'PARSER_ERROR',
-                        message: expect.any(String)
-                    }
+                    text: subject,
+                    corrections: []
                 });
             }
         });
     });
 
+    describe('Complex Cases', () => {
+        test('should handle multiple improvements', async () => {
+            const result = await perfect('update THE documentation AND improve THE code quality');
+            expect(result.text).toBe('Update documentation improve code quality');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
+
+        test('should preserve acronyms in mixed text', async () => {
+            const result = await perfect('implement new API for OAuth authentication');
+            expect(result.text).toBe('Implement new API OAuth authentication');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
+
+        test('should handle mixed case and technical terms', async () => {
+            const result = await perfect('UPDATE github INTEGRATION with API');
+            expect(result.text).toBe('Update GitHub integration API');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
+
+        test('should preserve formatting in surrounding text', async () => {
+            const result = await perfect('[URGENT] update documentation (high priority)');
+            expect(result.text).toBe('[URGENT] Update documentation (high priority)');
+        });
+    });
 });

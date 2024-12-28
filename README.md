@@ -1,362 +1,213 @@
-# Natural Language Parser for Personal Information Management
+# Text Perfection System
 
-A sophisticated natural language processing library designed to parse and extract structured information from text. This library excels at understanding dates, tasks, priorities, and various metadata from natural language input.
-
-The project uses ES Modules (ESM) with explicit `.js` extensions for all imports/exports.
-
-**Explicitly avoiding TypeScript** for:
-
-- Reduced build complexity
-- Simplified maintenance
-- Minimal toolchain requirements
-- **Quality assurance through:**
-  - Comprehensive documentation
-  - Thorough testing
-  - Clear code organization
-  - Review processes
+A staged processing pipeline that transforms informal text into well-formatted, standardized text while maintaining the original meaning.
 
 ## Features
 
-- **Comprehensive Text Analysis**: Extract multiple data points from natural text including:
-  - Dates and times (supports natural language and relative formats)
-  - Tasks and actions
-  - Priorities and urgency levels
-  - Categories and tags
-  - Locations
-  - Projects and contexts
-  - Dependencies
-  - Participants and contacts
-  - Reminders
-  - Progress tracking
-  - Cost information
+- **Staged Processing**: Text flows through 6 specialized stages
+- **Change Tracking**: Every transformation is tracked with position and confidence
+- **Performance Monitoring**: Response times and resource usage tracked per stage
+- **Error Handling**: Comprehensive error handling and recovery
+- **Pure JavaScript**: No build steps or transpilation required
 
-### Parser System
+## Architecture
 
-1. **Standardized Parser Architecture**
-   - Common base parser template
-   - Simplified confidence level system:
-     - HIGH: Strong natural language patterns with clear intent (e.g., "high priority", "costs $100")
-     - MEDIUM: Standard patterns with good context (e.g., "#important", "@team")
-     - LOW: Inferred patterns with less certainty (e.g., "sometime next week")
-   - Pattern-based matching with priority
-   - Best match selection based on confidence levels
+### Processing Stages
 
-2. **Core Parsers:**
-   - Date:
-     - Natural language (January 1st, 2024)
-     - Relative dates:
-       - Simple (today, tomorrow, yesterday)
-       - Next weekday calculation:
-         1. Add 7 days to current date
-         2. While current day is not target weekday:
-            - Add 1 day
-         3. Return resulting date
-         Example: "next wednesday" on Monday Jan 1st:
-         - Start: Jan 1st (Monday)
-         - Add 7 days: Jan 8th (Monday)
-         - Add days until Wednesday: Jan 10th
-   - Time (12/24h, periods)
-   - Project (references, contexts)
-   - Status (progress, state)
-   - Tags (hashtags, categories)
-   - Subject (key terms)
-   - Recurring (intervals, patterns)
-   - Reminders (time-based, relative)
-   - Priority (natural language, hashtags)
-   - Additional parsers:
-     - Action (verbs, completion)
-     - Attendees (lists, roles)
-     - Categories (hierarchical)
-     - Complexity (levels, scoring)
-     - Contact (email, phone)
-     - Context (preposition-based: at, in, during, using)
-     - Contexts (@ notation, multiple contexts)
-     - Dependencies (tasks)
-     - Duration (natural language)
-     - Links (URLs, files)
-     - Location (rooms, addresses)
-     - Participants (lists, roles)
+1. **Basic Text Structure**
+   - Subject Parser: Standardizes subjects
+   - Action Parser: Perfects verb forms
 
-3. **Parser Features:**
-   - Async/await support
-   - Standardized error handling via error objects
-   - Pattern-based matching with confidence levels
-   - Centralized input validation:
-     - Common validation utility (validateParserInput) in utils/validation.js
-     - Standardized validation for all parsers with consistent error messages
-     - Handles:
-       - Null input: `{ type: 'error', error: 'INVALID_INPUT', message: 'ParserName: Input cannot be null' }`
-       - Undefined input: `{ type: 'error', error: 'INVALID_INPUT', message: 'ParserName: Input cannot be undefined' }`
-       - Non-string input: `{ type: 'error', error: 'INVALID_INPUT', message: 'ParserName: Input must be a string, got typeof' }`
-       - Empty strings: `{ type: 'error', error: 'INVALID_INPUT', message: 'ParserName: Input cannot be empty' }`
-     - Parser-specific context in error messages
-     - Full test coverage in tests/utils/validation.test.js
-   - Best match selection
-   - Test coverage (see [TESTING.md](../TESTING.md) for testing standards)
+2. **Time-Related**
+   - Date Parser: Standardizes dates to absolute form
+   - Time Parser: Converts to 24-hour format
+   - TimeBlock Parser: Formats time ranges
+   - TimeOfDay Parser: Clarifies periods
 
-4. **Parser Compliance and Testing**
+3. **People and Places**
+   - Participants Parser: Standardizes names
+   - Attendees Parser: Formats attendee lists
+   - Location Parser: Clarifies locations
+   - Team Parser: Formats team references
 
-All parsers in `src/services/parser/parsers/` have been verified for compliance with the standardized architecture and testing standards:
+4. **Project Structure**
+   - Project Parser: Standardizes project references
+   - Sprint Parser: Formats sprint mentions
+   - Milestone Parser: Clarifies milestones
 
-- **Architecture Compliance**:
-  - All implement pattern-based matching with priority
-  - All follow best match selection logic
+5. **Task Attributes**
+   - Priority Parser: Standardizes priorities
+   - Status Parser: Formats status indicators
+   - Complexity Parser: Clarifies complexity
+   - Cost Parser: Formats monetary values
 
-- **Confidence Level Compliance**:
-  - All parsers use standardized confidence enum:
-    - HIGH: Strong natural language patterns with clear intent
-    - MEDIUM: Standard patterns with good context
-    - LOW: Inferred patterns with less certainty
-  - Consistent confidence levels across all parsers
-  - No dynamic confidence adjustments
+6. **Metadata**
+   - Tags Parser: Formats tags
+   - Categories Parser: Standardizes categories
+   - Version Parser: Formats version numbers
 
-- **Return Format Compliance**:
-  - All parsers return standardized objects with type and value
-  - All implement proper error handling with error objects
-  - All use null returns appropriately for no matches
+### Parser Interface
 
-- **Testing Standards**:
-  - All parsers have comprehensive test coverage following standardized structure:
-    - Return format (type, value structure, null cases)
-    - Pattern matching (natural language, hashtags, variations)
-    - Error handling (invalid formats, malformed input)
-  - Integration tests for complex scenarios and parser interactions
-  - Edge case coverage for each parser
-  - Performance testing for critical paths
-  - Input validation is handled centrally by validation.test.js
+Each parser implements the perfect() interface:
 
-- **Quality Standards**:
-  - All parsers implement appropriate validation functions
-  - All handle edge cases and invalid inputs
-  - All include proper logging
-  - All expose test hooks where needed
-
-1. **Return Format:**
-
-   ```javascript
-   // Success (single match)
-   {
-       [parserName]: {           // e.g., 'date', 'action'
-           // Common fields
-           confidence: number,    // Confidence level
-           pattern: string,       // Pattern type that matched
-           originalMatch: string, // Original matched text
-           
-           // Parser-specific fields
-           ...parserFields       // Fields specific to each parser type
-       }
-   }
-
-   // No match
-   null
-
-   // Error
-   {
-       [parserName]: {
-           error: string,        // Error code
-           message: string       // Error description
-       }
-   }
-   ```
-
-- **Smart Pattern Recognition**: Uses advanced pattern matching with:
-  - Context-aware parsing
-  - Multiple format support
-  - Validation and error handling
-
-- **Extensible Architecture**:
-  - Plugin-based parser system
-  - Modular design
-  - Easy to add new parsers
-  - Comprehensive utility functions
-
-## Installation
-
-```bash
-npm install
+```javascript
+async function perfect(text) {
+    return {
+        text: string,        // Improved text
+        corrections: [{      // Array of changes made
+            type: string,    // Type of correction
+            original: string,// Original text
+            correction: string, // New text
+            position: {      // Location in text
+                start: number,
+                end: number
+            },
+            confidence: 'HIGH' | 'MEDIUM' | 'LOW'
+        }]
+    };
+}
 ```
 
 ## Usage
 
+### Running the Server
+
+```bash
+# Start the server
+node tests/server/index.js
+
+# Server will be available at http://localhost:3000
+```
+
+### Using the API
+
 ```javascript
-// ES Module import
-import parser from './src/services/parser/index.js';
+// Request
+POST /parse
+Content-Type: application/json
 
-// Parse text with all parsers
-const result = await parser.parse("Meeting with John tomorrow at 2pm #important");
-
-// Parse with specific parsers
-const result = await parser.parse("Meeting tomorrow", {
-    exclude: ['complexity', 'cost']
-});
-
-// Example Response
 {
-    success: true,
-    result: {
-        raw: "Meeting with John tomorrow at 2pm #important",
-        parsed: {
-            date: {
-                value: "2024-01-20",
-                format: "relative",
-                confidence: 0.95,
-                pattern: "relative_date",
-                originalMatch: "tomorrow"
-            },
-            time: {
-                value: "14:00",
-                format: "12h",
-                confidence: 0.95,
-                pattern: "time_12h",
-                originalMatch: "2pm"
-            },
-            participants: {
-                value: ["John"],
-                confidence: 0.9,
-                pattern: "name",
-                originalMatch: "John"
-            },
-            tags: {
-                value: ["important"],
-                confidence: 0.95,
-                pattern: "hashtag",
-                originalMatch: "#important"
-            }
-        },
-        performance: {
-            // Parser execution times
-        },
-        summary: "Meeting with John on Jan 20, 2024 at 2:00 PM"
+    "text": "urgent meeting tomorrow at 2pm with @john about project alpha #important",
+    "options": {
+        "exclude": ["tags"]  // Optional: exclude specific parsers
+    }
+}
+
+// Response
+{
+    "success": true,
+    "result": {
+        "original": "urgent meeting tomorrow at 2pm with @john about project alpha #important",
+        "perfected": "Urgent meeting on Tuesday, January 2, 2024 at 14:00 with John about Project Alpha #HighPriority",
+        "stages": [{
+            "stage": 1,
+            "parsers": ["subject", "action"],
+            "changes": [...],
+            "duration": 12.5
+        }, ...],
+        "confidence": "HIGH",
+        "totalDuration": 45.2
     }
 }
 ```
 
-## Architecture
+### Using the Demo UI
 
-The parser uses a modular architecture with specialized parsers for different types of information:
+1. Open http://localhost:3000 in your browser
+2. Enter text in the input field
+3. Click "Perfect Text" or use Ctrl/Cmd + Enter
+4. View the results:
+   - Original vs Perfected text comparison
+   - Stage-by-stage changes
+   - Confidence levels for each change
+   - Performance metrics
 
-- **Core Parser Service**: Orchestrates parsing process and manages parser execution
-- **Individual Parsers**: Specialized modules for specific data types
-- **Utility Functions**: Shared functionality for date handling, pattern matching, etc.
-- **Configuration Management**: Flexible parser configuration system
+## Creating New Parsers
 
-## Development
+1. Create a new file in src/services/parser/parsers/
+2. Implement the perfect() interface
+3. Add parser to appropriate stage in src/services/parser/index.js
 
-### Prerequisites
+Example:
 
-- Node.js (v16 or higher)
-- npm (v7 or higher)
+```javascript
+// src/services/parser/parsers/example.js
+import { Confidence } from '../utils/confidence.js';
 
-### Testing
+export const name = 'example';
+
+export async function perfect(text) {
+    // Find patterns to improve
+    const match = findPattern(text);
+    if (!match) return { text, corrections: [] };
+
+    // Create correction
+    const correction = {
+        type: 'example_improvement',
+        original: match.text,
+        correction: improveText(match.text),
+        position: {
+            start: match.index,
+            end: match.index + match.text.length
+        },
+        confidence: Confidence.HIGH
+    };
+
+    // Apply correction
+    const before = text.substring(0, correction.position.start);
+    const after = text.substring(correction.position.end);
+    const perfectedText = before + correction.correction + after;
+
+    return {
+        text: perfectedText,
+        corrections: [correction]
+    };
+}
+```
+
+## Performance Optimization
+
+1. **Parser Optimization**
+   - Use efficient regex patterns
+   - Cache compiled regex
+   - Minimize string operations
+
+2. **Stage Optimization**
+   - Order parsers by likelihood of matches
+   - Skip unnecessary stages
+   - Cache intermediate results
+
+3. **Memory Management**
+   - Avoid large object creation
+   - Clean up resources
+   - Use string slicing over concatenation
+
+4. **Error Handling**
+   - Fail fast for invalid input
+   - Isolate parser failures
+   - Log errors for debugging
+
+## Testing
 
 ```bash
 # Run all tests
 npm test
 
-# Run specific test suite
-npm run test:parser
+# Run specific parser tests
+npm test -- tests/parsers/date.test.js
 
-# Run tests in watch mode
-npm run test:watch
-```
-
-### Code Style
-
-```bash
-# Check code style
-npm run lint
-
-# Fix automatic style issues
-npm run lint:fix
+# Run performance tests
+npm run test:perf
 ```
 
 ## Contributing
 
-Please see [contributing.md](contributing.md) for detailed contribution guidelines.
-
-## Project Structure
-
-```bash
-src/
-├── services/
-│   └── parser/
-│       ├── formatters/    # Output formatting
-│       ├── parsers/       # Individual parsers
-│       └── utils/         # Shared utilities
-├── config/               # Configuration
-└── utils/               # Global utilities
-
-tests/
-├── parsers/            # Individual parser tests
-├── server/            # Test server implementation
-│   ├── index.js       # Server implementation
-│   ├── server.test.js # Server tests
-│   └── public/        # Static files
-├── utils/             # Test utilities
-└── helpers/           # Test helpers
-```
-
-## Test Server
-
-The project includes a test server implementation in `tests/server/` that demonstrates how to use the parser in a REST API context. The server provides:
-
-- `/parse` endpoint for processing text input
-- Static file serving for demo UI
-- Health check endpoint
-- Comprehensive test coverage
-
-To run the test server:
-
-```bash
-npm run test:server
-```
-
-This will start the server on <http://localhost:3000>. You can then make POST requests to `/parse` with JSON bodies containing a `text` field:
-
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"text": "High priority meeting tomorrow at 2pm"}' \
-  http://localhost:3000/parse
-```
-
-## Testing2
-
-The project includes comprehensive test coverage for all parsers and utilities. Input validation is handled by a centralized validation utility (tests/utils/validation.test.js) that ensures consistent validation across all parsers.
-
-```bash
-tests/
-├── parsers/            # Individual parser tests
-│   ├── base.test.js    # Base parser template tests
-│   ├── complex-note.test.js  # Integration tests
-│   ├── date.test.js    # Date parser tests
-│   ├── priority.test.js # Priority parser tests
-│   └── ...
-├── utils/
-│   └── validation.test.js  # Centralized input validation tests
-└── helpers/           # Test utilities and helpers
-    └── testUtils.js
-```
-
-Each parser test file focuses on parser-specific functionality with this standardized structure:
-
-1. Return Format
-   - Type property verification
-   - Value structure validation
-   - Null return cases
-
-2. Pattern Matching
-   - Natural language patterns
-   - Hashtag patterns
-   - Multiple formats
-   - Edge cases
-
-3. Error Handling
-   - Invalid formats
-   - Malformed parameters
-   - Invalid values
-   - Parser errors
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-[MIT License](LICENSE)
+MIT

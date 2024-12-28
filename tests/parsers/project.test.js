@@ -1,197 +1,236 @@
-import { name, parse } from '../../src/services/parser/parsers/project.js';
+import { name, perfect } from '../../src/services/parser/parsers/project.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Project Parser', () => {
-  describe('Return Format', () => {
-    test('should return object with project key', async () => {
-      const result = await parse('re: Project Alpha');
-      expect(result).toHaveProperty('project');
+    describe('Return Format', () => {
+        test('should return object with text and corrections', async () => {
+            const result = await perfect('re: project alpha');
+            expect(result).toEqual(expect.objectContaining({
+                text: expect.any(String),
+                corrections: expect.any(Array)
+            }));
+        });
+
+        test('should return original text with empty corrections for no matches', async () => {
+            const text = '   ';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
+        });
+
+        test('should include all required correction properties', async () => {
+            const result = await perfect('re: project alpha');
+            expect(result.corrections[0]).toEqual(expect.objectContaining({
+                type: expect.stringMatching(/^project_.*_improvement$/),
+                original: expect.any(String),
+                correction: expect.any(String),
+                position: expect.objectContaining({
+                    start: expect.any(Number),
+                    end: expect.any(Number)
+                }),
+                confidence: expect.any(String)
+            }));
+        });
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    describe('Text Improvement', () => {
+        test('should expand project abbreviations', async () => {
+            const variations = [
+                { input: 're: fe-auth', expected: 're: Project Frontend Authentication' },
+                { input: 'for be-api', expected: 'for Project Backend API' },
+                { input: 'under ui-admin', expected: 'under Project UI Administration' },
+                { input: 'regarding qa-sys', expected: 'regarding Project Quality Assurance System' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
+        });
+
+        test('should format project identifiers', async () => {
+            const variations = [
+                { input: 'PRJ-123', expected: 'Project PRJ-123' },
+                { input: 'PROJ-456', expected: 'Project PRJ-456' },
+                { input: 'task for PRJ-789', expected: 'task for Project PRJ-789' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
+        });
+
+        test('should standardize project references', async () => {
+            const variations = [
+                { input: 'project frontend', expected: 'Project Frontend' },
+                { input: 'initiative backend', expected: 'Project Backend' },
+                { input: 'program mobile', expected: 'Project Mobile' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+            }
+        });
+
+        test('should improve project name formatting', async () => {
+            const variations = [
+                { input: 'project auth_service', expected: 'Project Authentication Service' },
+                { input: 'project user-mgmt', expected: 'Project User Management' },
+                { input: 'project data_analytics', expected: 'Project Data Analytics' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+            }
+        });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('re: Project Alpha');
-      const expectedProps = {
-        project: expect.any(String),
-        originalName: expect.any(String),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String),
-        indicators: expect.any(Array)
-      };
-      expect(result.project).toMatchObject(expectedProps);
-    });
-  });
+    describe('Position Tracking', () => {
+        test('should track position of changes at start of text', async () => {
+            const result = await perfect('project alpha');
+            expect(result.corrections[0].position).toEqual({
+                start: 0,
+                end: 'project alpha'.length
+            });
+        });
 
-  describe('Pattern Matching', () => {
-    test('should detect project references', async () => {
-      const variations = [
-        're: Project Beta',
-        're: Beta project',
-        're: project Beta-API'
-      ];
+        test('should track position of changes with leading text', async () => {
+            const result = await perfect('Task for project alpha');
+            expect(result.corrections[0].position).toEqual({
+                start: 'Task for '.length,
+                end: 'Task for project alpha'.length
+            });
+        });
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.project.project).toBe('Beta');
-      }
+        test('should preserve surrounding text', async () => {
+            const result = await perfect('[URGENT] Task for project alpha!');
+            expect(result.text).toBe('[URGENT] Task for Project Alpha!');
+        });
     });
 
-    test('should detect project identifiers', async () => {
-      const variations = [
-        { input: 'PRJ-123', id: '123' },
-        { input: 'Task for PRJ-456', id: '456' },
-        { input: 'Update PRJ-789 status', id: '789' }
-      ];
+    describe('Confidence Levels', () => {
+        test('should assign HIGH confidence to explicit references', async () => {
+            const result = await perfect('re: project alpha');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
 
-      for (const { input, id } of variations) {
-        const result = await parse(input);
-        expect(result.project.project).toBe(id);
-      }
+        test('should assign HIGH confidence to project identifiers', async () => {
+            const result = await perfect('PRJ-123');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
+
+        test('should assign MEDIUM confidence to project terms', async () => {
+            const result = await perfect('project alpha');
+            expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+        });
+
+        test('should assign LOW confidence to inferred projects', async () => {
+            const result = await perfect('alpha');
+            expect(result.corrections[0].confidence).toBe(Confidence.LOW);
+        });
     });
 
-    test('should detect shorthand notation', async () => {
-      const variations = [
-        { input: '$Frontend', project: 'Frontend' },
-        { input: 'Task for $Backend-API', project: 'Backend-API' },
-        { input: 'Update $Mobile_App', project: 'Mobile_App' }
-      ];
+    describe('Error Handling', () => {
+        test('should handle invalid project names', async () => {
+            const invalidNames = [
+                'project 123',
+                'project @#$',
+                'project    '
+            ];
 
-      for (const { input, project } of variations) {
-        const result = await parse(input);
-        expect(result.project.project).toBe(project);
-      }
+            for (const input of invalidNames) {
+                const result = await perfect(input);
+                expect(result).toEqual({
+                    text: input,
+                    corrections: []
+                });
+            }
+        });
+
+        test('should handle malformed references', async () => {
+            const malformed = [
+                're:',
+                're: ',
+                'regarding',
+                'regarding ',
+                'for project',
+                'in project'
+            ];
+
+            for (const input of malformed) {
+                const result = await perfect(input);
+                expect(result).toEqual({
+                    text: input,
+                    corrections: []
+                });
+            }
+        });
+
+        test('should handle invalid identifiers', async () => {
+            const invalid = [
+                'PRJ-',
+                'PRJ-abc',
+                'PRJ--123',
+                'PRJ-0'
+            ];
+
+            for (const input of invalid) {
+                const result = await perfect(input);
+                expect(result).toEqual({
+                    text: input,
+                    corrections: []
+                });
+            }
+        });
     });
 
-    test('should detect contextual references', async () => {
-      const variations = [
-        'project Backend',
-        'initiative Frontend',
-        'program Mobile'
-      ];
+    describe('Complex Cases', () => {
+        test('should handle multiple project components', async () => {
+            const variations = [
+                { 
+                    input: 'fe-auth-api project', 
+                    expected: 'Project Frontend Authentication API'
+                },
+                { 
+                    input: 'qa-ui-admin system', 
+                    expected: 'Project Quality Assurance UI Administration System'
+                }
+            ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.project.project).toBeTruthy();
-      }
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+            }
+        });
+
+        test('should handle project references with context', async () => {
+            const variations = [
+                { 
+                    input: 'task for fe-auth regarding api docs', 
+                    expected: 'task for Project Frontend Authentication regarding api docs'
+                },
+                { 
+                    input: 'update from qa-sys about testing', 
+                    expected: 'update from Project Quality Assurance System about testing'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+            }
+        });
+
+        test('should preserve special characters', async () => {
+            const result = await perfect('[URGENT] Review PRJ-123 (ASAP)');
+            expect(result.text).toBe('[URGENT] Review Project PRJ-123 (ASAP)');
+        });
     });
-
-    test('should detect regarding references', async () => {
-      const variations = [
-        'regarding project Alpha',
-        'regarding Frontend initiative',
-        'regarding Backend program'
-      ];
-
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.project.project).toBeTruthy();
-      }
-    });
-
-    test('should detect inferred references', async () => {
-      const variations = [
-        'task for Backend project',
-        'working in Frontend initiative',
-        'update under Mobile program'
-      ];
-
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.project.project).toBeTruthy();
-      }
-    });
-  });
-
-  describe('Project Name Validation', () => {
-    test('should validate minimum length', async () => {
-      const result = await parse('project A');
-      expect(result).toBeNull();
-    });
-
-    test('should validate maximum length', async () => {
-      const longName = 'A'.repeat(51);
-      const result = await parse(`project ${longName}`);
-      expect(result).toBeNull();
-    });
-
-    test('should validate allowed characters', async () => {
-      const validNames = [
-        'project Project123',
-        'project Frontend_API',
-        'project Backend-Service'
-      ];
-      const invalidNames = [
-        'project Project!',
-        'project Front@end',
-        'project Back#end'
-      ];
-
-      for (const input of validNames) {
-        const result = await parse(input);
-        expect(result).not.toBeNull();
-      }
-
-      for (const input of invalidNames) {
-        const result = await parse(input);
-        expect(result).toBeNull();
-      }
-    });
-
-    test('should reject ignored terms', async () => {
-      const ignoredTerms = ['the', 'this', 'new', 'project'];
-      for (const term of ignoredTerms) {
-        const result = await parse(`project ${term}`);
-        expect(result).toBeNull();
-      }
-    });
-  });
-
-  describe('Error Handling', () => {
-    test('should handle invalid project names', async () => {
-      const invalidNames = [
-        'project 123',
-        'project @#$',
-        'project    '
-      ];
-
-      for (const input of invalidNames) {
-        const result = await parse(input);
-        expect(result).toBeNull();
-      }
-    });
-
-    test('should handle malformed references', async () => {
-      const malformed = [
-        're:',
-        're: ',
-        'regarding',
-        'regarding ',
-        'for project',
-        'in project'
-      ];
-
-      for (const input of malformed) {
-        const result = await parse(input);
-        expect(result).toBeNull();
-      }
-    });
-
-    test('should handle invalid identifiers', async () => {
-      const invalid = [
-        'PRJ-',
-        'PRJ-abc',
-        'PRJ--123',
-        'PRJ-0'
-      ];
-
-      for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
-      }
-    });
-  });
 });

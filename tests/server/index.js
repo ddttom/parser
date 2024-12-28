@@ -18,10 +18,10 @@ app.get('/', (req, res) => {
     res.sendFile(join(__dirname, 'public', 'index.html'));
 });
 
-// Parse text endpoint
+// Perfect text endpoint
 app.post('/parse', async (req, res) => {
     try {
-        const { text } = req.body;
+        const { text, options } = req.body;
         if (!text) {
             return res.status(400).json({
                 success: false,
@@ -36,14 +36,41 @@ app.post('/parse', async (req, res) => {
             });
         }
 
-        const result = await parser.parse(text);
-        
-        // Clean up large objects after use
-        if (result.result?.metadata?.tokens) {
-            delete result.result.metadata.tokens;
+        // Validate options if provided
+        if (options && typeof options !== 'object') {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid options: must be an object'
+            });
         }
 
-        res.json(result);
+        const result = await parser.perfect(text, options);
+        
+        // If perfection failed, return error
+        if (!result.success) {
+            return res.status(500).json(result);
+        }
+
+        // Return successful result with perfected text and changes
+        res.json({
+            success: true,
+            result: {
+                original: result.result.original,
+                perfected: result.result.perfected,
+                stages: result.result.stages.map(stage => ({
+                    stage: stage.stage,
+                    parsers: stage.parsers,
+                    changes: stage.changes.map(change => ({
+                        parser: change.parser,
+                        corrections: change.corrections,
+                        duration: change.duration
+                    })),
+                    duration: stage.duration
+                })),
+                confidence: result.result.confidence,
+                totalDuration: result.result.totalDuration
+            }
+        });
     } catch (error) {
         console.error('Parser error:', error);
         res.status(500).json({

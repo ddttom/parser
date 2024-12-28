@@ -6,136 +6,187 @@ const logger = createLogger('SprintParser');
 
 export const name = 'sprint';
 
-const SPRINT_KEYWORDS = {
-    start: ['start', 'begin', 'beginning'],
-    end: ['end', 'finish', 'completion'],
-    planning: ['planning', 'plan'],
-    review: ['review', 'demo'],
-    retro: ['retrospective', 'retro']
+const SPRINT_PHASES = {
+    'start': 'Sprint Start',
+    'begin': 'Sprint Start',
+    'beginning': 'Sprint Start',
+    'end': 'Sprint End',
+    'finish': 'Sprint End',
+    'completion': 'Sprint End',
+    'planning': 'Sprint Planning',
+    'plan': 'Sprint Planning',
+    'review': 'Sprint Review',
+    'demo': 'Sprint Review',
+    'retrospective': 'Sprint Retrospective',
+    'retro': 'Sprint Retrospective'
 };
 
-function inferSprintPhase(text) {
-    const lowerText = text.toLowerCase();
-    for (const [phase, keywords] of Object.entries(SPRINT_KEYWORDS)) {
-        if (keywords.some(keyword => lowerText.includes(keyword))) {
-            return phase;
-        }
-    }
-    return 'general';
-}
-
-function validateSprintNumber(number) {
-    // Sprint number must be a positive integer
-    return Number.isInteger(number) && number > 0 && number <= 999;
-}
-
-function extractSprintNumber(text) {
-    const match = text.match(/\b(?:sprint\s*)?(\d+)\b/i);
-    if (!match) return null;
-    
-    const number = parseInt(match[1], 10);
-    return validateSprintNumber(number) ? number : null;
-}
-
-export async function parse(text) {
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'SprintParser');
     if (validationError) {
-        return validationError;
+        return { text, corrections: [] };
     }
 
     try {
-        // Order matters - more specific patterns first
-        const patterns = new Map([
-            ['phase', /(?:sprint\s+(?:planning|review|retro(?:spective)?)|(?:planning|review|retro(?:spective)?)\s+for\s+sprint)\s+(\d+)(?:\s|$)/i],
-            ['labeled', /^sprint\s+(\d+)(?:\s*([:-])\s*([^,\n]+))?/i],
-            ['implicit', /\b(?:in|during|for)\s+sprint\s+(\d+)(?:\s|$)/i]
-        ]);
+        // Try phase-specific patterns first
+        const phaseMatch = findSprintPhase(text);
+        if (phaseMatch) {
+            const correction = {
+                type: 'sprint_phase_improvement',
+                original: phaseMatch.match,
+                correction: formatSprintPhase(phaseMatch),
+                position: {
+                    start: text.indexOf(phaseMatch.match),
+                    end: text.indexOf(phaseMatch.match) + phaseMatch.match.length
+                },
+                confidence: phaseMatch.confidence
+            };
 
-        let bestMatch = null;
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
 
-        for (const [pattern, regex] of patterns.entries()) {
-            const match = text.match(regex);
-            if (match) {
-                let confidence;
-                let value;
-                const sprintNumber = parseInt(match[1], 10);
-
-                if (!validateSprintNumber(sprintNumber)) {
-                    continue;
-                }
-
-                switch (pattern) {
-                    case 'phase': {
-                        confidence = Confidence.MEDIUM;
-                        const phaseText = match[0].toLowerCase();
-                        let phase = 'general';
-                        if (phaseText.includes('planning')) phase = 'planning';
-                        else if (phaseText.includes('review')) phase = 'review';
-                        else if (phaseText.includes('retro')) phase = 'retro';
-                        
-                        value = {
-                            number: sprintNumber,
-                            phase,
-                            isExplicit: true
-                        };
-                        break;
-                    }
-
-                    case 'labeled': {
-                        confidence = Confidence.HIGH;
-                        const separator = match[2];
-                        const description = match[3]?.trim() || null;
-                        value = {
-                            number: sprintNumber,
-                            phase: description ? inferSprintPhase(description) : 'general',
-                            description,
-                            isExplicit: true
-                        };
-                        break;
-                    }
-
-                    case 'implicit': {
-                        confidence = Confidence.MEDIUM;
-                        value = {
-                            number: sprintNumber,
-                            phase: 'general',
-                            isExplicit: false
-                        };
-                        break;
-                    }
-                }
-
-                // Don't let phase pattern override explicit or labeled if they match
-                if (pattern === 'phase' && bestMatch && ['explicit', 'labeled'].includes(bestMatch.metadata.pattern)) {
-                    continue;
-                }
-
-                // Update if current confidence is higher or equal priority pattern
-                const shouldUpdate = !bestMatch || 
-                    (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
-                    (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
-                
-                if (shouldUpdate) {
-                    bestMatch = {
-                        sprint: {
-                            ...value,
-                            confidence,
-                            pattern,
-                            originalMatch: match[0]
-                        }
-                    };
-                }
-            }
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
         }
 
-        return bestMatch;
+        // Try labeled sprint references
+        const labeledMatch = findLabeledSprint(text);
+        if (labeledMatch) {
+            const correction = {
+                type: 'sprint_label_improvement',
+                original: labeledMatch.match,
+                correction: formatLabeledSprint(labeledMatch),
+                position: {
+                    start: text.indexOf(labeledMatch.match),
+                    end: text.indexOf(labeledMatch.match) + labeledMatch.match.length
+                },
+                confidence: labeledMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try implicit sprint references
+        const implicitMatch = findImplicitSprint(text);
+        if (implicitMatch) {
+            const correction = {
+                type: 'sprint_reference_improvement',
+                original: implicitMatch.match,
+                correction: formatImplicitSprint(implicitMatch),
+                position: {
+                    start: text.indexOf(implicitMatch.match),
+                    end: text.indexOf(implicitMatch.match) + implicitMatch.match.length
+                },
+                confidence: implicitMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        return { text, corrections: [] };
+
     } catch (error) {
         logger.error('Error in sprint parser:', error);
-        return {
-            sprint: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
+        return { text, corrections: [] };
     }
+}
+
+function findSprintPhase(text) {
+    const pattern = /\b(?:(sprint\s+(?:planning|review|retro(?:spective)?)|(?:planning|review|retro(?:spective)?)\s+for\s+sprint))\s+(\d+)(?:\s|$)/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const sprintNumber = parseInt(match[2], 10);
+    if (!validateSprintNumber(sprintNumber)) return null;
+
+    const phaseText = match[1].toLowerCase();
+    let phase = 'general';
+    if (phaseText.includes('planning')) phase = 'planning';
+    else if (phaseText.includes('review')) phase = 'review';
+    else if (phaseText.includes('retro')) phase = 'retro';
+
+    return {
+        match: match[0],
+        sprintNumber,
+        phase,
+        confidence: Confidence.HIGH
+    };
+}
+
+function findLabeledSprint(text) {
+    const pattern = /^sprint\s+(\d+)(?:\s*([:-])\s*([^,\n]+))?/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const sprintNumber = parseInt(match[1], 10);
+    if (!validateSprintNumber(sprintNumber)) return null;
+
+    return {
+        match: match[0],
+        sprintNumber,
+        separator: match[2],
+        description: match[3]?.trim(),
+        confidence: Confidence.HIGH
+    };
+}
+
+function findImplicitSprint(text) {
+    const pattern = /\b(?:in|during|for)\s+sprint\s+(\d+)(?:\s|$)/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const sprintNumber = parseInt(match[1], 10);
+    if (!validateSprintNumber(sprintNumber)) return null;
+
+    return {
+        match: match[0],
+        sprintNumber,
+        confidence: Confidence.MEDIUM
+    };
+}
+
+function formatSprintPhase({ sprintNumber, phase }) {
+    const phaseText = phase === 'retro' ? 'Retrospective' :
+                     phase === 'review' ? 'Review' :
+                     phase === 'planning' ? 'Planning' : '';
+    return `Sprint ${sprintNumber} ${phaseText}`;
+}
+
+function formatLabeledSprint({ sprintNumber, separator, description }) {
+    let formatted = `Sprint ${sprintNumber}`;
+    if (description) {
+        // Try to expand any phase references in the description
+        const expandedDescription = description.split(/\s+/)
+            .map(word => SPRINT_PHASES[word.toLowerCase()] || word)
+            .join(' ');
+        formatted += `${separator} ${expandedDescription}`;
+    }
+    return formatted;
+}
+
+function formatImplicitSprint({ sprintNumber, match }) {
+    // Preserve the preposition but standardize the sprint reference
+    const preposition = match.match(/^(in|during|for)/i)[0];
+    return `${preposition} Sprint ${sprintNumber}`;
+}
+
+function validateSprintNumber(number) {
+    return Number.isInteger(number) && number > 0 && number <= 999;
 }

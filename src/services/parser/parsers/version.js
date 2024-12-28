@@ -6,7 +6,122 @@ const logger = createLogger('VersionParser');
 
 export const name = 'version';
 
-export function validateVersion(version) {
+const VERSION_PREFIXES = {
+    'v': 'Version',
+    'ver': 'Version',
+    'version': 'Version',
+    'rel': 'Release',
+    'release': 'Release',
+    'build': 'Build'
+};
+
+export async function perfect(text) {
+    const validationError = validateParserInput(text, 'VersionParser');
+    if (validationError) {
+        return { text, corrections: [] };
+    }
+
+    try {
+        // Try explicit version pattern first
+        const explicitMatch = findExplicitVersion(text);
+        if (explicitMatch) {
+            const correction = {
+                type: 'version_improvement',
+                original: explicitMatch.match,
+                correction: formatExplicitVersion(explicitMatch),
+                position: {
+                    start: text.indexOf(explicitMatch.match),
+                    end: text.indexOf(explicitMatch.match) + explicitMatch.match.length
+                },
+                confidence: explicitMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try implicit version pattern
+        const implicitMatch = findImplicitVersion(text);
+        if (implicitMatch) {
+            const correction = {
+                type: 'version_improvement',
+                original: implicitMatch.match,
+                correction: formatImplicitVersion(implicitMatch),
+                position: {
+                    start: text.indexOf(implicitMatch.match),
+                    end: text.indexOf(implicitMatch.match) + implicitMatch.match.length
+                },
+                confidence: implicitMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        return { text, corrections: [] };
+
+    } catch (error) {
+        logger.error('Error in version parser:', error);
+        return { text, corrections: [] };
+    }
+}
+
+function findExplicitVersion(text) {
+    const pattern = /\b(?:version|v|ver|release|rel|build)\s*[:-]?\s*(\d+\.\d+\.\d+)\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const version = match[1];
+    if (!validateVersion(version)) return null;
+
+    const prefix = match[0].slice(0, match[0].indexOf(version)).trim().toLowerCase();
+    const prefixMatch = Object.keys(VERSION_PREFIXES).find(p => prefix.includes(p));
+
+    return {
+        match: match[0],
+        version,
+        prefix: prefixMatch || 'version',
+        confidence: Confidence.HIGH
+    };
+}
+
+function findImplicitVersion(text) {
+    const pattern = /\b(\d+\.\d+\.\d+)\b/;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const version = match[1];
+    if (!validateVersion(version)) return null;
+
+    return {
+        match: match[0],
+        version,
+        confidence: Confidence.MEDIUM
+    };
+}
+
+function formatExplicitVersion({ version, prefix }) {
+    const formattedPrefix = VERSION_PREFIXES[prefix] || 'Version';
+    return `${formattedPrefix}: ${version}`;
+}
+
+function formatImplicitVersion({ version }) {
+    return `Version: ${version}`;
+}
+
+function validateVersion(version) {
     if (!version || typeof version !== 'string') return false;
     // Semantic versioning: MAJOR.MINOR.PATCH
     return /^\d+\.\d+\.\d+$/.test(version);
@@ -16,43 +131,3 @@ function parseVersion(version) {
     const [major, minor, patch] = version.split('.').map(Number);
     return { major, minor, patch };
 }
-
-export async function parse(text) {
-    const validationError = validateParserInput(text, 'VersionParser');
-    if (validationError) {
-        return validationError;
-    }
-
-    try {
-        // Parse version format
-        const versionMatch = text.match(/\b(?:version|v)\s*(\d+\.\d+\.\d+)\b/i);
-        if (versionMatch) {
-            const version = versionMatch[1];
-            // Call validateVersion directly to allow error propagation
-            const isValid = parse.validateVersion(version);
-            if (!isValid) return null;
-
-            return {
-                version: {
-                    ...parseVersion(version),
-                    pattern: 'version',
-                    confidence: Confidence.HIGH,
-                    originalMatch: versionMatch[0]
-                }
-            };
-        }
-
-        return null;
-    } catch (error) {
-        logger.error('Error in version parser:', error);
-        return {
-            version: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
-    }
-}
-
-// Make validateVersion available for mocking in tests
-parse.validateVersion = validateVersion;

@@ -6,101 +6,194 @@ const logger = createLogger('CostParser');
 
 export const name = 'cost';
 
-export async function parse(text) {
+const CURRENCY_FORMATS = {
+    USD: {
+        symbol: '$',
+        name: 'USD',
+        format: (amount) => `$${formatAmount(amount)}`
+    },
+    GBP: {
+        symbol: '£',
+        name: 'GBP',
+        format: (amount) => `£${formatAmount(amount)}`
+    },
+    EUR: {
+        symbol: '€',
+        name: 'EUR',
+        format: (amount) => `€${formatAmount(amount)}`
+    }
+};
+
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'CostParser');
     if (validationError) {
-        return validationError;
+        return { text, corrections: [] };
     }
-
-    const patterns = {
-        natural: /(?:costs?|price|budget|estimated)(?:\s*:\s*|\s+)(?:to\s+be\s+)?(?:[$£€])?(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i,
-        currency: /^(?:[$£€])(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i,
-        amount: /\b(?:amount|total|sum)(?:\s*:\s*|\s+)(?:of\s+)?(?:[$£€])?(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i
-    };
 
     try {
-        // Try patterns in order of precedence
-        for (const [type, pattern] of Object.entries(patterns)) {
-            const match = text.match(pattern);
-            if (match) {
-                const rawValue = match[1].trim();
+        // Try natural cost pattern first
+        const naturalMatch = findNaturalCost(text);
+        if (naturalMatch) {
+            const correction = {
+                type: 'cost_improvement',
+                original: naturalMatch.match,
+                correction: formatNaturalCost(naturalMatch),
+                position: {
+                    start: text.indexOf(naturalMatch.match),
+                    end: text.indexOf(naturalMatch.match) + naturalMatch.match.length
+                },
+                confidence: naturalMatch.confidence
+            };
 
-                try {
-                    // Validate format and extract value
-                    const formatMatch = rawValue.trim().match(/^(?:([$£€])?)?(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i);
-                    if (!formatMatch) {
-                        return {
-                            cost: {
-                                error: 'PARSER_ERROR',
-                                message: 'Invalid cost format'
-                            }
-                        };
-                    }
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
 
-                    const [, formatCurrencySymbol, numericPart] = formatMatch;
-                    // Handle 'k' suffix for thousands
-                    let value = parseFloat(numericPart.replace(/[,k]/gi, ''));
-                    if (numericPart.toLowerCase().endsWith('k')) {
-                        value *= 1000;
-                    }
-
-                    // Validate numeric value
-                    if (value < 0) {
-                        return {
-                            cost: {
-                                error: 'PARSER_ERROR',
-                                message: 'Negative values not allowed'
-                            }
-                        };
-                    }
-
-                    // Validate decimal places
-                    if (numericPart.includes('.') && !/\.\d{2}$/.test(numericPart)) {
-                        return {
-                            cost: {
-                                error: 'PARSER_ERROR',
-                                message: 'Invalid decimal format'
-                            }
-                        };
-                    }
-
-                    // Extract currency symbol from full match if present
-                    const matchCurrencySymbol = match[0].match(/[$£€]/)?.[0];
-                    const currency = matchCurrencySymbol === '$' ? 'USD' : 
-                                   matchCurrencySymbol === '£' ? 'GBP' :
-                                   matchCurrencySymbol === '€' ? 'EUR' : 'USD';
-                    return {
-                        cost: {
-                            amount: value,
-                            currency,
-                            confidence: type === 'currency' ? Confidence.HIGH : Confidence.MEDIUM,
-                            pattern: type,
-                            originalMatch: match[0]
-                        }
-                    };
-                } catch (error) {
-                    return {
-                        cost: {
-                            error: 'PARSER_ERROR',
-                            message: error.message
-                        }
-                    };
-                }
-            }
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
         }
-        
-        return null;
+
+        // Try currency pattern
+        const currencyMatch = findCurrencyCost(text);
+        if (currencyMatch) {
+            const correction = {
+                type: 'cost_currency_improvement',
+                original: currencyMatch.match,
+                correction: formatCurrencyCost(currencyMatch),
+                position: {
+                    start: text.indexOf(currencyMatch.match),
+                    end: text.indexOf(currencyMatch.match) + currencyMatch.match.length
+                },
+                confidence: currencyMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        // Try amount pattern
+        const amountMatch = findAmountCost(text);
+        if (amountMatch) {
+            const correction = {
+                type: 'cost_amount_improvement',
+                original: amountMatch.match,
+                correction: formatAmountCost(amountMatch),
+                position: {
+                    start: text.indexOf(amountMatch.match),
+                    end: text.indexOf(amountMatch.match) + amountMatch.match.length
+                },
+                confidence: amountMatch.confidence
+            };
+
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
+            return {
+                text: perfectedText,
+                corrections: [correction]
+            };
+        }
+
+        return { text, corrections: [] };
+
     } catch (error) {
-        logger.error('Error in cost parser:', {
-            error: error.message,
-            stack: error.stack,
-            input: text
-        });
-        return {
-            cost: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
+        logger.error('Error in cost parser:', error);
+        return { text, corrections: [] };
     }
+}
+
+function findNaturalCost(text) {
+    const pattern = /(?:costs?|price|budget|estimated)(?:\s*:\s*|\s+)(?:to\s+be\s+)?(?:[$£€])?(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const { amount, currency } = parseCostValue(match[1], match[0]);
+    if (!validateAmount(amount)) return null;
+
+    return {
+        match: match[0],
+        amount,
+        currency,
+        confidence: Confidence.HIGH
+    };
+}
+
+function findCurrencyCost(text) {
+    const pattern = /^(?:[$£€])(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const { amount, currency } = parseCostValue(match[1], match[0]);
+    if (!validateAmount(amount)) return null;
+
+    return {
+        match: match[0],
+        amount,
+        currency,
+        confidence: Confidence.HIGH
+    };
+}
+
+function findAmountCost(text) {
+    const pattern = /\b(?:amount|total|sum)(?:\s*:\s*|\s+)(?:of\s+)?(?:[$£€])?(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i;
+    const match = text.match(pattern);
+    if (!match) return null;
+
+    const { amount, currency } = parseCostValue(match[1], match[0]);
+    if (!validateAmount(amount)) return null;
+
+    return {
+        match: match[0],
+        amount,
+        currency,
+        confidence: Confidence.MEDIUM
+    };
+}
+
+function formatNaturalCost({ amount, currency }) {
+    return `Cost: ${CURRENCY_FORMATS[currency].format(amount)}`;
+}
+
+function formatCurrencyCost({ amount, currency }) {
+    return CURRENCY_FORMATS[currency].format(amount);
+}
+
+function formatAmountCost({ amount, currency }) {
+    return `Amount: ${CURRENCY_FORMATS[currency].format(amount)}`;
+}
+
+function parseCostValue(rawValue, fullMatch) {
+    // Handle 'k' suffix for thousands
+    let amount = parseFloat(rawValue.replace(/[,k]/gi, ''));
+    if (rawValue.toLowerCase().endsWith('k')) {
+        amount *= 1000;
+    }
+
+    // Extract currency symbol from full match if present
+    const currencySymbol = fullMatch.match(/[$£€]/)?.[0];
+    const currency = currencySymbol === '£' ? 'GBP' :
+                    currencySymbol === '€' ? 'EUR' : 'USD';
+
+    return { amount, currency };
+}
+
+function formatAmount(amount) {
+    // Format with commas and two decimal places
+    return amount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+function validateAmount(amount) {
+    return amount >= 0 && amount <= 999999999.99; // Max 999M
 }

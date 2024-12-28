@@ -1,176 +1,213 @@
-import { name, parse } from '../../src/services/parser/parsers/location.js';
+import { name, perfect } from '../../src/services/parser/parsers/location.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Location Parser', () => {
-  describe('Return Format', () => {
-    test('should return object with location key', async () => {
-      const result = await parse('in Room 123');
-      expect(result).toHaveProperty('location');
+    describe('Return Format', () => {
+        test('should return object with text and corrections', async () => {
+            const result = await perfect('in room 123');
+            expect(result).toEqual(expect.objectContaining({
+                text: expect.any(String),
+                corrections: expect.any(Array)
+            }));
+        });
+
+        test('should return original text with empty corrections for no matches', async () => {
+            const text = '   ';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
+        });
+
+        test('should include all required correction properties', async () => {
+            const result = await perfect('in room 123');
+            expect(result.corrections[0]).toEqual(expect.objectContaining({
+                type: 'location_improvement',
+                original: expect.any(String),
+                correction: expect.any(String),
+                position: expect.objectContaining({
+                    start: expect.any(Number),
+                    end: expect.any(Number)
+                }),
+                confidence: expect.any(String)
+            }));
+        });
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    describe('Text Improvement', () => {
+        test('should standardize room locations', async () => {
+            const variations = [
+                { input: 'in room 123', expected: 'in Conference Room 123' },
+                { input: 'at conf room A', expected: 'at Conference Room A' },
+                { input: 'in mtg room B', expected: 'in Conference Room B' },
+                { input: 'rm 123 floor 3', expected: 'Conference Room 123, Floor 3' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
+        });
+
+        test('should standardize office locations', async () => {
+            const variations = [
+                { input: 'in ofc 456', expected: 'in Office 456' },
+                { input: 'at office A12', expected: 'at Office A12' },
+                { input: 'ofc B34 flr 2', expected: 'Office B34, Floor 2' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
+        });
+
+        test('should standardize building locations', async () => {
+            const variations = [
+                { input: 'in bldg B', expected: 'in Building B' },
+                { input: 'at building C', expected: 'at Building C' },
+                { input: 'bldg D lvl 5', expected: 'Building D, Floor 5' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
+        });
+
+        test('should expand location abbreviations', async () => {
+            const variations = [
+                { input: 'in west wing', expected: 'in West Wing' },
+                { input: 'at east bldg', expected: 'at East Building' },
+                { input: 'in north conf rm', expected: 'in North Conference Room' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+            }
+        });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('in Room 123');
-      const expectedProps = {
-        name: expect.any(String),
-        type: expect.any(String),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      };
-      expect(result.location).toMatchObject(expectedProps);
-    });
-  });
+    describe('Position Tracking', () => {
+        test('should track position of changes at start of text', async () => {
+            const result = await perfect('room 123');
+            expect(result.corrections[0].position).toEqual({
+                start: 0,
+                end: 'room 123'.length
+            });
+        });
 
-  describe('Pattern Matching', () => {
-    test('should detect room locations', async () => {
-      const variations = [
-        'in Room 123',
-        'at conference room A',
-        'in the meeting room B',
-        'Room 123 floor 3'
-      ];
+        test('should track position of changes with leading text', async () => {
+            const result = await perfect('Meeting in room 123');
+            expect(result.corrections[0].position).toEqual({
+                start: 'Meeting in '.length,
+                end: 'Meeting in room 123'.length
+            });
+        });
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.location.type).toBe('room');
-      }
+        test('should preserve surrounding text', async () => {
+            const result = await perfect('URGENT: Meeting in room 123!');
+            expect(result.text).toBe('URGENT: Meeting in Conference Room 123!');
+        });
     });
 
-    test('should detect office locations', async () => {
-      const variations = [
-        'in Office 456',
-        'at the office A12',
-        'Office B34 floor 2'
-      ];
+    describe('Confidence Levels', () => {
+        test('should assign HIGH confidence to specific locations', async () => {
+            const result = await perfect('in room 123');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.location.type).toBe('office');
-      }
+        test('should assign HIGH confidence to office locations', async () => {
+            const result = await perfect('in office A12');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
+
+        test('should assign HIGH confidence to building locations', async () => {
+            const result = await perfect('in building B');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
+
+        test('should assign LOW confidence to inferred locations', async () => {
+            const result = await perfect('in the lobby');
+            expect(result.corrections[0].confidence).toBe(Confidence.LOW);
+        });
     });
 
-    test('should detect building locations', async () => {
-      const variations = [
-        'in Building B',
-        'at the building C',
-        'Building D floor 5'
-      ];
+    describe('Error Handling', () => {
+        test('should handle missing location identifiers', async () => {
+            const invalid = [
+                'in room',
+                'at office',
+                'in building'
+            ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.location.type).toBe('building');
-      }
+            for (const input of invalid) {
+                const result = await perfect(input);
+                expect(result).toEqual({
+                    text: input,
+                    corrections: []
+                });
+            }
+        });
+
+        test('should handle invalid floor numbers', async () => {
+            const invalid = [
+                'room 123 floor',
+                'office A12 level',
+                'building B floor level'
+            ];
+
+            for (const input of invalid) {
+                const result = await perfect(input);
+                expect(result).toEqual({
+                    text: input,
+                    corrections: []
+                });
+            }
+        });
     });
 
-    test('should detect locations with floor numbers', async () => {
-      const variations = [
-        { input: 'Room 123 floor 3', floor: '3' },
-        { input: 'Office A12 level 2', floor: '2' },
-        { input: 'Building B floor 5', floor: '5' }
-      ];
+    describe('Complex Cases', () => {
+        test('should handle multiple location components', async () => {
+            const variations = [
+                { 
+                    input: 'mtg rm 123 flr 4 west wing', 
+                    expected: 'Conference Room 123, Floor 4 West Wing'
+                },
+                { 
+                    input: 'bldg B lvl 3 east', 
+                    expected: 'Building B, Floor 3 East Wing'
+                }
+            ];
 
-      for (const { input, floor } of variations) {
-        const result = await parse(input);
-        expect(result.location.parameters).toEqual({ floor });
-      }
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
+        });
+
+        test('should preserve special characters in surrounding text', async () => {
+            const result = await perfect('[URGENT] Meeting in rm 123 (4th floor)');
+            expect(result.text).toBe('[URGENT] Meeting in Conference Room 123 (4th floor)');
+        });
+
+        test('should handle various floor formats', async () => {
+            const variations = [
+                { input: 'room 123 fl 4', expected: 'Conference Room 123, Floor 4' },
+                { input: 'room 123 lvl 4', expected: 'Conference Room 123, Floor 4' },
+                { input: 'room 123 floor 4', expected: 'Conference Room 123, Floor 4' }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+            }
+        });
     });
-
-    test('should detect inferred locations', async () => {
-      const variations = [
-        'in the Main Lobby',
-        'at the Reception Area',
-        'in the Break Room'
-      ];
-
-      for (const input of variations) {
-        const result = await parse(input);
-      }
-    });
-  });
-
-  describe('Location Types', () => {
-    test('should infer room type', async () => {
-      const roomLocations = [
-        'in the Conference Room',
-        'at the Meeting Room',
-        'in Room 123'
-      ];
-
-      for (const input of roomLocations) {
-        const result = await parse(input);
-        expect(result.location.type).toBe('room');
-      }
-    });
-
-    test('should infer office type', async () => {
-      const officeLocations = [
-        'in the Main Office',
-        'at the Branch Office',
-        'in Office 456'
-      ];
-
-      for (const input of officeLocations) {
-        const result = await parse(input);
-        expect(result.location.type).toBe('office');
-      }
-    });
-
-    test('should infer building type', async () => {
-      const buildingLocations = [
-        'in the Main Building',
-        'at the East Building',
-        'in Building A'
-      ];
-
-      for (const input of buildingLocations) {
-        const result = await parse(input);
-        expect(result.location.type).toBe('building');
-      }
-    });
-
-    test('should use unknown type for unrecognized locations', async () => {
-      const unknownLocations = [
-        'in the Garden',
-        'at the Parking Lot',
-        'in the Cafeteria'
-      ];
-
-      for (const input of unknownLocations) {
-        const result = await parse(input);
-        expect(result.location.type).toBe('unknown');
-      }
-    });
-  });
-
-  describe('Error Handling', () => {
-    test('should handle missing location identifiers', async () => {
-      const invalid = [
-        'in Room',
-        'at Office',
-        'in Building'
-      ];
-
-      for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
-      }
-    });
-
-    test('should handle invalid floor numbers', async () => {
-      const invalid = [
-        'Room 123 floor',
-        'Office A12 level',
-        'Building B floor level'
-      ];
-
-      for (const input of invalid) {
-        const result = await parse(input);
-        expect(result.location.parameters).toBeUndefined();
-      }
-    });
-  });
 });

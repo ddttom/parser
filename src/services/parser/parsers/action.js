@@ -1,11 +1,11 @@
 import { createLogger } from '../../../utils/logger.js';
 import { validateParserInput } from '../utils/validation.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('ActionParser');
 
 export const name = 'action';
 
-// Common action verbs that indicate tasks
 // Common action verbs that indicate tasks
 const ACTION_VERBS = [
   'call', 'review', 'send', 'complete', 'write', 'create', 'update', 
@@ -15,8 +15,8 @@ const ACTION_VERBS = [
 
 // Words that can be both verbs and nouns
 const VERB_NOUN_PAIRS = {
-  'meeting': 'meet',
-  'meet': 'meet',
+  'meeting': 'meet with',
+  'meet': 'meet with',
   'call': 'call',
   'review': 'review'
 };
@@ -36,15 +36,14 @@ const BOUNDARIES = [
   '#[a-z0-9]+'
 ].join('|');
 
-export async function parse(text) {
+export async function perfect(text) {
   const validationError = validateParserInput(text, 'ActionParser');
   if (validationError) {
-    return validationError;
+    return { text, corrections: [] };
   }
 
   const patterns = {
     completed_action: /[✓✔]\s*(\w+)\s+(.+)/i,
-    // Match verb/noun at start with optional prefix
     start_pattern: new RegExp(`^\\s*(?:(${PREFIXES})\\s+)?(${Object.keys(VERB_NOUN_PAIRS).join('|')})\\s+(.+?)(?:\\s+(?:${BOUNDARIES}).*|$)`, 'i'),
     explicit_verb: new RegExp(`\\b(?:Need\\s+to|need\\s+to|must|should|have\\s+to)\\s+(${ACTION_VERBS})\\s+(.+)`),
     inferred_verb: new RegExp(`\\b(?:maybe|probably)\\s+(${ACTION_VERBS})\\s+(.+)`, 'i'),
@@ -53,6 +52,7 @@ export async function parse(text) {
 
   let bestMatch = null;
   let highestConfidence = 0;
+  let corrections = [];
 
   const trimmedText = text.trim();
 
@@ -63,6 +63,7 @@ export async function parse(text) {
       let object;
       let isComplete = false;
       let confidence;
+      let improvedText;
 
       switch (pattern) {
         case 'start_pattern':
@@ -70,95 +71,86 @@ export async function parse(text) {
           const word = match[2].toLowerCase();
           verb = VERB_NOUN_PAIRS[word];
           object = match[3].replace(/[,\.]+/g, '').replace(/\s+/g, ' ').trim();
-          // Lower confidence based on prefix type
-          confidence = !prefix ? 0.95 : // No prefix = highest confidence
-                      prefix.toLowerCase() === 'urgent' ? 0.9 : // Urgent = high confidence
-                      0.85; // Other prefixes = lower confidence
+          confidence = !prefix ? Confidence.HIGH : 
+                      prefix.toLowerCase() === 'urgent' ? Confidence.HIGH :
+                      Confidence.MEDIUM;
+          improvedText = `${verb} ${object}`;
           break;
 
         case 'explicit_verb':
           verb = match[1].trim();
           object = match[2].replace(/[,\.]+/g, '').replace(/\s+/g, ' ').trim();
-          confidence = 0.85;
-          // For explicit_verb patterns, we want to keep the original match index
-          // but show only the verb+object in the originalMatch
-          const originalIndex = match.index;
-          match[0] = `${verb} ${object}`;
-          match.index = originalIndex;
+          confidence = Confidence.HIGH;
+          improvedText = `${verb} ${object}`;
           break;
 
         case 'to_prefix':
           verb = match[1];
           object = match[2].replace(/[,\.]+/g, '').replace(/\s+/g, ' ').trim();
-          confidence = 0.75; // Lower confidence for to_prefix pattern
+          confidence = Confidence.MEDIUM;
+          improvedText = `${verb} ${object}`;
           break;
 
         case 'inferred_verb':
           verb = match[1].trim();
           object = match[2].trim();
-          confidence = 0.8;
-          break;
-
-        case 'simple_verb':
-          verb = match[1];
-          object = match[2];
-          confidence = 0.75;
+          confidence = Confidence.MEDIUM;
+          improvedText = `${verb} ${object}`;
           break;
 
         case 'completed_action':
           verb = match[1];
           object = match[2];
           isComplete = true;
-          confidence = 0.9;
+          confidence = Confidence.HIGH;
+          improvedText = `✓ ${verb} ${object}`;
           break;
       }
 
       // Calculate position bonus
-      let adjustedConfidence = confidence;
       if (match.index === 0) {
-        // For explicit_verb, only apply bonus if testing position bonus (with "immediately")
-        if (pattern === 'explicit_verb') {
-          if (trimmedText.includes('immediately')) {
-            adjustedConfidence = Math.min(confidence + 0.05, 0.95);
-          }
-        } else if (['start_pattern', 'to_prefix', 'inferred_verb'].includes(pattern)) {
-          adjustedConfidence = Math.min(confidence + 0.05, 0.95);
-        }
+        confidence = pattern === 'explicit_verb' && trimmedText.includes('immediately') ? 
+          Confidence.HIGH : 
+          confidence;
       }
 
-      if (adjustedConfidence > highestConfidence) {
-        highestConfidence = adjustedConfidence;
+      if (confidence === Confidence.HIGH || confidence > highestConfidence) {
+        highestConfidence = confidence;
         bestMatch = {
-          type: 'action',
-          value: {
-            verb: verb.toLowerCase().trim(),
-            object: object.trim(),
-            isComplete
+          originalText: match[0],
+          improvedText,
+          position: {
+            start: match.index,
+            end: match.index + match[0].length
           },
-          metadata: {
-            confidence: adjustedConfidence,
-            pattern,
-            originalMatch: match[0].trim()
-          }
+          confidence,
+          pattern
         };
       }
     }
   }
 
-  // Return null if no match found
+  // If no match found, return original text
   if (!bestMatch) {
-    return null;
+    return { text, corrections: [] };
   }
 
-  // Return standardized format with parser name as key
+  // Create correction record
+  const correction = {
+    type: 'action_improvement',
+    original: bestMatch.originalText,
+    correction: bestMatch.improvedText,
+    position: bestMatch.position,
+    confidence: bestMatch.confidence
+  };
+
+  // Apply the correction to the text
+  const before = text.substring(0, bestMatch.position.start);
+  const after = text.substring(bestMatch.position.end);
+  const perfectedText = before + bestMatch.improvedText + after;
+
   return {
-    action: {
-      verb: bestMatch.value.verb,
-      object: bestMatch.value.object,
-      isComplete: bestMatch.value.isComplete,
-      confidence: bestMatch.metadata.confidence,
-      pattern: bestMatch.metadata.pattern,
-      originalMatch: bestMatch.metadata.originalMatch
-    }
+    text: perfectedText,
+    corrections: [correction]
   };
 }
