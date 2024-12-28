@@ -32,7 +32,13 @@ const CLEANUP_PATTERNS = [
     /\b(?:for|in|under)\s+(?:project\s+)?[a-z0-9_-]+\b/i,
     // Priority markers
     /\b(?:high|medium|low)\s+priority\b/i,
-    /\b(?:priority:\s*(?:high|medium|low))\b/i
+    /\b(?:priority:\s*(?:high|medium|low))\b/i,
+    // Location references
+    /\b(?:in|at)\s+(?:room|office|building|location)\s+[a-z0-9-]+\b/i,
+    // Tomorrow/today references
+    /\b(?:tomorrow|today|yesterday)\b/i,
+    // Preposition + word combinations
+    /\b(?:about|with|for)\s+[a-z0-9_-]+\b/i
 ];
 
 const TAG_PATTERNS = [
@@ -46,24 +52,44 @@ function cleanupText(text) {
     const removedParts = [];
     let cleanText = text;
 
-    // Handle standard cleanup patterns
+    // First collect all matches to preserve order
+    const matches = [];
     for (const pattern of CLEANUP_PATTERNS) {
-        cleanText = cleanText.replace(pattern, (match) => {
-            removedParts.push(match.trim());
-            return ' ';
-        });
+        let match;
+        while ((match = pattern.exec(cleanText)) !== null) {
+            matches.push({
+                text: match[0],
+                index: match.index,
+                length: match[0].length
+            });
+        }
     }
 
-    // Handle tags and mentions separately
     for (const pattern of TAG_PATTERNS) {
-        cleanText = cleanText.replace(pattern, (match) => {
-            removedParts.push(match.trim());
-            return ' ';
-        });
+        let match;
+        while ((match = pattern.exec(cleanText)) !== null) {
+            matches.push({
+                text: match[0],
+                index: match.index,
+                length: match[0].length
+            });
+        }
     }
 
-    // Clean up extra spaces
-    cleanText = cleanText.replace(/\s+/g, ' ').trim();
+    // Sort matches by position in reverse order to remove from end to start
+    matches.sort((a, b) => b.index - a.index);
+
+    // Remove matches from end to start to preserve indices
+    for (const match of matches) {
+        removedParts.push(match.text.trim());
+        cleanText = cleanText.slice(0, match.index) + ' ' + cleanText.slice(match.index + match.length);
+    }
+
+    // Clean up extra spaces and words
+    cleanText = cleanText
+        .replace(/\s+/g, ' ')
+        .replace(/\b(?:about|with|for)\s*$/, '')
+        .trim();
 
     return { text: cleanText, removedParts };
 }

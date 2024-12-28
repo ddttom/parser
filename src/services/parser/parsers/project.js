@@ -6,7 +6,12 @@ const logger = createLogger('ProjectParser');
 
 export const name = 'project';
 
-const IGNORED_TERMS = new Set(['the', 'this', 'new', 'project']);
+const IGNORED_TERMS = new Set([
+  'the', 'this', 'new', 'project',
+  'tomorrow', 'today', 'yesterday',
+  'morning', 'afternoon', 'evening',
+  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
+]);
 
 const PROJECT_INDICATORS = {
   project_term: ['project', 'initiative', 'program'],
@@ -61,9 +66,10 @@ export async function parse(text) {
       reference: /\bre:\s*(?:project\s+)?([^\s\n]+)/i,
       identifier: /PRJ-(\d+)\b/i,
       shorthand: /\$([A-Za-z][A-Za-z0-9_-]*)/,
-      contextual: /\b(?:project|initiative|program)\s+([A-Za-z][A-Za-z0-9_\s-]*[A-Za-z0-9])\b/i,
-      regarding: /\bregarding\s+(?:project\s+)?([A-Za-z][A-Za-z0-9_\s-]*[A-Za-z0-9])\b/i,
-      inferred: /\b(?:for|in|under)\s+([A-Za-z][A-Za-z0-9_\s-]*[A-Za-z0-9])\s+(?:project|initiative|program)\b/i
+      hashtag: /#([A-Za-z][A-Za-z0-9_-]*)\b(?!\s*(?:priority|status|tag))/i,
+      contextual: /\b(?:project|initiative|program)\s+([A-Za-z][A-Za-z0-9_-]+)\b/i,
+      regarding: /\bregarding\s+(?:project\s+)?([A-Za-z][A-Za-z0-9_-]+)\b/i,
+      inferred: /\b(?:for|in|under)\s+([A-Za-z][A-Za-z0-9_-]+)(?:\s+(?:project|initiative|program))?\b/i
     };
 
     let bestMatch = null;
@@ -127,8 +133,8 @@ export async function parse(text) {
 
         // Update if current confidence is higher or equal priority pattern
         const shouldUpdate = !bestMatch || 
-            (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
-            (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+            (confidence === Confidence.HIGH && bestMatch.project.confidence !== Confidence.HIGH) ||
+            (confidence === Confidence.MEDIUM && bestMatch.project.confidence === Confidence.LOW);
         
         if (shouldUpdate) {
           highestConfidence = confidence;

@@ -285,6 +285,39 @@ src/
 │       └── utils/         # Shared utilities
 ├── config/               # Configuration
 └── utils/               # Global utilities
+
+tests/
+├── parsers/            # Individual parser tests
+├── server/            # Test server implementation
+│   ├── index.js       # Server implementation
+│   ├── server.test.js # Server tests
+│   └── public/        # Static files
+├── utils/             # Test utilities
+└── helpers/           # Test helpers
+```
+
+## Test Server
+
+The project includes a test server implementation in `tests/server/` that demonstrates how to use the parser in a REST API context. The server provides:
+
+- `/parse` endpoint for processing text input
+- Static file serving for demo UI
+- Health check endpoint
+- Comprehensive test coverage
+
+To run the test server:
+
+```bash
+npm run test:server
+```
+
+This will start the server on <http://localhost:3000>. You can then make POST requests to `/parse` with JSON bodies containing a `text` field:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"text": "High priority meeting tomorrow at 2pm"}' \
+  http://localhost:3000/parse
 ```
 
 ## Testing2

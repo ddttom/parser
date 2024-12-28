@@ -307,6 +307,99 @@ describe('Example Parser', () => {
 
 Note: Input validation tests (null, empty string, undefined, non-string inputs) are now handled centrally by the validation utility in `tests/utils/validation.test.js`. Individual parsers should not implement or test basic input validation.
 
+## Test Server
+
+The project includes a test server implementation in `tests/server/` that demonstrates the parser's usage in a REST API context. The server tests verify:
+
+### 1. Server Configuration
+
+- Express middleware setup
+- Static file serving
+- Route configuration
+- Error handling middleware
+
+### 2. API Endpoints
+
+#### POST /parse
+
+- Input validation:
+  - Required text field
+  - String type validation
+  - Length limits (1000 characters)
+- Response format:
+  - Success case includes parsed results
+  - Error cases return appropriate status codes
+  - Memory management (cleanup of large objects)
+- Performance:
+  - Response time monitoring
+  - Memory usage tracking
+
+#### GET /health
+
+- Health check endpoint functionality
+- Response format verification
+
+### 3. Integration Testing
+
+The server test suite (`tests/server/server.test.js`) verifies:
+
+```javascript
+describe('Parser Server', () => {
+    // Server lifecycle
+    beforeAll(async () => {
+        server = await startServer(testPort);
+    });
+    afterAll((done) => {
+        server.close(done);
+    });
+
+    // Health check
+    it('should have health check endpoint', async () => {
+        const response = await fetch(`http://localhost:${testPort}/health`);
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ status: 'ok' });
+    });
+
+    // Input validation
+    it('should handle missing text in parse request', async () => {
+        const response = await fetch(`http://localhost:${testPort}/parse`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        expect(response.status).toBe(400);
+    });
+
+    // Successful parsing
+    it('should parse text successfully', async () => {
+        const response = await fetch(`http://localhost:${testPort}/parse`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text: 'High priority meeting tomorrow at 2pm'
+            })
+        });
+        expect(response.status).toBe(200);
+        const data = await response.json();
+        expect(data.success).toBe(true);
+        expect(data.result).toBeDefined();
+    });
+});
+```
+
+### 4. Running Server Tests
+
+```bash
+# Run all tests including server tests
+npm test
+
+# Run server tests specifically
+npm run test:server
+
+# Start test server for manual testing
+node tests/server/index.js
+```
+
 ## Running Tests
 
 ```bash
@@ -321,6 +414,9 @@ npm run test:watch
 
 # Run tests with coverage
 npm run test:coverage
+
+# Run server tests
+npm run test:server
 ```
 
 ## Test Reports

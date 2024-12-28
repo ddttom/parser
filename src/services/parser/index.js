@@ -112,15 +112,28 @@ class ParserService {
                     const patterns = this.compiledPatterns.get(name);
                     
                     const parserResult = await parser.parse(text, patterns);
-                    if (parserResult && parserResult.type !== 'error') {
-                        result.parsed[name] = parserResult.value;
-                        result.metadata.parsers[name] = parserResult.metadata;
-                        result.metadata.confidence[name] = parserResult.metadata.confidence;
-                    } else if (parserResult?.type === 'error') {
+                    if (parserResult === null) {
+                        // No match found for this parser
+                        continue;
+                    }
+                    
+                    if (parserResult[name]?.error) {
+                        // Handle error result
                         errors.push({
                             parser: name,
-                            ...parserResult
+                            error: parserResult[name].error,
+                            message: parserResult[name].message
                         });
+                    } else if (parserResult[name]) {
+                        // Handle successful result
+                        const { confidence, pattern, originalMatch, ...parserFields } = parserResult[name];
+                        result.parsed[name] = parserFields;
+                        result.metadata.parsers[name] = {
+                            confidence,
+                            pattern,
+                            originalMatch
+                        };
+                        result.metadata.confidence[name] = confidence;
                     }
                 } catch (error) {
                     logger.error(`Parser ${name} failed:`, error);
@@ -193,14 +206,39 @@ class ParserService {
     generateSummary(result) {
         const summary = [];
         
-        if (result.parsed.subject) {
+        // Subject/Task
+        if (result.parsed.subject?.text) {
             summary.push(`Task: ${result.parsed.subject.text}`);
         }
-        if (result.parsed.date) {
-            summary.push(`When: ${new Date(result.parsed.date.value).toLocaleString()}`);
+
+        // Date and Time
+        const date = result.parsed.date?.value;
+        const time = result.parsed.time?.value;
+        if (date || time) {
+            let when = 'When:';
+            if (date) when += ` ${new Date(date).toLocaleDateString()}`;
+            if (time) when += ` at ${time}`;
+            summary.push(when);
         }
-        if (result.parsed.priority) {
-            summary.push(`Priority: ${result.parsed.priority}`);
+
+        // Priority
+        if (result.parsed.priority?.level) {
+            summary.push(`Priority: ${result.parsed.priority.level}`);
+        }
+
+        // Location
+        if (result.parsed.location?.value) {
+            summary.push(`Location: ${result.parsed.location.value}`);
+        }
+
+        // Participants
+        if (result.parsed.participants?.value?.length > 0) {
+            summary.push(`Participants: ${result.parsed.participants.value.join(', ')}`);
+        }
+
+        // Tags
+        if (result.parsed.tags?.value?.length > 0) {
+            summary.push(`Tags: ${result.parsed.tags.value.map(tag => `#${tag}`).join(' ')}`);
         }
 
         return summary.join('\n');

@@ -1,7 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import parser from '../services/parser/index.js';
+import parser from '../../src/services/parser/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,12 +29,27 @@ app.post('/parse', async (req, res) => {
             });
         }
 
+        if (typeof text !== 'string' || text.length > 1000) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid input: text must be a string under 1000 characters'
+            });
+        }
+
         const result = await parser.parse(text);
+        
+        // Clean up large objects after use
+        if (result.result?.metadata?.tokens) {
+            delete result.result.metadata.tokens;
+        }
+
         res.json(result);
     } catch (error) {
+        console.error('Parser error:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Internal server error',
+            message: error.message
         });
     }
 });
@@ -44,7 +59,16 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+export function startServer(port = 3000) {
+    return new Promise((resolve) => {
+        const server = app.listen(port, () => {
+            console.log(`Test server running on http://localhost:${port}`);
+            resolve(server);
+        });
+    });
+}
+
+// Only start server if this file is run directly
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    startServer(process.env.PORT || 3000);
+}
