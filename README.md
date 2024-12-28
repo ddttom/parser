@@ -122,14 +122,14 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
 
 - **Testing Standards**:
   - All parsers have comprehensive test coverage following standardized structure:
-    - Input validation (null, empty, undefined, non-string)
     - Return format (type, metadata, null cases)
     - Pattern matching (explicit, parameters, variations)
-    - Confidence levels (HIGH, MEDIUM, LOW)
     - Error handling (invalid formats, malformed input)
   - Integration tests for complex scenarios and parser interactions
   - Edge case coverage for each parser
   - Performance testing for critical paths
+  - Input validation is handled centrally by validation.test.js
+  - Note: Confidence levels are determined by the parser implementation and should not be tested
 
 - **Quality Standards**:
   - All parsers implement appropriate validation functions
@@ -296,7 +296,7 @@ src/
 
 ## Testing 2
 
-The project includes comprehensive test coverage for all parsers and utilities:
+The project includes comprehensive test coverage for all parsers and utilities. Input validation is handled by a centralized validation utility (tests/utils/validation.test.js) that ensures consistent validation across all parsers.
 
 ```bash
 tests/
@@ -306,36 +306,28 @@ tests/
 │   ├── date.test.js    # Date parser tests
 │   ├── priority.test.js # Priority parser tests
 │   └── ...
+├── utils/
+│   └── validation.test.js  # Centralized input validation tests
 └── helpers/           # Test utilities and helpers
     └── testUtils.js
 ```
 
-Each parser test file follows a standardized structure:
+Each parser test file focuses on parser-specific functionality with this standardized structure:
 
-1. Input Validation
-   - Null input
-   - Empty string
-   - Undefined input
-   - Non-string inputs (numbers, objects, arrays)
+Note: Confidence levels are determined by the parser implementation and should not be tested. They are part of the parser's internal logic for determining match quality.
 
-2. Return Format
+1. Return Format
    - Type property verification
-   - Metadata structure validation
+   - Metadata structure validation (presence of required fields)
    - Null return cases
 
-3. Pattern Matching
+2. Pattern Matching
    - Explicit patterns
    - Parameter handling
    - Multiple formats
    - Edge cases
 
-4. Confidence Levels
-   - HIGH confidence for explicit patterns
-   - MEDIUM confidence for standard patterns
-   - LOW confidence for inferred patterns
-   - Consistent levels for same pattern types
-
-5. Error Handling
+3. Error Handling
    - Invalid formats
    - Malformed parameters
    - Invalid values

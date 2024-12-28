@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/contexts.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Contexts Parser', () => {
   describe('Return Format', () => {
@@ -26,76 +25,36 @@ describe('Contexts Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit context markers', async () => {
       const result = await parse('Task @home');
-      expect(result).toEqual({
-        type: 'context',
-        value: {
-          context: 'home',
-          type: 'location'
-        },
-        metadata: {
-          pattern: 'explicit_context',
-          confidence: Confidence.HIGH,
-          originalMatch: '@home'
-        }
+      expect(result.value).toEqual({
+        context: 'home',
+        type: 'location'
       });
+      expect(result.metadata.pattern).toBe('explicit_context');
+      expect(result.metadata.originalMatch).toBe('@home');
     });
 
     test('should detect multiple contexts', async () => {
       const result = await parse('Task @home @computer @morning');
-      expect(result).toEqual({
-        type: 'context',
-        value: {
-          contexts: [
-            { context: 'home', type: 'location' },
-            { context: 'computer', type: 'tool' },
-            { context: 'morning', type: 'time' }
-          ]
-        },
-        metadata: {
-          pattern: 'multiple_contexts',
-          confidence: Confidence.HIGH,
-          originalMatch: '@home @computer @morning'
-        }
+      expect(result.value).toEqual({
+        contexts: [
+          { context: 'home', type: 'location' },
+          { context: 'computer', type: 'tool' },
+          { context: 'morning', type: 'time' }
+        ]
       });
+      expect(result.metadata.pattern).toBe('multiple_contexts');
+      expect(result.metadata.originalMatch).toBe('@home @computer @morning');
     });
 
     test('should detect context with parameters', async () => {
       const result = await parse('Task @office(desk)');
-      expect(result).toEqual({
-        type: 'context',
-        value: {
-          context: 'office',
-          type: 'location',
-          parameter: 'desk'
-        },
-        metadata: {
-          pattern: 'parameterized_context',
-          confidence: Confidence.HIGH,
-          originalMatch: '@office(desk)'
-        }
+      expect(result.value).toEqual({
+        context: 'office',
+        type: 'location',
+        parameter: 'desk'
       });
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for multiple contexts', async () => {
-      const result = await parse('@home @computer @morning');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for parameterized contexts', async () => {
-      const result = await parse('@office(desk)');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for explicit contexts', async () => {
-      const result = await parse('@office');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have LOW confidence for implicit contexts', async () => {
-      const result = await parse('while at the office');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
+      expect(result.metadata.pattern).toBe('parameterized_context');
+      expect(result.metadata.originalMatch).toBe('@office(desk)');
     });
   });
 

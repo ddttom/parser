@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/tags.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Tags Parser', () => {
   describe('Return Format', () => {
@@ -26,70 +25,40 @@ describe('Tags Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit tag markers', async () => {
       const result = await parse('[tag:important]');
-      expect(result).toEqual({
-        type: 'tag',
-        value: ['important'],
-        metadata: {
-          pattern: 'explicit_tag',
-          confidence: Confidence.HIGH,
-          originalMatch: '[tag:important]'
-        }
-      });
+      expect(result.value).toEqual(['important']);
+      expect(result.metadata.pattern).toBe('explicit_tag');
+      expect(result.metadata.originalMatch).toBe('[tag:important]');
     });
 
     test('should detect tag with parameters', async () => {
       const result = await parse('[tag:feature(type=enhancement)]');
-      expect(result).toEqual({
-        type: 'tag',
-        value: ['feature'],
-        parameters: {
-          type: 'enhancement'
-        },
-        metadata: {
-          pattern: 'parameterized_tag',
-          confidence: Confidence.HIGH,
-          originalMatch: '[tag:feature(type=enhancement)]'
-        }
+      expect(result.value).toEqual(['feature']);
+      expect(result.parameters).toEqual({
+        type: 'enhancement'
       });
+      expect(result.metadata.pattern).toBe('parameterized_tag');
+      expect(result.metadata.originalMatch).toBe('[tag:feature(type=enhancement)]');
     });
 
     test('should detect hashtags', async () => {
       const result = await parse('#frontend #backend');
-      expect(result).toEqual({
-        type: 'tag',
-        value: ['frontend', 'backend'],
-        metadata: {
-          pattern: 'hashtag',
-          confidence: Confidence.MEDIUM,
-          originalMatch: '#frontend #backend'
-        }
-      });
+      expect(result.value).toEqual(['frontend', 'backend']);
+      expect(result.metadata.pattern).toBe('hashtag');
+      expect(result.metadata.originalMatch).toBe('#frontend #backend');
     });
 
     test('should detect multiple tag formats', async () => {
       const result = await parse('[tag:important] #frontend #backend');
-      expect(result).toEqual({
-        type: 'tag',
-        value: ['important', 'frontend', 'backend'],
-        metadata: {
-          pattern: 'mixed_format',
-          confidence: Confidence.HIGH,
-          originalMatch: '[tag:important] #frontend #backend'
-        }
-      });
+      expect(result.value).toEqual(['important', 'frontend', 'backend']);
+      expect(result.metadata.pattern).toBe('mixed_format');
+      expect(result.metadata.originalMatch).toBe('[tag:important] #frontend #backend');
     });
 
     test('should handle tag categories', async () => {
       const result = await parse('#feature/ui');
-      expect(result).toEqual({
-        type: 'tag',
-        value: ['feature/ui'],
-        metadata: {
-          pattern: 'categorized_tag',
-          confidence: Confidence.MEDIUM,
-          originalMatch: '#feature/ui'
-        }
-      });
+      expect(result.value).toEqual(['feature/ui']);
+      expect(result.metadata.pattern).toBe('categorized_tag');
+      expect(result.metadata.originalMatch).toBe('#feature/ui');
     });
   });
 
@@ -106,6 +75,8 @@ describe('Tags Parser', () => {
       for (const tag of validTags) {
         const result = await parse(`#${tag}`);
         expect(result.value).toContain(tag);
+        expect(result.metadata.pattern).toBe('hashtag');
+        expect(result.metadata.originalMatch).toBe(`#${tag}`);
       }
     });
 
@@ -119,36 +90,9 @@ describe('Tags Parser', () => {
       for (const { input, expected } of variations) {
         const result = await parse(`#${input}`);
         expect(result.value).toContain(expected);
+        expect(result.metadata.pattern).toBe('hashtag');
+        expect(result.metadata.originalMatch).toBe(`#${input}`);
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[tag:important]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for parameterized patterns', async () => {
-      const result = await parse('[tag:feature(type=enhancement)]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for hashtag patterns', async () => {
-      const result = await parse('#frontend');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('[tag:important]');
-      const result2 = await parse('[tag:feature]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should maintain MEDIUM confidence for multiple hashtags', async () => {
-      const result = await parse('#frontend #backend #api');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
   });
 

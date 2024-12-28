@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/project.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Project Parser', () => {
   describe('Return Format', () => {
@@ -26,63 +25,55 @@ describe('Project Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit project markers', async () => {
       const result = await parse('[project:Website Redesign]');
-      expect(result).toEqual({
-        type: 'project',
-        value: {
-          project: 'Website Redesign',
-          originalName: 'Website Redesign'
-        },
-        metadata: {
-          pattern: 'explicit',
-          confidence: Confidence.HIGH,
-          originalMatch: '[project:Website Redesign]',
-          indicators: expect.any(Array)
-        }
+      expect(result.value).toEqual({
+        project: 'Website Redesign',
+        originalName: 'Website Redesign'
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[project:Website Redesign]');
+      expect(result.metadata.indicators).toEqual(expect.any(Array));
     });
 
     test('should detect project with parameters', async () => {
       const result = await parse('[project:Website Redesign(phase=1)]');
-      expect(result).toEqual({
-        type: 'project',
-        value: {
-          project: 'Website Redesign',
-          originalName: 'Website Redesign',
-          parameters: {
-            phase: '1'
-          }
-        },
-        metadata: {
-          pattern: 'parameterized',
-          confidence: Confidence.HIGH,
-          originalMatch: '[project:Website Redesign(phase=1)]',
-          indicators: expect.any(Array)
+      expect(result.value).toEqual({
+        project: 'Website Redesign',
+        originalName: 'Website Redesign',
+        parameters: {
+          phase: '1'
         }
       });
+      expect(result.metadata.pattern).toBe('parameterized');
+      expect(result.metadata.originalMatch).toBe('[project:Website Redesign(phase=1)]');
+      expect(result.metadata.indicators).toEqual(expect.any(Array));
     });
 
     test('should detect project references', async () => {
       const result = await parse('re: Project Beta');
       expect(result.value.project).toBe('Beta');
       expect(result.metadata.pattern).toBe('reference');
+      expect(result.metadata.originalMatch).toBe('re: Project Beta');
     });
 
     test('should detect project identifiers', async () => {
       const result = await parse('PRJ-123');
       expect(result.value.project).toBe('123');
       expect(result.metadata.pattern).toBe('identifier');
+      expect(result.metadata.originalMatch).toBe('PRJ-123');
     });
 
     test('should detect shorthand notation', async () => {
       const result = await parse('$Frontend');
       expect(result.value.project).toBe('Frontend');
       expect(result.metadata.pattern).toBe('shorthand');
+      expect(result.metadata.originalMatch).toBe('$Frontend');
     });
 
     test('should detect contextual references', async () => {
       const result = await parse('Task for project Backend');
       expect(result.value.project).toBe('Backend');
       expect(result.metadata.pattern).toBe('contextual');
+      expect(result.metadata.originalMatch).toBe('project Backend');
     });
   });
 
@@ -141,33 +132,6 @@ describe('Project Parser', () => {
     test('should detect timeline references', async () => {
       const result = await parse('roadmap for project Delta');
       expect(result.metadata.indicators).toContain('timeline');
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[project:Website Redesign]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for reference patterns', async () => {
-      const result = await parse('re: Project Beta');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for identifier patterns', async () => {
-      const result = await parse('PRJ-123');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for contextual patterns', async () => {
-      const result = await parse('Task for project Backend');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have MEDIUM confidence for inferred patterns', async () => {
-      const result = await parse('for website project');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
   });
 

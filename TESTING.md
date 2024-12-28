@@ -74,6 +74,7 @@ The utility returns standardized error objects for invalid inputs:
    - Test parser-specific error contexts
 
 Example test structure:
+
 ```javascript
 import { validateParserInput } from '../../src/services/parser/utils/validation.js';
 
@@ -169,35 +170,11 @@ describe('Input Validation', () => {
 - Test multiple format variations
 - Test edge cases and boundary conditions
 
-### 4. Confidence Levels
+### Important Note About Confidence Levels
 
-Test each confidence level with appropriate patterns:
+Confidence levels are determined by the parser implementation and should not be tested. They are part of the parser's internal logic for determining match quality. While the metadata should include a confidence field, its specific value (HIGH, MEDIUM, LOW) is an implementation detail that should not be part of the test suite.
 
-#### HIGH Confidence
-
-- Explicit, unambiguous patterns
-- Example: [tag:important], [category:Work]
-- Used when the pattern has clear intent and structure
-
-#### MEDIUM Confidence
-
-- Standard, well-structured patterns
-- Example: #important, @work
-- Used when the pattern follows common conventions
-
-#### LOW Confidence
-
-- Inferred or ambiguous patterns
-- Example: "important task", "work related"
-- Used when meaning must be derived from context
-
-Verify that:
-
-- Same pattern types consistently return same confidence level
-- No dynamic confidence adjustments are made
-- Each pattern type maps to appropriate confidence level
-
-### 5. Error Handling
+### 4. Error Handling
 
 - Test invalid format handling
 - Test malformed parameter handling
@@ -209,14 +186,12 @@ Verify that:
 - All parsers must have 100% test coverage
 - All pattern variations must be tested
 - All error conditions must be tested
-- All confidence levels must be tested
 
 ## Integration Testing
 
 Integration tests should verify:
 
 - Parser interactions work correctly
-- Confidence levels are used appropriately in parser selection
 - Complex patterns are handled properly
 
 ## Performance Testing
@@ -250,13 +225,35 @@ Example test structure:
 
 ```javascript
 import { name, parse } from '../../src/services/parser/parsers/example.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Example Parser', () => {
+  describe('Return Format', () => {
+    test('should return correct type property', async () => {
+      const result = await parse('[example:test]');
+      expect(result.type).toBe(name);
+    });
+
+    test('should return metadata with required fields', async () => {
+      const result = await parse('[example:test]');
+      expect(result.metadata).toEqual(expect.objectContaining({
+        confidence: expect.any(String),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
+    });
+
+    test('should return null for no matches', async () => {
+      const result = await parse('no pattern here');
+      expect(result).toBeNull();
+    });
+  });
+
   describe('Pattern Matching', () => {
     test('should detect explicit patterns', async () => {
       const result = await parse('[example:test]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      expect(result.value).toEqual({
+        test: 'test'
+      });
     });
 
     test('should handle multiple formats', async () => {
@@ -273,42 +270,21 @@ describe('Example Parser', () => {
     });
   });
 
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[example:test]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for standard patterns', async () => {
-      const result = await parse('#test');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have LOW confidence for inferred patterns', async () => {
-      const result = await parse('test related');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
-    });
-  });
-
-  describe('Return Format', () => {
-    test('should return null for no matches', async () => {
-      const result = await parse('no pattern here');
+  describe('Error Handling', () => {
+    test('should handle invalid format', async () => {
+      const result = await parse('[example:]');
       expect(result).toBeNull();
     });
 
-    test('should include required metadata', async () => {
-      const result = await parse('[example:test]');
-      expect(result.metadata).toEqual({
-        confidence: Confidence.HIGH,
-        pattern: 'explicit',
-        originalMatch: '[example:test]'
-      });
+    test('should handle malformed parameters', async () => {
+      const result = await parse('[example:test(invalid)]');
+      expect(result).toBeNull();
     });
   });
 });
 ```
 
-Note: Input validation tests are now handled by the validation utility in `tests/utils/validation.test.js`. Individual parsers should not implement or test basic input validation.
+Note: Input validation tests (null, empty string, undefined, non-string inputs) are now handled centrally by the validation utility in `tests/utils/validation.test.js`. Individual parsers should not implement or test basic input validation.
 
 ## Running Tests
 

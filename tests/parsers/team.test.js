@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/team.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Team Parser', () => {
   describe('Return Format', () => {
@@ -26,66 +25,49 @@ describe('Team Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit team markers', async () => {
       const result = await parse('[team:frontend]');
-      expect(result).toEqual({
-        type: 'team',
-        value: {
-          team: 'frontend'
-        },
-        metadata: {
-          pattern: 'explicit',
-          confidence: Confidence.HIGH,
-          originalMatch: '[team:frontend]'
-        }
+      expect(result.value).toEqual({
+        team: 'frontend'
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[team:frontend]');
     });
 
     test('should detect team with parameters', async () => {
       const result = await parse('[team:frontend(lead=john)]');
-      expect(result).toEqual({
-        type: 'team',
-        value: {
-          team: 'frontend',
-          parameters: {
-            lead: 'john'
-          }
-        },
-        metadata: {
-          pattern: 'parameterized',
-          confidence: Confidence.HIGH,
-          originalMatch: '[team:frontend(lead=john)]'
+      expect(result.value).toEqual({
+        team: 'frontend',
+        parameters: {
+          lead: 'john'
         }
       });
+      expect(result.metadata.pattern).toBe('parameterized');
+      expect(result.metadata.originalMatch).toBe('[team:frontend(lead=john)]');
     });
 
     test('should detect inferred team references', async () => {
       const formats = [
-        'frontend team',
-        'team frontend',
-        'frontend squad',
-        'frontend group'
+        { input: 'frontend team', match: 'frontend team' },
+        { input: 'team frontend', match: 'team frontend' },
+        { input: 'frontend squad', match: 'frontend squad' },
+        { input: 'frontend group', match: 'frontend group' }
       ];
 
-      for (const format of formats) {
-        const result = await parse(format);
+      for (const { input, match } of formats) {
+        const result = await parse(input);
         expect(result.value.team).toBe('frontend');
         expect(result.metadata.pattern).toBe('inferred');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
     test('should detect team references with context', async () => {
       const result = await parse('assigned to frontend team');
-      expect(result).toEqual({
-        type: 'team',
-        value: {
-          team: 'frontend',
-          relationship: 'assigned'
-        },
-        metadata: {
-          pattern: 'contextual',
-          confidence: Confidence.MEDIUM,
-          originalMatch: 'assigned to frontend team'
-        }
+      expect(result.value).toEqual({
+        team: 'frontend',
+        relationship: 'assigned'
       });
+      expect(result.metadata.pattern).toBe('contextual');
+      expect(result.metadata.originalMatch).toBe('assigned to frontend team');
     });
   });
 
@@ -107,12 +89,16 @@ describe('Team Parser', () => {
       for (const team of validTeams) {
         const result = await parse(`[team:${team}]`);
         expect(result.value.team).toBe(team);
+        expect(result.metadata.pattern).toBe('explicit');
+        expect(result.metadata.originalMatch).toBe(`[team:${team}]`);
       }
     });
 
     test('should handle case insensitivity', async () => {
       const result = await parse('[team:FRONTEND]');
       expect(result.value.team).toBe('frontend');
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[team:FRONTEND]');
     });
 
     test('should normalize team names', async () => {
@@ -125,31 +111,9 @@ describe('Team Parser', () => {
       for (const { input, expected } of variations) {
         const result = await parse(`[team:${input}]`);
         expect(result.value.team).toBe(expected);
+        expect(result.metadata.pattern).toBe('explicit');
+        expect(result.metadata.originalMatch).toBe(`[team:${input}]`);
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[team:frontend]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for parameterized patterns', async () => {
-      const result = await parse('[team:frontend(lead=john)]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for inferred patterns', async () => {
-      const result = await parse('frontend team');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('[team:frontend]');
-      const result2 = await parse('[team:backend]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

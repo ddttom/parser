@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/date.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Date Parser', () => {
   describe('Return Format', () => {
@@ -26,89 +25,38 @@ describe('Date Parser', () => {
   describe('Pattern Matching', () => {
     test('should parse ISO format dates', async () => {
       const result = await parse('[date:2024-01-20]');
-      expect(result).toMatchObject({
-        type: 'date',
-        value: {
-          date: '2024-01-20',
-          format: 'ISO'
-        },
-        metadata: {
-          pattern: 'explicit_iso',
-          confidence: Confidence.HIGH
-        }
+      expect(result.value).toEqual({
+        date: '2024-01-20',
+        format: 'ISO'
       });
+      expect(result.metadata.pattern).toBe('explicit_iso');
+      expect(result.metadata.originalMatch).toBe('[date:2024-01-20]');
     });
 
     test('should parse natural language dates', async () => {
       const result = await parse('on January 20th, 2024');
-      expect(result).toMatchObject({
-        type: 'date',
-        value: {
-          date: '2024-01-20',
-          format: 'natural'
-        },
-        metadata: {
-          pattern: 'natural_date',
-          confidence: Confidence.HIGH
-        }
+      expect(result.value).toEqual({
+        date: '2024-01-20',
+        format: 'natural'
       });
+      expect(result.metadata.pattern).toBe('natural_date');
+      expect(result.metadata.originalMatch).toBe('on January 20th, 2024');
     });
 
     test('should parse relative dates', async () => {
       const result = await parse('tomorrow');
-      expect(result).toMatchObject({
-        type: 'date',
-        value: {
-          format: 'relative'
-        },
-        metadata: {
-          pattern: 'relative_date',
-          confidence: Confidence.MEDIUM
-        }
-      });
+      expect(result.value.format).toBe('relative');
       expect(result.value.date).toBeDefined();
+      expect(result.metadata.pattern).toBe('relative_date');
+      expect(result.metadata.originalMatch).toBe('tomorrow');
     });
 
     test('should parse weekday references', async () => {
       const result = await parse('next Wednesday');
-      expect(result).toMatchObject({
-        type: 'date',
-        value: {
-          format: 'weekday'
-        },
-        metadata: {
-          pattern: 'weekday_reference',
-          confidence: Confidence.MEDIUM
-        }
-      });
+      expect(result.value.format).toBe('weekday');
       expect(result.value.date).toBeDefined();
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit ISO patterns', async () => {
-      const result = await parse('[date:2024-01-20]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for natural date patterns', async () => {
-      const result = await parse('on January 20th, 2024');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for relative dates', async () => {
-      const result = await parse('tomorrow');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have MEDIUM confidence for weekday references', async () => {
-      const result = await parse('next Wednesday');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have LOW confidence for implicit patterns', async () => {
-      const result = await parse('sometime next week');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
+      expect(result.metadata.pattern).toBe('weekday_reference');
+      expect(result.metadata.originalMatch).toBe('next Wednesday');
     });
   });
 

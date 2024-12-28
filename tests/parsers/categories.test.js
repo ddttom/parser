@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/categories.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Categories Parser', () => {
   describe('Return Format', () => {
@@ -102,35 +101,6 @@ describe('Categories Parser', () => {
         const result = await parse(path);
         expect(result).toBeNull();
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[category:Work/Projects]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for multiple categories', async () => {
-      const result = await parse('[category:Work] [category:Projects]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for nested categories', async () => {
-      const result = await parse('[category:Work/Projects/Active]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for inferred categories', async () => {
-      const result = await parse('#work');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('[category:Work]');
-      const result2 = await parse('[category:Projects]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

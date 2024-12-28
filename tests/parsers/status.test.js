@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/status.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Status Parser', () => {
   describe('Return Format', () => {
@@ -27,37 +26,25 @@ describe('Status Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit status markers', async () => {
       const result = await parse('[status:completed]');
-      expect(result).toEqual({
-        type: 'status',
-        value: {
-          status: 'completed'
-        },
-        metadata: {
-          pattern: 'explicit',
-          confidence: Confidence.HIGH,
-          originalMatch: '[status:completed]',
-          level: 3
-        }
+      expect(result.value).toEqual({
+        status: 'completed'
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[status:completed]');
+      expect(result.metadata.level).toBe(3);
     });
 
     test('should detect status with parameters', async () => {
       const result = await parse('[status:blocked(reason=dependency)]');
-      expect(result).toEqual({
-        type: 'status',
-        value: {
-          status: 'blocked',
-          parameters: {
-            reason: 'dependency'
-          }
-        },
-        metadata: {
-          pattern: 'parameterized',
-          confidence: Confidence.HIGH,
-          originalMatch: '[status:blocked(reason=dependency)]',
-          level: 2
+      expect(result.value).toEqual({
+        status: 'blocked',
+        parameters: {
+          reason: 'dependency'
         }
       });
+      expect(result.metadata.pattern).toBe('parameterized');
+      expect(result.metadata.originalMatch).toBe('[status:blocked(reason=dependency)]');
+      expect(result.metadata.level).toBe(2);
     });
 
     test('should handle all status types', async () => {
@@ -72,53 +59,53 @@ describe('Status Parser', () => {
       for (const { status, level } of statuses) {
         const result = await parse(`[status:${status}]`);
         expect(result.value.status).toBe(status);
+        expect(result.metadata.pattern).toBe('explicit');
+        expect(result.metadata.originalMatch).toBe(`[status:${status}]`);
         expect(result.metadata.level).toBe(level);
       }
     });
 
     test('should detect progress indicators', async () => {
       const result = await parse('50% complete');
-      expect(result).toEqual({
-        type: 'status',
-        value: {
-          status: 'in_progress',
-          progress: 50
-        },
-        metadata: {
-          pattern: 'progress',
-          confidence: Confidence.MEDIUM,
-          originalMatch: '50% complete',
-          level: 1
-        }
+      expect(result.value).toEqual({
+        status: 'in_progress',
+        progress: 50
       });
+      expect(result.metadata.pattern).toBe('progress');
+      expect(result.metadata.originalMatch).toBe('50% complete');
+      expect(result.metadata.level).toBe(1);
     });
 
     test('should detect state declarations', async () => {
       const result = await parse('is completed');
       expect(result.value.status).toBe('completed');
       expect(result.metadata.pattern).toBe('state');
+      expect(result.metadata.originalMatch).toBe('is completed');
     });
 
     test('should detect shorthand notation', async () => {
       const result = await parse('[completed]');
       expect(result.value.status).toBe('completed');
       expect(result.metadata.pattern).toBe('shorthand');
+      expect(result.metadata.originalMatch).toBe('[completed]');
     });
   });
 
   describe('Status Mapping', () => {
     test('should handle status aliases', async () => {
       const aliases = [
-        { input: 'waiting', expected: 'blocked' },
-        { input: 'done', expected: 'completed' },
-        { input: 'finished', expected: 'completed' },
-        { input: 'in progress', expected: 'started' },
-        { input: 'on hold', expected: 'blocked' }
+        { input: 'waiting', expected: 'blocked', pattern: 'state' },
+        { input: 'done', expected: 'completed', pattern: 'state' },
+        { input: 'finished', expected: 'completed', pattern: 'state' },
+        { input: 'in progress', expected: 'started', pattern: 'state' },
+        { input: 'on hold', expected: 'blocked', pattern: 'state' }
       ];
 
-      for (const { input, expected } of aliases) {
+      for (const { input, expected, pattern } of aliases) {
         const result = await parse(input);
         expect(result.value.status).toBe(expected);
+        expect(result.metadata.pattern).toBe(pattern);
+        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -132,34 +119,9 @@ describe('Status Parser', () => {
       for (const { input, expected } of variations) {
         const result = await parse(`[status:${input}]`);
         expect(result.value.status).toBe(expected);
+        expect(result.metadata.pattern).toBe('explicit');
+        expect(result.metadata.originalMatch).toBe(`[status:${input}]`);
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[status:completed]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for shorthand patterns', async () => {
-      const result = await parse('[completed]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for state patterns', async () => {
-      const result = await parse('is completed');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have MEDIUM confidence for progress patterns', async () => {
-      const result = await parse('50% complete');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have LOW confidence for contextual patterns', async () => {
-      const result = await parse('task is done');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
   });
 

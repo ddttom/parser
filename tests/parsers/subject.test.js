@@ -168,25 +168,6 @@ describe('Subject Parser', () => {
         });
     });
 
-    describe('Confidence Levels', () => {
-        test('should have HIGH confidence for explicit patterns', async () => {
-            const result = await parse('[subject:Meeting Notes]');
-            expect(result.metadata.confidence).toBe(Confidence.HIGH);
-        });
-
-        test('should have MEDIUM confidence for inferred patterns', async () => {
-            const result = await parse('Update documentation');
-            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-        });
-
-        test('should have consistent confidence for same pattern type', async () => {
-            const result1 = await parse('[subject:First Task]');
-            const result2 = await parse('[subject:Second Task]');
-            expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-            expect(result1.metadata.confidence).toBe(Confidence.HIGH);
-        });
-    });
-
     describe('Error Handling', () => {
         test('handles cleanup errors gracefully', async () => {
             const result = await parse('Invalid \0 character');

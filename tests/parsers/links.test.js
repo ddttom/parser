@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/links.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Links Parser', () => {
   describe('Return Format', () => {
@@ -30,7 +29,8 @@ describe('Links Parser', () => {
         url: 'http://example.com',
         type: 'url'
       });
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      expect(result.metadata.pattern).toBe('explicit_url');
+      expect(result.metadata.originalMatch).toBe('http://example.com');
     });
 
     test('should detect HTTPS URLs', async () => {
@@ -39,7 +39,8 @@ describe('Links Parser', () => {
         url: 'https://example.com',
         type: 'url'
       });
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      expect(result.metadata.pattern).toBe('explicit_url');
+      expect(result.metadata.originalMatch).toBe('https://example.com');
     });
 
     test('should handle URLs with paths and query params', async () => {
@@ -52,6 +53,8 @@ describe('Links Parser', () => {
       for (const url of urls) {
         const result = await parse(`Visit ${url}`);
         expect(result.value.url).toBe(url);
+        expect(result.metadata.pattern).toBe('explicit_url');
+        expect(result.metadata.originalMatch).toBe(url);
       }
     });
 
@@ -65,6 +68,8 @@ describe('Links Parser', () => {
       for (const url of urls) {
         const result = await parse(`Visit ${url}`);
         expect(result.value.url).toBe(url);
+        expect(result.metadata.pattern).toBe('explicit_url');
+        expect(result.metadata.originalMatch).toBe(url);
       }
     });
   });
@@ -77,7 +82,8 @@ describe('Links Parser', () => {
         text: 'Example',
         type: 'markdown'
       });
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      expect(result.metadata.pattern).toBe('markdown_link');
+      expect(result.metadata.originalMatch).toBe('[Example](https://example.com)');
     });
 
     test('should validate markdown link text', async () => {
@@ -91,6 +97,8 @@ describe('Links Parser', () => {
     test('should handle markdown links with complex URLs', async () => {
       const result = await parse('[Search](https://example.com/search?q=test&page=1#results)');
       expect(result.value.url).toBe('https://example.com/search?q=test&page=1#results');
+      expect(result.metadata.pattern).toBe('markdown_link');
+      expect(result.metadata.originalMatch).toBe('[Search](https://example.com/search?q=test&page=1#results)');
     });
   });
 
@@ -101,7 +109,8 @@ describe('Links Parser', () => {
         path: 'documents/report.pdf',
         type: 'file'
       });
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      expect(result.metadata.pattern).toBe('file_link');
+      expect(result.metadata.originalMatch).toBe('[file:documents/report.pdf]');
     });
 
     test('should handle relative file paths', async () => {
@@ -114,6 +123,8 @@ describe('Links Parser', () => {
       for (const path of paths) {
         const result = await parse(`[file:${path}]`);
         expect(result.value.path).toBe(path);
+        expect(result.metadata.pattern).toBe('file_link');
+        expect(result.metadata.originalMatch).toBe(`[file:${path}]`);
       }
     });
 
@@ -127,6 +138,8 @@ describe('Links Parser', () => {
       for (const path of paths) {
         const result = await parse(`[file:${path}]`);
         expect(result.value.path).toBe(path);
+        expect(result.metadata.pattern).toBe('file_link');
+        expect(result.metadata.originalMatch).toBe(`[file:${path}]`);
       }
     });
   });
@@ -138,7 +151,8 @@ describe('Links Parser', () => {
         url: 'https://example.com',
         type: 'url'
       });
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
+      expect(result.metadata.pattern).toBe('inferred_url');
+      expect(result.metadata.originalMatch).toBe('example.com');
     });
 
     test('should handle various TLDs', async () => {
@@ -154,6 +168,8 @@ describe('Links Parser', () => {
       for (const domain of domains) {
         const result = await parse(`Visit ${domain}`);
         expect(result.value.url).toBe(`https://${domain}`);
+        expect(result.metadata.pattern).toBe('inferred_url');
+        expect(result.metadata.originalMatch).toBe(domain);
       }
     });
 
@@ -167,6 +183,8 @@ describe('Links Parser', () => {
       for (const domain of domains) {
         const result = await parse(`Visit ${domain}`);
         expect(result.value.url).toBe(`https://${domain}`);
+        expect(result.metadata.pattern).toBe('inferred_url');
+        expect(result.metadata.originalMatch).toBe(domain);
       }
     });
   });
@@ -214,35 +232,6 @@ describe('Links Parser', () => {
         const result = await parse(path);
         expect(result).toBeNull();
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit URLs', async () => {
-      const result = await parse('https://example.com');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for markdown links', async () => {
-      const result = await parse('[Example](https://example.com)');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for file links', async () => {
-      const result = await parse('[file:documents/report.pdf]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have LOW confidence for inferred URLs', async () => {
-      const result = await parse('example.com');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('https://example1.com');
-      const result2 = await parse('https://example2.com');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 });

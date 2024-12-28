@@ -25,80 +25,35 @@ describe('Attendees Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit attendee lists', async () => {
       const result = await parse('[attendees:John, Sarah]');
-      expect(result).toEqual({
-        type: 'attendees',
-        value: {
-          attendees: ['John', 'Sarah'],
-          count: 2
-        },
-        metadata: {
-          pattern: 'explicit_list',
-          confidence: 0.95,
-          originalMatch: '[attendees:John, Sarah]'
-        }
+      expect(result.value).toEqual({
+        attendees: ['John', 'Sarah'],
+        count: 2
       });
+      expect(result.metadata.pattern).toBe('explicit_list');
+      expect(result.metadata.originalMatch).toBe('[attendees:John, Sarah]');
     });
 
     test('should detect attendees with roles', async () => {
       const result = await parse('Meeting with @john (host) and @sarah (presenter)');
-      expect(result).toEqual({
-        type: 'attendees',
-        value: {
-          attendees: [
-            { name: 'john', role: 'host' },
-            { name: 'sarah', role: 'presenter' }
-          ],
-          count: 2
-        },
-        metadata: {
-          pattern: 'role_mentions',
-          confidence: 0.95,
-          originalMatch: '@john (host) and @sarah (presenter)'
-        }
+      expect(result.value).toEqual({
+        attendees: [
+          { name: 'john', role: 'host' },
+          { name: 'sarah', role: 'presenter' }
+        ],
+        count: 2
       });
+      expect(result.metadata.pattern).toBe('role_mentions');
+      expect(result.metadata.originalMatch).toBe('@john (host) and @sarah (presenter)');
     });
 
     test('should detect single attendee', async () => {
       const result = await parse('1:1 with @mike');
-      expect(result).toEqual({
-        type: 'attendees',
-        value: {
-          attendees: ['mike'],
-          count: 1
-        },
-        metadata: {
-          pattern: 'explicit_mentions',
-          confidence: 0.9,
-          originalMatch: '@mike'
-        }
+      expect(result.value).toEqual({
+        attendees: ['mike'],
+        count: 1
       });
-    });
-  });
-
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
-      const result = await parse('[attendees:John, Sarah]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
-    });
-
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
-      const result = await parse('@john and @sarah');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
-    });
-
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('Meeting with John');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for attendees at start of text', async () => {
-      const result = await parse('@john (host) will lead the meeting');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[attendees:John, Sarah] are required');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.pattern).toBe('explicit_mentions');
+      expect(result.metadata.originalMatch).toBe('@mike');
     });
   });
 

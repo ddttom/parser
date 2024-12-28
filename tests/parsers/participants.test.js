@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/participants.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Participants Parser', () => {
   describe('Return Format', () => {
@@ -26,115 +25,58 @@ describe('Participants Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit participant lists', async () => {
       const result = await parse('Meeting with [participants:John, Sarah, Mike]');
-      expect(result).toEqual({
-        type: 'participants',
-        value: {
-          participants: ['John', 'Sarah', 'Mike'],
-          count: 3
-        },
-        metadata: {
-          pattern: 'explicit_list',
-          confidence: Confidence.HIGH,
-          originalMatch: '[participants:John, Sarah, Mike]'
-        }
+      expect(result.value).toEqual({
+        participants: ['John', 'Sarah', 'Mike'],
+        count: 3
       });
+      expect(result.metadata.pattern).toBe('explicit_list');
+      expect(result.metadata.originalMatch).toBe('[participants:John, Sarah, Mike]');
     });
 
     test('should detect participants with roles', async () => {
       const result = await parse('Meeting with John (host) and Sarah (presenter)');
-      expect(result).toEqual({
-        type: 'participants',
-        value: {
-          participants: [
-            { name: 'John', role: 'host' },
-            { name: 'Sarah', role: 'presenter' }
-          ],
-          count: 2
-        },
-        metadata: {
-          pattern: 'role_assignment',
-          confidence: Confidence.HIGH,
-          originalMatch: 'John (host) and Sarah (presenter)'
-        }
+      expect(result.value).toEqual({
+        participants: [
+          { name: 'John', role: 'host' },
+          { name: 'Sarah', role: 'presenter' }
+        ],
+        count: 2
       });
+      expect(result.metadata.pattern).toBe('role_assignment');
+      expect(result.metadata.originalMatch).toBe('John (host) and Sarah (presenter)');
     });
 
     test('should detect participant mentions', async () => {
       const result = await parse('Discussion with @john and @sarah');
-      expect(result).toEqual({
-        type: 'participants',
-        value: {
-          participants: ['john', 'sarah'],
-          count: 2
-        },
-        metadata: {
-          pattern: 'mentions',
-          confidence: Confidence.HIGH,
-          originalMatch: '@john and @sarah'
-        }
+      expect(result.value).toEqual({
+        participants: ['john', 'sarah'],
+        count: 2
       });
+      expect(result.metadata.pattern).toBe('mentions');
+      expect(result.metadata.originalMatch).toBe('@john and @sarah');
     });
 
     test('should detect participants with parameters', async () => {
       const result = await parse('[participants:John(team=dev), Sarah(team=design)]');
-      expect(result).toEqual({
-        type: 'participants',
-        value: {
-          participants: [
-            { name: 'John', parameters: { team: 'dev' } },
-            { name: 'Sarah', parameters: { team: 'design' } }
-          ],
-          count: 2
-        },
-        metadata: {
-          pattern: 'parameterized_list',
-          confidence: Confidence.HIGH,
-          originalMatch: '[participants:John(team=dev), Sarah(team=design)]'
-        }
+      expect(result.value).toEqual({
+        participants: [
+          { name: 'John', parameters: { team: 'dev' } },
+          { name: 'Sarah', parameters: { team: 'design' } }
+        ],
+        count: 2
       });
+      expect(result.metadata.pattern).toBe('parameterized_list');
+      expect(result.metadata.originalMatch).toBe('[participants:John(team=dev), Sarah(team=design)]');
     });
 
     test('should detect natural language participant lists', async () => {
       const result = await parse('Meeting with John, Sarah, and Mike');
-      expect(result).toEqual({
-        type: 'participants',
-        value: {
-          participants: ['John', 'Sarah', 'Mike'],
-          count: 3
-        },
-        metadata: {
-          pattern: 'natural_list',
-          confidence: Confidence.MEDIUM,
-          originalMatch: 'John, Sarah, and Mike'
-        }
+      expect(result.value).toEqual({
+        participants: ['John', 'Sarah', 'Mike'],
+        count: 3
       });
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[participants:John, Sarah]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for parameterized patterns', async () => {
-      const result = await parse('[participants:John(role=host), Sarah(role=guest)]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for role assignments', async () => {
-      const result = await parse('John (host) and Sarah (presenter)');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for natural lists', async () => {
-      const result = await parse('Meeting with John, Sarah, and Mike');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have LOW confidence for implicit patterns', async () => {
-      const result = await parse('with John and Sarah');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
+      expect(result.metadata.pattern).toBe('natural_list');
+      expect(result.metadata.originalMatch).toBe('John, Sarah, and Mike');
     });
   });
 

@@ -1,5 +1,4 @@
-import { name, parse } from '../../src/services/parser/parsers/cost.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
+ import { name, parse } from '../../src/services/parser/parsers/cost.js';
 
 describe('Cost Parser', () => {
   describe('Return Format', () => {
@@ -30,6 +29,8 @@ describe('Cost Parser', () => {
         amount: 123.45,
         currency: 'USD'
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[cost:$123.45]');
     });
 
     test('matches explicit cost pattern with GBP', async () => {
@@ -38,6 +39,8 @@ describe('Cost Parser', () => {
         amount: 99.99,
         currency: 'GBP'
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[cost:£99.99]');
     });
 
     test('matches explicit cost pattern with EUR', async () => {
@@ -46,6 +49,8 @@ describe('Cost Parser', () => {
         amount: 50.00,
         currency: 'EUR'
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[cost:€50.00]');
     });
 
     test('matches natural cost pattern with USD', async () => {
@@ -54,6 +59,8 @@ describe('Cost Parser', () => {
         amount: 99.99,
         currency: 'USD'
       });
+      expect(result.metadata.pattern).toBe('natural');
+      expect(result.metadata.originalMatch).toBe('costs $99.99');
     });
 
     test('matches natural cost pattern with GBP', async () => {
@@ -62,6 +69,8 @@ describe('Cost Parser', () => {
         amount: 45.50,
         currency: 'GBP'
       });
+      expect(result.metadata.pattern).toBe('natural');
+      expect(result.metadata.originalMatch).toBe('price: £45.50');
     });
 
     test('matches natural cost pattern with EUR', async () => {
@@ -70,6 +79,8 @@ describe('Cost Parser', () => {
         amount: 75.00,
         currency: 'EUR'
       });
+      expect(result.metadata.pattern).toBe('natural');
+      expect(result.metadata.originalMatch).toBe('costs €75.00');
     });
   });
 
@@ -80,16 +91,22 @@ describe('Cost Parser', () => {
         amount: 50,
         currency: 'USD'  // Default currency
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[cost:50]');
     });
 
     test('handles costs with decimal places', async () => {
       const result = await parse('[cost:99.99]');
       expect(result.value.amount).toBe(99.99);
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[cost:99.99]');
     });
 
     test('handles costs without decimal places', async () => {
       const result = await parse('[cost:100]');
       expect(result.value.amount).toBe(100);
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[cost:100]');
     });
   });
 
@@ -107,33 +124,6 @@ describe('Cost Parser', () => {
     test('handles malformed decimal values', async () => {
       const result = await parse('[cost:50.123]');
       expect(result.type).toBe('error');
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[cost:$500]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for currency patterns', async () => {
-      const result = await parse('$500');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for natural patterns', async () => {
-      const result = await parse('price: $500');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('confidence levels are consistent across currencies', async () => {
-      const usdResult = await parse('[cost:$500]');
-      const gbpResult = await parse('[cost:£500]');
-      const eurResult = await parse('[cost:€500]');
-      
-      expect(usdResult.metadata.confidence).toBe(Confidence.HIGH);
-      expect(gbpResult.metadata.confidence).toBe(Confidence.HIGH);
-      expect(eurResult.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

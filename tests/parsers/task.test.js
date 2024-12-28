@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/task.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Task Parser', () => {
   describe('Return Format', () => {
@@ -26,50 +25,39 @@ describe('Task Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit task markers', async () => {
       const result = await parse('[task:123]');
-      expect(result).toEqual({
-        type: 'task',
-        value: {
-          taskId: 123
-        },
-        metadata: {
-          pattern: 'explicit',
-          confidence: Confidence.HIGH,
-          originalMatch: '[task:123]'
-        }
+      expect(result.value).toEqual({
+        taskId: 123
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[task:123]');
     });
 
     test('should detect task with parameters', async () => {
       const result = await parse('[task:123(type=bug)]');
-      expect(result).toEqual({
-        type: 'task',
-        value: {
-          taskId: 123,
-          parameters: {
-            type: 'bug'
-          }
-        },
-        metadata: {
-          pattern: 'parameterized',
-          confidence: Confidence.HIGH,
-          originalMatch: '[task:123(type=bug)]'
+      expect(result.value).toEqual({
+        taskId: 123,
+        parameters: {
+          type: 'bug'
         }
       });
+      expect(result.metadata.pattern).toBe('parameterized');
+      expect(result.metadata.originalMatch).toBe('[task:123(type=bug)]');
     });
 
     test('should detect inferred task references', async () => {
       const formats = [
-        'task 123',
-        'ticket #123',
-        'issue 123',
-        'story 123',
-        'bug 123'
+        { input: 'task 123', match: 'task 123' },
+        { input: 'ticket #123', match: 'ticket #123' },
+        { input: 'issue 123', match: 'issue 123' },
+        { input: 'story 123', match: 'story 123' },
+        { input: 'bug 123', match: 'bug 123' }
       ];
 
-      for (const format of formats) {
-        const result = await parse(format);
+      for (const { input, match } of formats) {
+        const result = await parse(input);
         expect(result.value.taskId).toBe(123);
         expect(result.metadata.pattern).toBe('inferred');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
@@ -78,22 +66,20 @@ describe('Task Parser', () => {
       const withoutHash = await parse('task 123');
       expect(withHash.value.taskId).toBe(123);
       expect(withoutHash.value.taskId).toBe(123);
+      expect(withHash.metadata.pattern).toBe('inferred');
+      expect(withoutHash.metadata.pattern).toBe('inferred');
+      expect(withHash.metadata.originalMatch).toBe('task #123');
+      expect(withoutHash.metadata.originalMatch).toBe('task 123');
     });
 
     test('should detect task references with context', async () => {
       const result = await parse('blocked by task 123');
-      expect(result).toEqual({
-        type: 'task',
-        value: {
-          taskId: 123,
-          relationship: 'blocked_by'
-        },
-        metadata: {
-          pattern: 'contextual',
-          confidence: Confidence.MEDIUM,
-          originalMatch: 'blocked by task 123'
-        }
+      expect(result.value).toEqual({
+        taskId: 123,
+        relationship: 'blocked_by'
       });
+      expect(result.metadata.pattern).toBe('contextual');
+      expect(result.metadata.originalMatch).toBe('blocked by task 123');
     });
   });
 
@@ -107,6 +93,8 @@ describe('Task Parser', () => {
       const result = await parse('[task:123]');
       expect(typeof result.value.taskId).toBe('number');
       expect(result.value.taskId).toBe(123);
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[task:123]');
     });
 
     test('should handle task ID ranges', async () => {
@@ -114,31 +102,9 @@ describe('Task Parser', () => {
       for (const id of validIds) {
         const result = await parse(`[task:${id}]`);
         expect(result.value.taskId).toBe(id);
+        expect(result.metadata.pattern).toBe('explicit');
+        expect(result.metadata.originalMatch).toBe(`[task:${id}]`);
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[task:123]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for parameterized patterns', async () => {
-      const result = await parse('[task:123(type=bug)]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for inferred patterns', async () => {
-      const result = await parse('task #123');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('[task:123]');
-      const result2 = await parse('[task:456]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

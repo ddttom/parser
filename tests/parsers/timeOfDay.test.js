@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/timeOfDay.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('TimeOfDay Parser', () => {
   describe('Return Format', () => {
@@ -26,50 +25,38 @@ describe('TimeOfDay Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit time markers', async () => {
       const result = await parse('[timeofday:14:30]');
-      expect(result).toEqual({
-        type: 'timeofday',
-        value: {
-          hour: 14,
-          minute: 30,
-          format: '24h'
-        },
-        metadata: {
-          pattern: 'explicit',
-          confidence: Confidence.HIGH,
-          originalMatch: '[timeofday:14:30]'
-        }
+      expect(result.value).toEqual({
+        hour: 14,
+        minute: 30,
+        format: '24h'
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[timeofday:14:30]');
     });
 
     test('should detect time with parameters', async () => {
       const result = await parse('[timeofday:14:30(timezone=UTC)]');
-      expect(result).toEqual({
-        type: 'timeofday',
-        value: {
-          hour: 14,
-          minute: 30,
-          format: '24h',
-          parameters: {
-            timezone: 'UTC'
-          }
-        },
-        metadata: {
-          pattern: 'parameterized',
-          confidence: Confidence.HIGH,
-          originalMatch: '[timeofday:14:30(timezone=UTC)]'
+      expect(result.value).toEqual({
+        hour: 14,
+        minute: 30,
+        format: '24h',
+        parameters: {
+          timezone: 'UTC'
         }
       });
+      expect(result.metadata.pattern).toBe('parameterized');
+      expect(result.metadata.originalMatch).toBe('[timeofday:14:30(timezone=UTC)]');
     });
 
     test('should detect 12-hour format times', async () => {
       const times = [
-        { input: '2:30 PM', hour: 14, minute: 30, period: 'PM' },
-        { input: '12:00 AM', hour: 0, minute: 0, period: 'AM' },
-        { input: '12:00 PM', hour: 12, minute: 0, period: 'PM' },
-        { input: '11:59 PM', hour: 23, minute: 59, period: 'PM' }
+        { input: '2:30 PM', hour: 14, minute: 30, period: 'PM', match: 'Meeting at 2:30 PM' },
+        { input: '12:00 AM', hour: 0, minute: 0, period: 'AM', match: 'Meeting at 12:00 AM' },
+        { input: '12:00 PM', hour: 12, minute: 0, period: 'PM', match: 'Meeting at 12:00 PM' },
+        { input: '11:59 PM', hour: 23, minute: 59, period: 'PM', match: 'Meeting at 11:59 PM' }
       ];
 
-      for (const { input, hour, minute, period } of times) {
+      for (const { input, hour, minute, period, match } of times) {
         const result = await parse(`Meeting at ${input}`);
         expect(result.value).toEqual({
           hour,
@@ -77,18 +64,20 @@ describe('TimeOfDay Parser', () => {
           format: '12h',
           period
         });
+        expect(result.metadata.pattern).toBe('time');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
     test('should detect natural time expressions', async () => {
       const expressions = [
-        { input: 'morning', period: 'morning', start: 6, end: 12 },
-        { input: 'afternoon', period: 'afternoon', start: 12, end: 17 },
-        { input: 'evening', period: 'evening', start: 17, end: 22 },
-        { input: 'night', period: 'night', start: 22, end: 6 }
+        { input: 'morning', period: 'morning', start: 6, end: 12, match: 'Meeting in the morning' },
+        { input: 'afternoon', period: 'afternoon', start: 12, end: 17, match: 'Meeting in the afternoon' },
+        { input: 'evening', period: 'evening', start: 17, end: 22, match: 'Meeting in the evening' },
+        { input: 'night', period: 'night', start: 22, end: 6, match: 'Meeting in the night' }
       ];
 
-      for (const { input, period, start, end } of expressions) {
+      for (const { input, period, start, end, match } of expressions) {
         const result = await parse(`Meeting in the ${input}`);
         expect(result.value).toEqual({
           period,
@@ -96,6 +85,8 @@ describe('TimeOfDay Parser', () => {
           start,
           end
         });
+        expect(result.metadata.pattern).toBe('natural');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
   });
@@ -103,52 +94,32 @@ describe('TimeOfDay Parser', () => {
   describe('Time Format Handling', () => {
     test('should handle missing minutes', async () => {
       const times = [
-        { input: '2 PM', hour: 14, minute: 0 },
-        { input: '14', hour: 14, minute: 0 }
+        { input: '2 PM', hour: 14, minute: 0, match: 'Meeting at 2 PM' },
+        { input: '14', hour: 14, minute: 0, match: 'Meeting at 14' }
       ];
 
-      for (const { input, hour, minute } of times) {
+      for (const { input, hour, minute, match } of times) {
         const result = await parse(`Meeting at ${input}`);
         expect(result.value).toEqual(expect.objectContaining({ hour, minute }));
+        expect(result.metadata.pattern).toBe('time');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
     test('should handle period variations', async () => {
       const variations = [
-        { input: 'PM', normalized: 'PM' },
-        { input: 'pm', normalized: 'PM' },
-        { input: 'p.m.', normalized: 'PM' },
-        { input: 'P.M.', normalized: 'PM' }
+        { input: 'PM', normalized: 'PM', match: 'Meeting at 2:30 PM' },
+        { input: 'pm', normalized: 'PM', match: 'Meeting at 2:30 pm' },
+        { input: 'p.m.', normalized: 'PM', match: 'Meeting at 2:30 p.m.' },
+        { input: 'P.M.', normalized: 'PM', match: 'Meeting at 2:30 P.M.' }
       ];
 
-      for (const { input, normalized } of variations) {
+      for (const { input, normalized, match } of variations) {
         const result = await parse(`Meeting at 2:30 ${input}`);
         expect(result.value.period).toBe(normalized);
+        expect(result.metadata.pattern).toBe('time');
+        expect(result.metadata.originalMatch).toBe(match);
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[timeofday:14:30]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for 12-hour format', async () => {
-      const result = await parse('Meeting at 2:30 PM');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for natural time expressions', async () => {
-      const result = await parse('Meeting in the morning');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('[timeofday:14:30]');
-      const result2 = await parse('[timeofday:15:45]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

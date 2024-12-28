@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/context.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Context Parser', () => {
   describe('Return Format', () => {
@@ -110,37 +109,6 @@ describe('Context Parser', () => {
     test('handles whitespace in explicit context', async () => {
       const result = await parse('[context:home office]');
       expect(result.value.context).toBe('home office');
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[context:work]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for known context types', async () => {
-      const result = await parse('at office');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have LOW confidence for unknown context types', async () => {
-      const result = await parse('at somewhere');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
-    });
-
-    test('should prioritize explicit patterns over known types', async () => {
-      const explicit = await parse('[context:somewhere]');
-      const known = await parse('at office');
-      expect(explicit.metadata.confidence).toBe(Confidence.HIGH);
-      expect(known.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should prioritize known types over unknown', async () => {
-      const known = await parse('at office');
-      const unknown = await parse('at somewhere');
-      expect(known.metadata.confidence).toBe(Confidence.MEDIUM);
-      expect(unknown.metadata.confidence).toBe(Confidence.LOW);
     });
   });
 

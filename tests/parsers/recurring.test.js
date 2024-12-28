@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/recurring.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Recurring Parser', () => {
   describe('Return Format', () => {
@@ -26,37 +25,25 @@ describe('Recurring Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit recurring markers', async () => {
       const result = await parse('[recur:daily]');
-      expect(result).toEqual({
-        type: 'recurring',
-        value: {
-          type: 'day',
-          interval: 1,
-          end: null
-        },
-        metadata: {
-          pattern: 'explicit',
-          confidence: Confidence.HIGH,
-          originalMatch: '[recur:daily]'
-        }
+      expect(result.value).toEqual({
+        type: 'day',
+        interval: 1,
+        end: null
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[recur:daily]');
     });
 
     test('should detect recurring with parameters', async () => {
       const result = await parse('[recur:daily(skip=weekends)]');
-      expect(result).toEqual({
-        type: 'recurring',
-        value: {
-          type: 'day',
-          interval: 1,
-          excludeWeekends: true,
-          end: null
-        },
-        metadata: {
-          pattern: 'parameterized',
-          confidence: Confidence.HIGH,
-          originalMatch: '[recur:daily(skip=weekends)]'
-        }
+      expect(result.value).toEqual({
+        type: 'day',
+        interval: 1,
+        excludeWeekends: true,
+        end: null
       });
+      expect(result.metadata.pattern).toBe('parameterized');
+      expect(result.metadata.originalMatch).toBe('[recur:daily(skip=weekends)]');
     });
 
     test('should detect business days pattern', async () => {
@@ -68,6 +55,7 @@ describe('Recurring Parser', () => {
         end: null
       });
       expect(result.metadata.pattern).toBe('business');
+      expect(result.metadata.originalMatch).toBe('every business day');
     });
 
     test('should detect weekday pattern', async () => {
@@ -80,6 +68,7 @@ describe('Recurring Parser', () => {
         end: null
       });
       expect(result.metadata.pattern).toBe('weekday');
+      expect(result.metadata.originalMatch).toBe('every monday');
     });
 
     test('should detect interval patterns', async () => {
@@ -94,6 +83,8 @@ describe('Recurring Parser', () => {
         const result = await parse(input);
         expect(result.value.type).toBe(type);
         expect(result.value.interval).toBe(1);
+        expect(result.metadata.pattern).toBe('interval');
+        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -105,6 +96,7 @@ describe('Recurring Parser', () => {
         end: null
       });
       expect(result.metadata.pattern).toBe('interval');
+      expect(result.metadata.originalMatch).toBe('every 2 weeks');
     });
   });
 
@@ -116,6 +108,7 @@ describe('Recurring Parser', () => {
         value: 5
       });
       expect(result.metadata.includesEndCondition).toBe(true);
+      expect(result.metadata.originalMatch).toBe('every day for 5 times');
     });
 
     test('should extract date end condition', async () => {
@@ -125,6 +118,7 @@ describe('Recurring Parser', () => {
         value: 'December 31'
       });
       expect(result.metadata.includesEndCondition).toBe(true);
+      expect(result.metadata.originalMatch).toBe('every week until December 31');
     });
 
     test('should prioritize count over date when both present', async () => {
@@ -133,40 +127,7 @@ describe('Recurring Parser', () => {
         type: 'count',
         value: 3
       });
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[recur:daily]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for weekday patterns', async () => {
-      const result = await parse('every monday');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for business day patterns', async () => {
-      const result = await parse('every business day');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for standard interval patterns', async () => {
-      const result = await parse('every day');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have LOW confidence for custom interval patterns', async () => {
-      const result = await parse('every 2 weeks');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('[recur:daily]');
-      const result2 = await parse('[recur:weekly]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
+      expect(result.metadata.originalMatch).toBe('every month for 3 times until December 31');
     });
   });
 

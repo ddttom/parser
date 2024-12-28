@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/dependencies.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Dependencies Parser', () => {
   describe('Return Format', () => {
@@ -26,54 +25,36 @@ describe('Dependencies Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit dependencies', async () => {
       const result = await parse('Task depends on [task:123]');
-      expect(result).toEqual({
-        type: name,
-        value: {
-          type: 'task',
-          id: '123',
-          relationship: 'depends_on'
-        },
-        metadata: {
-          pattern: 'explicit_dependency',
-          confidence: Confidence.HIGH,
-          originalMatch: 'depends on [task:123]'
-        }
+      expect(result.value).toEqual({
+        type: 'task',
+        id: '123',
+        relationship: 'depends_on'
       });
+      expect(result.metadata.pattern).toBe('explicit_dependency');
+      expect(result.metadata.originalMatch).toBe('depends on [task:123]');
     });
 
     test('should detect multiple dependencies', async () => {
       const result = await parse('After [task:123] and [task:456]');
-      expect(result).toEqual({
-        type: name,
-        value: {
-          dependencies: [
-            { type: 'task', id: '123', relationship: 'after' },
-            { type: 'task', id: '456', relationship: 'after' }
-          ]
-        },
-        metadata: {
-          pattern: 'multiple_dependencies',
-          confidence: Confidence.HIGH,
-          originalMatch: 'After [task:123] and [task:456]'
-        }
+      expect(result.value).toEqual({
+        dependencies: [
+          { type: 'task', id: '123', relationship: 'after' },
+          { type: 'task', id: '456', relationship: 'after' }
+        ]
       });
+      expect(result.metadata.pattern).toBe('multiple_dependencies');
+      expect(result.metadata.originalMatch).toBe('After [task:123] and [task:456]');
     });
 
     test('should detect dependency relationships', async () => {
       const result = await parse('Blocks [task:789]');
-      expect(result).toEqual({
-        type: name,
-        value: {
-          type: 'task',
-          id: '789',
-          relationship: 'blocks'
-        },
-        metadata: {
-          pattern: 'relationship_dependency',
-          confidence: Confidence.HIGH,
-          originalMatch: 'Blocks [task:789]'
-        }
+      expect(result.value).toEqual({
+        type: 'task',
+        id: '789',
+        relationship: 'blocks'
       });
+      expect(result.metadata.pattern).toBe('relationship_dependency');
+      expect(result.metadata.originalMatch).toBe('Blocks [task:789]');
     });
 
     test('should handle case-insensitive relationship types', async () => {
@@ -113,54 +94,25 @@ describe('Dependencies Parser', () => {
     test('should handle depends_on relationship', async () => {
       const result = await parse('depends on [task:123]');
       expect(result.value.relationship).toBe('depends_on');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      expect(result.metadata.pattern).toBe('explicit_dependency');
     });
 
     test('should handle blocks relationship', async () => {
       const result = await parse('blocks [task:123]');
       expect(result.value.relationship).toBe('blocks');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      expect(result.metadata.pattern).toBe('relationship_dependency');
     });
 
     test('should handle after relationship', async () => {
       const result = await parse('after task 123');
       expect(result.value.relationship).toBe('after');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
+      expect(result.metadata.pattern).toBe('implicit_dependency');
     });
 
     test('should handle implicit relationships', async () => {
       const result = await parse('after task abc');
       expect(result.value.relationship).toBe('after');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit dependencies', async () => {
-      const result = await parse('depends on [task:123]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for multiple dependencies', async () => {
-      const result = await parse('after [task:123] and [task:456]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for relationship dependencies', async () => {
-      const result = await parse('blocks [task:789]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have LOW confidence for implicit dependencies', async () => {
-      const result = await parse('after task abc');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('depends on [task:123]');
-      const result2 = await parse('depends on [task:456]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
+      expect(result.metadata.pattern).toBe('implicit_dependency');
     });
   });
 

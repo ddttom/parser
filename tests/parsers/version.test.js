@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/version.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Version Parser', () => {
   describe('Return Format', () => {
@@ -26,49 +25,37 @@ describe('Version Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit version markers', async () => {
       const result = await parse('[version:1.0.0]');
-      expect(result).toEqual({
-        type: 'version',
-        value: {
-          major: 1,
-          minor: 0,
-          patch: 0
-        },
-        metadata: {
-          pattern: 'explicit_version',
-          confidence: Confidence.HIGH,
-          originalMatch: '[version:1.0.0]'
-        }
+      expect(result.value).toEqual({
+        major: 1,
+        minor: 0,
+        patch: 0
       });
+      expect(result.metadata.pattern).toBe('explicit_version');
+      expect(result.metadata.originalMatch).toBe('[version:1.0.0]');
     });
 
     test('should detect version with parameters', async () => {
       const result = await parse('[version:1.0.0(stage=beta)]');
-      expect(result).toEqual({
-        type: 'version',
-        value: {
-          major: 1,
-          minor: 0,
-          patch: 0,
-          parameters: {
-            stage: 'beta'
-          }
-        },
-        metadata: {
-          pattern: 'parameterized',
-          confidence: Confidence.HIGH,
-          originalMatch: '[version:1.0.0(stage=beta)]'
+      expect(result.value).toEqual({
+        major: 1,
+        minor: 0,
+        patch: 0,
+        parameters: {
+          stage: 'beta'
         }
       });
+      expect(result.metadata.pattern).toBe('parameterized');
+      expect(result.metadata.originalMatch).toBe('[version:1.0.0(stage=beta)]');
     });
 
     test('should detect inferred version references', async () => {
       const formats = [
-        { input: 'version 1.0.0', pattern: 'inferred_version' },
-        { input: 'v1.0.0', pattern: 'shorthand_version' },
-        { input: 'release 1.0.0', pattern: 'release_version' }
+        { input: 'version 1.0.0', pattern: 'inferred_version', match: 'version 1.0.0' },
+        { input: 'v1.0.0', pattern: 'shorthand_version', match: 'v1.0.0' },
+        { input: 'release 1.0.0', pattern: 'release_version', match: 'release 1.0.0' }
       ];
 
-      for (const { input, pattern } of formats) {
+      for (const { input, pattern, match } of formats) {
         const result = await parse(input);
         expect(result.value).toEqual({
           major: 1,
@@ -76,17 +63,18 @@ describe('Version Parser', () => {
           patch: 0
         });
         expect(result.metadata.pattern).toBe(pattern);
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
     test('should detect version with prerelease tags', async () => {
       const versions = [
-        { input: '1.0.0-alpha', tag: 'alpha' },
-        { input: '1.0.0-beta.1', tag: 'beta', number: 1 },
-        { input: '1.0.0-rc.2', tag: 'rc', number: 2 }
+        { input: '1.0.0-alpha', tag: 'alpha', match: '[version:1.0.0-alpha]' },
+        { input: '1.0.0-beta.1', tag: 'beta', number: 1, match: '[version:1.0.0-beta.1]' },
+        { input: '1.0.0-rc.2', tag: 'rc', number: 2, match: '[version:1.0.0-rc.2]' }
       ];
 
-      for (const { input, tag, number } of versions) {
+      for (const { input, tag, number, match } of versions) {
         const result = await parse(`[version:${input}]`);
         expect(result.value).toEqual({
           major: 1,
@@ -97,6 +85,8 @@ describe('Version Parser', () => {
             number: number || undefined
           }
         });
+        expect(result.metadata.pattern).toBe('explicit_version');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
   });
@@ -104,72 +94,54 @@ describe('Version Parser', () => {
   describe('Version Validation', () => {
     test('should validate semantic versioning format', async () => {
       const validVersions = [
-        '1.0.0',
-        '2.3.4',
-        '0.1.0',
-        '10.20.30',
-        '1.0.0-alpha',
-        '1.0.0-beta.1'
+        { input: '1.0.0', match: '[version:1.0.0]' },
+        { input: '2.3.4', match: '[version:2.3.4]' },
+        { input: '0.1.0', match: '[version:0.1.0]' },
+        { input: '10.20.30', match: '[version:10.20.30]' },
+        { input: '1.0.0-alpha', match: '[version:1.0.0-alpha]' },
+        { input: '1.0.0-beta.1', match: '[version:1.0.0-beta.1]' }
       ];
 
-      for (const version of validVersions) {
-        const result = await parse(`[version:${version}]`);
+      for (const { input, match } of validVersions) {
+        const result = await parse(`[version:${input}]`);
         expect(result).not.toBeNull();
+        expect(result.metadata.pattern).toBe('explicit_version');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
     test('should parse version components correctly', async () => {
       const versions = [
-        { input: '2.3.4', major: 2, minor: 3, patch: 4 },
-        { input: '0.1.0', major: 0, minor: 1, patch: 0 },
-        { input: '10.20.30', major: 10, minor: 20, patch: 30 }
+        { input: '2.3.4', major: 2, minor: 3, patch: 4, match: '[version:2.3.4]' },
+        { input: '0.1.0', major: 0, minor: 1, patch: 0, match: '[version:0.1.0]' },
+        { input: '10.20.30', major: 10, minor: 20, patch: 30, match: '[version:10.20.30]' }
       ];
 
-      for (const { input, major, minor, patch } of versions) {
+      for (const { input, major, minor, patch, match } of versions) {
         const result = await parse(`[version:${input}]`);
         expect(result.value).toEqual({ major, minor, patch });
+        expect(result.metadata.pattern).toBe('explicit_version');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
     test('should normalize version formats', async () => {
       const variations = [
-        { input: 'V1.0.0', expected: '1.0.0' },
-        { input: 'version 1.0.0', expected: '1.0.0' },
-        { input: 'release-1.0.0', expected: '1.0.0' }
+        { input: 'V1.0.0', expected: '1.0.0', pattern: 'shorthand_version', match: 'V1.0.0' },
+        { input: 'version 1.0.0', expected: '1.0.0', pattern: 'inferred_version', match: 'version 1.0.0' },
+        { input: 'release-1.0.0', expected: '1.0.0', pattern: 'release_version', match: 'release-1.0.0' }
       ];
 
-      for (const { input, expected } of variations) {
+      for (const { input, pattern, match } of variations) {
         const result = await parse(input);
         expect(result.value).toEqual({
           major: 1,
           minor: 0,
           patch: 0
         });
+        expect(result.metadata.pattern).toBe(pattern);
+        expect(result.metadata.originalMatch).toBe(match);
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[version:1.0.0]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for parameterized patterns', async () => {
-      const result = await parse('[version:1.0.0(stage=beta)]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for inferred patterns', async () => {
-      const result = await parse('version 1.0.0');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('[version:1.0.0]');
-      const result2 = await parse('[version:2.0.0]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

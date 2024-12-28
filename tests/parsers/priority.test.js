@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/priority.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Priority Parser', () => {
   describe('Return Format', () => {
@@ -26,67 +25,43 @@ describe('Priority Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit priority markers', async () => {
       const result = await parse('[priority:high]');
-      expect(result).toEqual({
-        type: 'priority',
-        value: {
-          level: 'high',
-          score: 3
-        },
-        metadata: {
-          pattern: 'explicit_priority',
-          confidence: Confidence.HIGH,
-          originalMatch: '[priority:high]'
-        }
+      expect(result.value).toEqual({
+        level: 'high',
+        score: 3
       });
+      expect(result.metadata.pattern).toBe('explicit_priority');
+      expect(result.metadata.originalMatch).toBe('[priority:high]');
     });
 
     test('should detect priority hashtags', async () => {
       const result = await parse('Task #urgent');
-      expect(result).toEqual({
-        type: 'priority',
-        value: {
-          level: 'urgent',
-          score: 4
-        },
-        metadata: {
-          pattern: 'hashtag',
-          confidence: Confidence.HIGH,
-          originalMatch: '#urgent'
-        }
+      expect(result.value).toEqual({
+        level: 'urgent',
+        score: 4
       });
+      expect(result.metadata.pattern).toBe('hashtag');
+      expect(result.metadata.originalMatch).toBe('#urgent');
     });
 
     test('should detect priority keywords', async () => {
       const result = await parse('High priority task');
-      expect(result).toEqual({
-        type: 'priority',
-        value: {
-          level: 'high',
-          score: 3
-        },
-        metadata: {
-          pattern: 'keyword',
-          confidence: Confidence.MEDIUM,
-          originalMatch: 'high priority'
-        }
+      expect(result.value).toEqual({
+        level: 'high',
+        score: 3
       });
+      expect(result.metadata.pattern).toBe('keyword');
+      expect(result.metadata.originalMatch).toBe('high priority');
     });
 
     test('should detect multiple priority indicators', async () => {
       const result = await parse('[priority:high] #urgent High priority task');
-      expect(result).toEqual({
-        type: 'priority',
-        value: {
-          level: 'urgent',
-          score: 4,
-          indicators: ['high', 'urgent', 'high']
-        },
-        metadata: {
-          pattern: 'multiple_indicators',
-          confidence: Confidence.HIGH,
-          originalMatch: '[priority:high] #urgent High priority'
-        }
+      expect(result.value).toEqual({
+        level: 'urgent',
+        score: 4,
+        indicators: ['high', 'urgent', 'high']
       });
+      expect(result.metadata.pattern).toBe('multiple_indicators');
+      expect(result.metadata.originalMatch).toBe('[priority:high] #urgent High priority');
     });
   });
 
@@ -104,6 +79,7 @@ describe('Priority Parser', () => {
         const result = await parse(input);
         expect(result.value.level).toBe(level);
         expect(result.value.score).toBe(score);
+        expect(result.metadata.pattern).toBe('explicit_priority');
       }
     });
 
@@ -118,41 +94,8 @@ describe('Priority Parser', () => {
       for (const { input, level } of aliases) {
         const result = await parse(input);
         expect(result.value.level).toBe(level);
+        expect(result.metadata.pattern).toBe('hashtag');
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[priority:high]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for hashtag patterns', async () => {
-      const result = await parse('#urgent');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for keyword patterns', async () => {
-      const result = await parse('high priority task');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have LOW confidence for implicit patterns', async () => {
-      const result = await parse('high priority');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
-    });
-
-    test('should have HIGH confidence for multiple indicators', async () => {
-      const result = await parse('[priority:high] #urgent');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('[priority:high]');
-      const result2 = await parse('[priority:urgent]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

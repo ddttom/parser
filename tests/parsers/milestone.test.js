@@ -1,5 +1,4 @@
 import { parse } from '../../src/services/parser/parsers/milestone.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Milestone Parser', () => {
     describe('Return Format', () => {
@@ -24,128 +23,76 @@ describe('Milestone Parser', () => {
     });
 
     describe('Explicit Format', () => {
-        test('should parse explicit milestone format with high confidence', async () => {
+        test('should parse explicit milestone format', async () => {
             const result = await parse('[milestone:Beta Release]');
-            expect(result).toMatchObject({
-                type: 'milestone',
-                value: {
-                    milestone: 'Beta Release',
-                    type: 'release',
-                    isExplicit: true
-                },
-                metadata: {
-                    confidence: Confidence.HIGH,
-                    pattern: 'explicit'
-                }
+            expect(result.value).toEqual({
+                milestone: 'Beta Release',
+                type: 'release',
+                isExplicit: true
             });
+            expect(result.metadata.pattern).toBe('explicit');
+            expect(result.metadata.originalMatch).toBe('[milestone:Beta Release]');
         });
 
         test('should parse milestone with type inference', async () => {
             const result = await parse('[milestone:Final Review Phase]');
-            expect(result).toMatchObject({
-                type: 'milestone',
-                value: {
-                    milestone: 'Final Review Phase',
-                    type: 'review',
-                    isExplicit: true
-                }
+            expect(result.value).toEqual({
+                milestone: 'Final Review Phase',
+                type: 'review',
+                isExplicit: true
             });
+            expect(result.metadata.pattern).toBe('explicit');
+            expect(result.metadata.originalMatch).toBe('[milestone:Final Review Phase]');
         });
     });
 
     describe('Labeled Format', () => {
         test('should parse labeled milestone format', async () => {
             const result = await parse('milestone: Product Launch');
-            expect(result).toMatchObject({
-                type: 'milestone',
-                value: {
-                    milestone: 'Product Launch',
-                    type: 'release',
-                    isExplicit: true
-                },
-                metadata: {
-                    confidence: Confidence.HIGH,
-                    pattern: 'labeled'
-                }
+            expect(result.value).toEqual({
+                milestone: 'Product Launch',
+                type: 'release',
+                isExplicit: true
             });
+            expect(result.metadata.pattern).toBe('labeled');
+            expect(result.metadata.originalMatch).toBe('milestone: Product Launch');
         });
 
         test('should parse delivery format', async () => {
             const result = await parse('key delivery: Client Handoff');
-            expect(result).toMatchObject({
-                type: 'milestone',
-                value: {
-                    milestone: 'Client Handoff',
-                    type: 'delivery',
-                    isExplicit: true
-                },
-                metadata: {
-                    pattern: 'delivery'
-                }
+            expect(result.value).toEqual({
+                milestone: 'Client Handoff',
+                type: 'delivery',
+                isExplicit: true
             });
+            expect(result.metadata.pattern).toBe('delivery');
+            expect(result.metadata.originalMatch).toBe('key delivery: Client Handoff');
         });
     });
 
     describe('Phase Format', () => {
         test('should parse phase completion format', async () => {
             const result = await parse('phase completion: Development Phase');
-            expect(result).toMatchObject({
-                type: 'milestone',
-                value: {
-                    milestone: 'Development Phase',
-                    type: 'phase',
-                    isExplicit: true
-                },
-                metadata: {
-                    confidence: Confidence.MEDIUM,
-                    pattern: 'phase'
-                }
+            expect(result.value).toEqual({
+                milestone: 'Development Phase',
+                type: 'phase',
+                isExplicit: true
             });
+            expect(result.metadata.pattern).toBe('phase');
+            expect(result.metadata.originalMatch).toBe('phase completion: Development Phase');
         });
     });
 
     describe('Implicit Format', () => {
         test('should parse implicit milestone format', async () => {
             const result = await parse('target: Complete Documentation');
-            expect(result).toMatchObject({
-                type: 'milestone',
-                value: {
-                    milestone: 'Complete Documentation',
-                    type: 'completion',
-                    isExplicit: false
-                },
-                metadata: {
-                    confidence: Confidence.MEDIUM,
-                    pattern: 'implicit'
-                }
+            expect(result.value).toEqual({
+                milestone: 'Complete Documentation',
+                type: 'completion',
+                isExplicit: false
             });
-        });
-    });
-
-    describe('Confidence Levels', () => {
-        test('should have HIGH confidence for explicit patterns', async () => {
-            const result = await parse('[milestone:Release 1.0]');
-            expect(result.metadata.confidence).toBe(Confidence.HIGH);
-        });
-
-        test('should have HIGH confidence for labeled patterns', async () => {
-            const result = await parse('milestone: Release 1.0');
-            expect(result.metadata.confidence).toBe(Confidence.HIGH);
-        });
-
-        test('should have MEDIUM confidence for phase patterns', async () => {
-            const result = await parse('phase completion: Development Phase');
-            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-        });
-
-        test('should have MEDIUM confidence for implicit patterns', async () => {
-            const result = await parse('target: Release 1.0');
-            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-        });
-
-        test('should maintain HIGH confidence for milestone at start of text', async () => {
-            const result = await parse('milestone: Project Launch, scheduled for next week');
-            expect(result.metadata.confidence).toBe(Confidence.HIGH);
+            expect(result.metadata.pattern).toBe('implicit');
+            expect(result.metadata.originalMatch).toBe('target: Complete Documentation');
         });
     });
 

@@ -1,5 +1,4 @@
 import { name, parse } from '../../src/services/parser/parsers/time.js';
-import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Time Parser', () => {
   describe('Return Format', () => {
@@ -26,76 +25,70 @@ describe('Time Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect explicit time markers', async () => {
       const result = await parse('[time:14:30]');
-      expect(result).toEqual({
-        type: 'time',
-        value: {
-          hours: 14,
-          minutes: 30
-        },
-        metadata: {
-          pattern: 'explicit',
-          confidence: Confidence.HIGH,
-          originalMatch: '[time:14:30]'
-        }
+      expect(result.value).toEqual({
+        hours: 14,
+        minutes: 30
       });
+      expect(result.metadata.pattern).toBe('explicit');
+      expect(result.metadata.originalMatch).toBe('[time:14:30]');
     });
 
     test('should detect time with parameters', async () => {
       const result = await parse('[time:14:30(timezone=UTC)]');
-      expect(result).toEqual({
-        type: 'time',
-        value: {
-          hours: 14,
-          minutes: 30,
-          parameters: {
-            timezone: 'UTC'
-          }
-        },
-        metadata: {
-          pattern: 'parameterized',
-          confidence: Confidence.HIGH,
-          originalMatch: '[time:14:30(timezone=UTC)]'
+      expect(result.value).toEqual({
+        hours: 14,
+        minutes: 30,
+        parameters: {
+          timezone: 'UTC'
         }
       });
+      expect(result.metadata.pattern).toBe('parameterized');
+      expect(result.metadata.originalMatch).toBe('[time:14:30(timezone=UTC)]');
     });
 
     test('should parse 12-hour format', async () => {
       const times = [
-        { input: '2:30pm', hours: 14, minutes: 30 },
-        { input: '12:00am', hours: 0, minutes: 0 },
-        { input: '12:00pm', hours: 12, minutes: 0 },
-        { input: '11:59pm', hours: 23, minutes: 59 }
+        { input: '2:30pm', hours: 14, minutes: 30, match: 'Meeting at 2:30pm' },
+        { input: '12:00am', hours: 0, minutes: 0, match: 'Meeting at 12:00am' },
+        { input: '12:00pm', hours: 12, minutes: 0, match: 'Meeting at 12:00pm' },
+        { input: '11:59pm', hours: 23, minutes: 59, match: 'Meeting at 11:59pm' }
       ];
 
-      for (const { input, hours, minutes } of times) {
+      for (const { input, hours, minutes, match } of times) {
         const result = await parse(`Meeting at ${input}`);
         expect(result.value).toEqual({ hours, minutes });
+        expect(result.metadata.pattern).toBe('time');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
     test('should parse 24-hour format', async () => {
       const times = [
-        { input: '14:30', hours: 14, minutes: 30 },
-        { input: '00:00', hours: 0, minutes: 0 },
-        { input: '12:00', hours: 12, minutes: 0 },
-        { input: '23:59', hours: 23, minutes: 59 }
+        { input: '14:30', hours: 14, minutes: 30, match: 'Meeting at 14:30' },
+        { input: '00:00', hours: 0, minutes: 0, match: 'Meeting at 00:00' },
+        { input: '12:00', hours: 12, minutes: 0, match: 'Meeting at 12:00' },
+        { input: '23:59', hours: 23, minutes: 59, match: 'Meeting at 23:59' }
       ];
 
-      for (const { input, hours, minutes } of times) {
+      for (const { input, hours, minutes, match } of times) {
         const result = await parse(`Meeting at ${input}`);
         expect(result.value).toEqual({ hours, minutes });
+        expect(result.metadata.pattern).toBe('time');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
     test('should handle missing minutes', async () => {
       const times = [
-        { input: '2pm', hours: 14, minutes: 0 },
-        { input: '14', hours: 14, minutes: 0 }
+        { input: '2pm', hours: 14, minutes: 0, match: 'Meeting at 2pm' },
+        { input: '14', hours: 14, minutes: 0, match: 'Meeting at 14' }
       ];
 
-      for (const { input, hours, minutes } of times) {
+      for (const { input, hours, minutes, match } of times) {
         const result = await parse(`Meeting at ${input}`);
         expect(result.value).toEqual({ hours, minutes });
+        expect(result.metadata.pattern).toBe('time');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
   });
@@ -103,19 +96,13 @@ describe('Time Parser', () => {
   describe('Time Periods', () => {
     test('should parse morning period', async () => {
       const result = await parse('Meeting in the morning');
-      expect(result).toEqual({
-        type: 'time',
-        value: {
-          period: 'morning',
-          start: 9,
-          end: 12
-        },
-        metadata: {
-          pattern: 'period',
-          confidence: Confidence.MEDIUM,
-          originalMatch: 'in the morning'
-        }
+      expect(result.value).toEqual({
+        period: 'morning',
+        start: 9,
+        end: 12
       });
+      expect(result.metadata.pattern).toBe('period');
+      expect(result.metadata.originalMatch).toBe('in the morning');
     });
 
     test('should parse afternoon period', async () => {
@@ -125,6 +112,8 @@ describe('Time Parser', () => {
         start: 12,
         end: 17
       });
+      expect(result.metadata.pattern).toBe('period');
+      expect(result.metadata.originalMatch).toBe('in the afternoon');
     });
 
     test('should parse evening period', async () => {
@@ -134,58 +123,28 @@ describe('Time Parser', () => {
         start: 17,
         end: 21
       });
+      expect(result.metadata.pattern).toBe('period');
+      expect(result.metadata.originalMatch).toBe('in the evening');
     });
 
     test('should handle period variations', async () => {
       const periods = [
-        'early morning',
-        'late morning',
-        'early afternoon',
-        'late afternoon',
-        'early evening',
-        'late evening'
+        { input: 'early morning', match: 'Meeting in the early morning' },
+        { input: 'late morning', match: 'Meeting in the late morning' },
+        { input: 'early afternoon', match: 'Meeting in the early afternoon' },
+        { input: 'late afternoon', match: 'Meeting in the late afternoon' },
+        { input: 'early evening', match: 'Meeting in the early evening' },
+        { input: 'late evening', match: 'Meeting in the late evening' }
       ];
 
-      for (const period of periods) {
-        const result = await parse(`Meeting in the ${period}`);
+      for (const { input, match } of periods) {
+        const result = await parse(`Meeting in the ${input}`);
         expect(result.value.period).toBeDefined();
         expect(result.value.start).toBeDefined();
         expect(result.value.end).toBeDefined();
+        expect(result.metadata.pattern).toBe('period');
+        expect(result.metadata.originalMatch).toBe(match);
       }
-    });
-  });
-
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for explicit patterns', async () => {
-      const result = await parse('[time:14:30]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for 24-hour format', async () => {
-      const result = await parse('Meeting at 14:30');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have HIGH confidence for specific 12-hour format', async () => {
-      const result = await parse('Meeting at 2:30pm');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
-
-    test('should have MEDIUM confidence for period patterns', async () => {
-      const result = await parse('Meeting in the morning');
-      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
-    });
-
-    test('should have LOW confidence for action patterns', async () => {
-      const result = await parse('meet at 2');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
-    });
-
-    test('should have consistent confidence for same pattern type', async () => {
-      const result1 = await parse('[time:14:30]');
-      const result2 = await parse('[time:15:45]');
-      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
-      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 
@@ -280,29 +239,30 @@ describe('Time Parser', () => {
 
     test('should handle ambiguous time references', async () => {
       const ambiguous = [
-        "at 2", // Could be 2am or 2pm
-        "around 2", // Approximate time
-        "2-ish", // Informal time
-        "2 o'clock" // Formal but ambiguous
+        { input: "at 2", match: "at 2" }, // Could be 2am or 2pm
+        { input: "around 2", match: "around 2" }, // Approximate time
+        { input: "2-ish", match: "2-ish" }, // Informal time
+        { input: "2 o'clock", match: "2 o'clock" } // Formal but ambiguous
       ];
 
-      for (const input of ambiguous) {
+      for (const { input, match } of ambiguous) {
         const result = await parse(input);
         if (result) {
-          expect(result.metadata.confidence).toBe(Confidence.LOW);
+          expect(result.metadata.pattern).toBe('ambiguous');
+          expect(result.metadata.originalMatch).toBe(match);
         }
       }
     });
 
     test('should handle timezone indicators', async () => {
       const inputs = [
-        "2pm EST",
-        "14:00 UTC",
-        "2:30 PM GMT",
-        "2pm Pacific Time"
+        { input: "2pm EST", match: "2pm EST" },
+        { input: "14:00 UTC", match: "14:00 UTC" },
+        { input: "2:30 PM GMT", match: "2:30 PM GMT" },
+        { input: "2pm Pacific Time", match: "2pm Pacific Time" }
       ];
 
-      for (const input of inputs) {
+      for (const { input, match } of inputs) {
         const result = await parse(input);
         expect(result).not.toBeNull();
         expect(result.value).toEqual({
@@ -310,6 +270,8 @@ describe('Time Parser', () => {
           minutes: expect.any(Number),
           timezone: expect.any(String)
         });
+        expect(result.metadata.pattern).toBe('timezone');
+        expect(result.metadata.originalMatch).toBe(match);
       }
     });
   });
