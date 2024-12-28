@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('StatusParser');
 
@@ -52,7 +53,6 @@ export async function parse(text) {
         };
 
         let bestMatch = null;
-        let highestConfidence = 0;
 
         for (const [pattern, regex] of Object.entries(patterns)) {
             const match = text.match(regex);
@@ -65,7 +65,7 @@ export async function parse(text) {
                     if (!validateProgress(progress)) {
                         continue;
                     }
-                    confidence = 0.80;
+                    confidence = Confidence.MEDIUM;
                     value = { progress };
                 } else {
                     const status = match[1].toLowerCase();
@@ -77,22 +77,26 @@ export async function parse(text) {
 
                     switch (pattern) {
                         case 'explicit':
-                            confidence = 0.95;
+                            confidence = Confidence.HIGH;
                             break;
                         case 'shorthand':
-                            confidence = 0.90;
+                            confidence = Confidence.HIGH;
                             break;
                         case 'state':
-                            confidence = 0.80;
+                            confidence = Confidence.MEDIUM;
                             break;
                         case 'contextual':
-                            confidence = 0.75;
+                            confidence = Confidence.LOW;
                             break;
                     }
                 }
 
-                if (confidence > highestConfidence) {
-                    highestConfidence = confidence;
+                // Update if current confidence is higher or equal priority pattern
+                const shouldUpdate = !bestMatch || 
+                    (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+                    (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+                
+                if (shouldUpdate) {
                     bestMatch = {
                         type: 'status',
                         value,

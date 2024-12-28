@@ -1,4 +1,5 @@
 import { parse } from '../../src/services/parser/parsers/milestone.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Milestone Parser', () => {
     describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Milestone Parser', () => {
         test('should return metadata with required fields', async () => {
             const result = await parse('[milestone:Test Release]');
             expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(Number),
+                confidence: expect.any(String),
                 pattern: expect.any(String),
                 originalMatch: expect.any(String)
             }));
@@ -85,7 +86,7 @@ describe('Milestone Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     pattern: 'explicit'
                 }
             });
@@ -115,7 +116,7 @@ describe('Milestone Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.90,
+                    confidence: Confidence.HIGH,
                     pattern: 'labeled'
                 }
             });
@@ -148,7 +149,7 @@ describe('Milestone Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.85,
+                    confidence: Confidence.MEDIUM,
                     pattern: 'phase'
                 }
             });
@@ -166,37 +167,37 @@ describe('Milestone Parser', () => {
                     isExplicit: false
                 },
                 metadata: {
-                    confidence: 0.80,
+                    confidence: Confidence.MEDIUM,
                     pattern: 'implicit'
                 }
             });
         });
     });
 
-    describe('Confidence Scoring', () => {
-        test('should have high confidence (>=0.90) for explicit patterns', async () => {
+    describe('Confidence Levels', () => {
+        test('should have HIGH confidence for explicit patterns', async () => {
             const result = await parse('[milestone:Release 1.0]');
-            expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
 
-        test('should have medium confidence (>=0.80) for standard patterns', async () => {
+        test('should have HIGH confidence for labeled patterns', async () => {
             const result = await parse('milestone: Release 1.0');
-            expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
 
-        test('should have low confidence (<=0.80) for implicit patterns', async () => {
+        test('should have MEDIUM confidence for phase patterns', async () => {
+            const result = await parse('phase completion: Development Phase');
+            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+        });
+
+        test('should have MEDIUM confidence for implicit patterns', async () => {
             const result = await parse('target: Release 1.0');
-            expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
         });
 
-        test('should increase confidence for milestone at start of text', async () => {
+        test('should maintain HIGH confidence for milestone at start of text', async () => {
             const result = await parse('milestone: Project Launch, scheduled for next week');
-            expect(result.metadata.confidence).toBe(0.95); // 0.90 + 0.05
-        });
-
-        test('should not increase confidence beyond 1.0', async () => {
-            const result = await parse('[milestone:Beta Release] scheduled for next week');
-            expect(result.metadata.confidence).toBe(0.95);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
     });
 

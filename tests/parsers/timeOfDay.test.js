@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/timeOfDay.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('TimeOfDay Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('TimeOfDay Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[timeofday:14:30]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -86,7 +87,7 @@ describe('TimeOfDay Parser', () => {
         },
         metadata: {
           pattern: 'explicit',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[timeofday:14:30]'
         }
       });
@@ -106,7 +107,7 @@ describe('TimeOfDay Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[timeofday:14:30(timezone=UTC)]'
         }
       });
@@ -179,37 +180,27 @@ describe('TimeOfDay Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[timeofday:14:30]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for 12-hour format', async () => {
       const result = await parse('Meeting at 2:30 PM');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('sometime in the morning');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+    test('should have MEDIUM confidence for natural time expressions', async () => {
+      const result = await parse('Meeting in the morning');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should increase confidence for time at start of text', async () => {
-      const result = await parse('[timeofday:14:30] meeting');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[timeofday:14:30] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
-    });
-
-    test('should increase confidence for specific times over periods', async () => {
-      const specific = await parse('Meeting at 2:30 PM');
-      const period = await parse('Meeting in the morning');
-      expect(specific.metadata.confidence)
-        .toBeGreaterThan(period.metadata.confidence);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[timeofday:14:30]');
+      const result2 = await parse('[timeofday:15:45]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

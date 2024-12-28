@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('TimeBlockParser');
 
@@ -69,7 +70,6 @@ export async function parse(text) {
         };
 
         let bestMatch = null;
-        let highestConfidence = 0;
 
         for (const [pattern, regex] of Object.entries(patterns)) {
             const match = text.match(regex);
@@ -88,7 +88,7 @@ export async function parse(text) {
 
                         if (!start || !end) continue;
 
-                        confidence = 0.95;
+                        confidence = Confidence.HIGH;
                         value = {
                             start,
                             end,
@@ -105,7 +105,7 @@ export async function parse(text) {
 
                         if (!start || !end) continue;
 
-                        confidence = 0.85;
+                        confidence = Confidence.MEDIUM;
                         value = {
                             start,
                             end,
@@ -122,8 +122,7 @@ export async function parse(text) {
 
                         if (!start || !end) continue;
 
-                        // Block format gets 0.95 confidence only for "block 1pm to 2pm for meeting"
-                        confidence = text === 'block 1pm to 2pm for meeting' ? 0.95 : 0.90;
+                        confidence = Confidence.HIGH;
                         value = {
                             start,
                             end,
@@ -143,7 +142,7 @@ export async function parse(text) {
                             minutes: start.minutes
                         };
 
-                        confidence = 0.80;
+                        confidence = Confidence.MEDIUM;
                         value = {
                             start,
                             end,
@@ -154,8 +153,12 @@ export async function parse(text) {
                     }
                 }
 
-                if (confidence > highestConfidence) {
-                    highestConfidence = confidence;
+                // Update if current confidence is higher or equal priority pattern
+                const shouldUpdate = !bestMatch || 
+                    (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+                    (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+                
+                if (shouldUpdate) {
                     bestMatch = {
                         type: 'timeblock',
                         value,

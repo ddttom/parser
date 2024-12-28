@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('VersionParser');
 
@@ -38,7 +39,7 @@ export async function parse(text) {
                 value: parseVersion(version),
                 metadata: {
                     pattern: 'explicit_version',
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     originalMatch: explicitMatch[0]
                 }
             };
@@ -57,7 +58,7 @@ export async function parse(text) {
                 value: parseVersion(version),
                 metadata: {
                     pattern: 'inferred_version',
-                    confidence: 0.80,
+                    confidence: Confidence.MEDIUM,
                     originalMatch: inferredMatch[0]
                 }
             };

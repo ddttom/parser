@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('CostParser');
 
@@ -74,9 +75,9 @@ export async function parse(text) {
                             currency
                         },
                         metadata: {
-                            confidence: type === 'explicit' ? 0.95 : 
-                                      type === 'natural' ? 0.8 : 
-                                      type === 'currency' ? 0.9 : 0.8,
+                            confidence: type === 'explicit' ? Confidence.HIGH : 
+                                      type === 'natural' ? Confidence.MEDIUM : 
+                                      type === 'currency' ? Confidence.HIGH : Confidence.MEDIUM,
                             pattern: type,
                             originalMatch: match[0]
                         }

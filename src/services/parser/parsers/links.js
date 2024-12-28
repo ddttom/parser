@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('LinksParser');
 
@@ -126,7 +127,7 @@ export async function parse(text) {
             type: 'file'
           },
           metadata: {
-            confidence: 0.9,
+            confidence: Confidence.HIGH,
             pattern: 'file_link',
             originalMatch: fileMatch[0]
           }
@@ -157,7 +158,7 @@ export async function parse(text) {
           type: 'markdown'
         },
         metadata: {
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           pattern: 'markdown_link',
           originalMatch: markdownMatch[0]
         }
@@ -176,7 +177,7 @@ export async function parse(text) {
             type: 'url'
           },
           metadata: {
-            confidence: 0.95,
+            confidence: Confidence.HIGH,
             pattern: 'url',
             originalMatch: urlMatch[0]
           }
@@ -203,7 +204,7 @@ export async function parse(text) {
               type: 'url'
             },
             metadata: {
-              confidence: 0.75,
+              confidence: Confidence.LOW,
               pattern: 'inferred_url',
               originalMatch: inferredMatch[0]
             }

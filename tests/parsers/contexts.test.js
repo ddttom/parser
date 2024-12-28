@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/contexts.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Contexts Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Contexts Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('@office');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Contexts Parser', () => {
         },
         metadata: {
           pattern: 'explicit_context',
-          confidence: 0.9,
+          confidence: Confidence.HIGH,
           originalMatch: '@home'
         }
       });
@@ -104,7 +105,7 @@ describe('Contexts Parser', () => {
         },
         metadata: {
           pattern: 'multiple_contexts',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '@home @computer @morning'
         }
       });
@@ -121,42 +122,32 @@ describe('Contexts Parser', () => {
         },
         metadata: {
           pattern: 'parameterized_context',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '@office(desk)'
         }
       });
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
-      const result = await parse('@office(desk)');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
-    });
-
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
-      const result = await parse('@office');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
-    });
-
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('while at the office');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for contexts at start of text', async () => {
-      const result = await parse('@office working on task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('@office(desk) is available');
-      expect(result.metadata.confidence).toBe(0.95);
-    });
-
-    test('should have highest confidence for multiple contexts', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for multiple contexts', async () => {
       const result = await parse('@home @computer @morning');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have HIGH confidence for parameterized contexts', async () => {
+      const result = await parse('@office(desk)');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have HIGH confidence for explicit contexts', async () => {
+      const result = await parse('@office');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have LOW confidence for implicit contexts', async () => {
+      const result = await parse('while at the office');
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
   });
 

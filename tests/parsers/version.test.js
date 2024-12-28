@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/version.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Version Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Version Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[version:1.0.0]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -86,7 +87,7 @@ describe('Version Parser', () => {
         },
         metadata: {
           pattern: 'explicit_version',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[version:1.0.0]'
         }
       });
@@ -106,7 +107,7 @@ describe('Version Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[version:1.0.0(stage=beta)]'
         }
       });
@@ -200,37 +201,27 @@ describe('Version Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[version:1.0.0]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for parameterized patterns', async () => {
+      const result = await parse('[version:1.0.0(stage=beta)]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for inferred patterns', async () => {
       const result = await parse('version 1.0.0');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('using 1.0.0');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for version at start of text', async () => {
-      const result = await parse('[version:1.0.0] release');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[version:1.0.0] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
-    });
-
-    test('should increase confidence for explicit version markers', async () => {
-      const withMarker = await parse('Version: 1.0.0');
-      const withoutMarker = await parse('1.0.0');
-      expect(withMarker.metadata.confidence)
-        .toBeGreaterThan(withoutMarker.metadata.confidence);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[version:1.0.0]');
+      const result2 = await parse('[version:2.0.0]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

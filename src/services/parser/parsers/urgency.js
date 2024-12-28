@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('UrgencyParser');
 
@@ -59,7 +60,7 @@ export async function parse(text) {
                 },
                 metadata: {
                     pattern: 'explicit_urgency',
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     originalMatch: explicitMatch[0]
                 }
             };
@@ -78,7 +79,7 @@ export async function parse(text) {
                     },
                     metadata: {
                         pattern: 'time_urgency',
-                        confidence: 0.85,
+                        confidence: Confidence.HIGH,
                         originalMatch: timeMatch[0]
                     }
                 };
@@ -98,7 +99,7 @@ export async function parse(text) {
                     },
                     metadata: {
                         pattern: 'keyword_urgency',
-                        confidence: 0.8,
+                        confidence: Confidence.MEDIUM,
                         originalMatch: keywordMatch[0]
                     }
                 };

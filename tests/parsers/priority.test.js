@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/priority.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Priority Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Priority Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[priority:high]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Priority Parser', () => {
         },
         metadata: {
           pattern: 'explicit_priority',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[priority:high]'
         }
       });
@@ -101,7 +102,7 @@ describe('Priority Parser', () => {
         },
         metadata: {
           pattern: 'hashtag',
-          confidence: 0.90,
+          confidence: Confidence.HIGH,
           originalMatch: '#urgent'
         }
       });
@@ -117,7 +118,7 @@ describe('Priority Parser', () => {
         },
         metadata: {
           pattern: 'keyword',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'high priority'
         }
       });
@@ -134,7 +135,7 @@ describe('Priority Parser', () => {
         },
         metadata: {
           pattern: 'multiple_indicators',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[priority:high] #urgent High priority'
         }
       });
@@ -173,30 +174,37 @@ describe('Priority Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[priority:high]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for hashtag patterns', async () => {
       const result = await parse('#urgent');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+    test('should have MEDIUM confidence for keyword patterns', async () => {
+      const result = await parse('high priority task');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+    });
+
+    test('should have LOW confidence for implicit patterns', async () => {
       const result = await parse('high priority');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
-    test('should increase confidence for priority at start of text', async () => {
-      const result = await parse('[priority:high] task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
+    test('should have HIGH confidence for multiple indicators', async () => {
       const result = await parse('[priority:high] #urgent');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[priority:high]');
+      const result2 = await parse('[priority:urgent]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

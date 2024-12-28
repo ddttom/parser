@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/task.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Task Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Task Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[task:123]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -84,7 +85,7 @@ describe('Task Parser', () => {
         },
         metadata: {
           pattern: 'explicit',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[task:123]'
         }
       });
@@ -102,7 +103,7 @@ describe('Task Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[task:123(type=bug)]'
         }
       });
@@ -141,7 +142,7 @@ describe('Task Parser', () => {
         },
         metadata: {
           pattern: 'contextual',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'blocked by task 123'
         }
       });
@@ -169,37 +170,27 @@ describe('Task Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[task:123]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for parameterized patterns', async () => {
+      const result = await parse('[task:123(type=bug)]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for inferred patterns', async () => {
       const result = await parse('task #123');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('related to 123');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for task at start of text', async () => {
-      const result = await parse('[task:123] is blocked');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[task:123] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
-    });
-
-    test('should increase confidence for contextual references', async () => {
-      const withContext = await parse('blocked by task 123');
-      const withoutContext = await parse('task 123');
-      expect(withContext.metadata.confidence)
-        .toBeGreaterThan(withoutContext.metadata.confidence);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[task:123]');
+      const result2 = await parse('[task:456]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

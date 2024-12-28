@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('ProjectParser');
 
@@ -69,7 +70,7 @@ export async function parse(text) {
     };
 
     let bestMatch = null;
-    let highestConfidence = 0;
+    let highestConfidence = Confidence.LOW;
 
     for (const [pattern, regex] of Object.entries(patterns)) {
       const match = text.match(regex);
@@ -89,7 +90,7 @@ export async function parse(text) {
 
         switch (pattern) {
           case 'explicit': {
-            confidence = 0.95;
+            confidence = Confidence.HIGH;
             value = {
               project: projectName,
               originalName: projectName
@@ -99,7 +100,7 @@ export async function parse(text) {
 
           case 'reference':
           case 'shorthand': {
-            confidence = 0.9;
+            confidence = Confidence.HIGH;
             value = {
               project: projectName,
               originalName: projectName
@@ -108,7 +109,7 @@ export async function parse(text) {
           }
 
           case 'identifier': {
-            confidence = 0.9;
+            confidence = Confidence.HIGH;
             value = {
               project: projectName,
               originalName: `PRJ-${projectName}`
@@ -117,7 +118,7 @@ export async function parse(text) {
           }
 
           case 'contextual': {
-            confidence = 0.85;
+            confidence = Confidence.MEDIUM;
             value = {
               project: projectName,
               originalName: projectName
@@ -127,7 +128,7 @@ export async function parse(text) {
 
           case 'regarding':
           case 'inferred': {
-            confidence = 0.8;
+            confidence = Confidence.MEDIUM;
             value = {
               project: projectName,
               originalName: projectName
@@ -136,7 +137,12 @@ export async function parse(text) {
           }
         }
 
-        if (confidence > highestConfidence) {
+        // Update if current confidence is higher or equal priority pattern
+        const shouldUpdate = !bestMatch || 
+            (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+            (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+        
+        if (shouldUpdate) {
           highestConfidence = confidence;
           bestMatch = {
             type: 'project',

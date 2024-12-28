@@ -1,4 +1,5 @@
 import { parse } from '../../src/services/parser/parsers/sprint.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Sprint Parser', () => {
     describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Sprint Parser', () => {
         test('should return metadata with required fields', async () => {
             const result = await parse('[sprint:5]');
             expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(Number),
+                confidence: expect.any(String),
                 pattern: expect.any(String),
                 originalMatch: expect.any(String)
             }));
@@ -85,7 +86,7 @@ describe('Sprint Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     pattern: 'explicit'
                 }
             });
@@ -102,7 +103,7 @@ describe('Sprint Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     pattern: 'explicit'
                 }
             });
@@ -120,7 +121,7 @@ describe('Sprint Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.90,
+                    confidence: Confidence.HIGH,
                     pattern: 'labeled'
                 }
             });
@@ -151,7 +152,7 @@ describe('Sprint Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.85,
+                    confidence: Confidence.MEDIUM,
                     pattern: 'phase'
                 }
             });
@@ -193,43 +194,34 @@ describe('Sprint Parser', () => {
                     isExplicit: false
                 },
                 metadata: {
-                    confidence: 0.80,
+                    confidence: Confidence.MEDIUM,
                     pattern: 'implicit'
                 }
             });
         });
     });
 
-    describe('Confidence Scoring', () => {
-        test('should have high confidence (>=0.90) for explicit patterns', async () => {
+    describe('Confidence Levels', () => {
+        test('should have HIGH confidence for explicit patterns', async () => {
             const result = await parse('[sprint:5]');
-            expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
 
-        test('should have medium confidence (>=0.80) for standard patterns', async () => {
+        test('should have HIGH confidence for labeled patterns', async () => {
             const result = await parse('sprint 5: Development Phase');
-            expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
 
-        test('should have low confidence (<=0.80) for implicit patterns', async () => {
+        test('should have MEDIUM confidence for phase patterns', async () => {
+            const result = await parse('sprint planning for sprint 7');
+            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+        });
+
+        test('should have MEDIUM confidence for implicit patterns', async () => {
             const result = await parse('in sprint 5');
-            expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
         });
 
-        test('should increase confidence for sprint at start of text', async () => {
-            const result = await parse('sprint 11: Development Phase');
-            expect(result.metadata.confidence).toBe(0.95); // 0.90 + 0.05
-        });
-
-        test('should increase confidence for context words', async () => {
-            const result = await parse('task for sprint 12 planning');
-            expect(result.metadata.confidence).toBe(0.85); // 0.80 + 0.05
-        });
-
-        test('should not increase confidence beyond 1.0', async () => {
-            const result = await parse('[sprint:13] planning session');
-            expect(result.metadata.confidence).toBe(0.95);
-        });
     });
 
     describe('Invalid Cases', () => {

@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('SubjectParser');
 
@@ -142,7 +143,7 @@ export async function parse(text) {
                     keyTerms
                 },
                 metadata: {
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     pattern: 'explicit',
                     originalMatch: text,
                     hasActionVerb: keyTerms.some(term => ACTION_VERBS.has(term))
@@ -169,7 +170,7 @@ export async function parse(text) {
                 keyTerms
             },
             metadata: {
-                confidence: 0.80,
+                confidence: Confidence.MEDIUM,
                 pattern: 'inferred',
                 originalMatch: text,
                 hasActionVerb,

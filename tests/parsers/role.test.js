@@ -1,4 +1,5 @@
 import { name, parse, validateRole } from '../../src/services/parser/parsers/role.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Role Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Role Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[role:developer]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Role Parser', () => {
         },
         metadata: {
           pattern: 'explicit',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[role:developer]'
         }
       });
@@ -104,7 +105,7 @@ describe('Role Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[role:developer(team=frontend)]'
         }
       });
@@ -120,7 +121,7 @@ describe('Role Parser', () => {
         },
         metadata: {
           pattern: 'inferred',
-          confidence: 0.8,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'acting as developer'
         }
       });
@@ -183,30 +184,27 @@ describe('Role Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[role:developer]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for parameterized patterns', async () => {
+      const result = await parse('[role:developer(team=frontend)]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for inferred patterns', async () => {
       const result = await parse('acting as developer');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('working as developer');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for role at start of text', async () => {
-      const result = await parse('[role:developer] for project');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[role:developer] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[role:developer]');
+      const result2 = await parse('[role:manager]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

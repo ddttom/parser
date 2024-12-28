@@ -1,4 +1,5 @@
 import { parse } from '../../src/services/parser/parsers/decision.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Decision Parser', () => {
     describe('Input Validation', () => {
@@ -62,10 +63,12 @@ describe('Decision Parser', () => {
         test('should return metadata with required fields', async () => {
             const result = await parse('[decision:use React]');
             expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(Number),
+                confidence: expect.any(String),
                 pattern: expect.any(String),
                 originalMatch: expect.any(String)
             }));
+            // Verify confidence is one of the enum values
+            expect([Confidence.HIGH, Confidence.MEDIUM, Confidence.LOW]).toContain(result.metadata.confidence);
         });
 
         test('should return null for no matches', async () => {
@@ -86,7 +89,7 @@ describe('Decision Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     pattern: 'explicit'
                 }
             });
@@ -118,7 +121,7 @@ describe('Decision Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.90,
+                    confidence: Confidence.HIGH,
                     pattern: 'decided'
                 }
             });
@@ -137,7 +140,7 @@ describe('Decision Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.90,
+                    confidence: Confidence.HIGH,
                     pattern: 'choice'
                 }
             });
@@ -157,7 +160,7 @@ describe('Decision Parser', () => {
                     isExplicit: true
                 },
                 metadata: {
-                    confidence: 0.85,
+                    confidence: Confidence.MEDIUM,
                     pattern: 'selected'
                 }
             });
@@ -176,7 +179,7 @@ describe('Decision Parser', () => {
                     isExplicit: false
                 },
                 metadata: {
-                    confidence: 0.80,
+                    confidence: Confidence.MEDIUM,
                     pattern: 'going'
                 }
             });
@@ -205,35 +208,30 @@ describe('Decision Parser', () => {
         });
     });
 
-    describe('Confidence Scoring', () => {
-        test('should have high confidence (>=0.90) for explicit patterns', async () => {
+    describe('Confidence Levels', () => {
+        test('should have HIGH confidence for explicit patterns', async () => {
             const result = await parse('[decision:use React]');
-            expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
 
-        test('should have medium confidence (>=0.80) for standard patterns', async () => {
+        test('should have HIGH confidence for decided patterns', async () => {
             const result = await parse('decided to use React');
-            expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
 
-        test('should have low confidence (<=0.80) for implicit patterns', async () => {
+        test('should have MEDIUM confidence for going patterns', async () => {
             const result = await parse('going with React');
-            expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
         });
 
-        test('should increase confidence for decision at start of text', async () => {
+        test('should boost confidence for special case', async () => {
             const result = await parse('decided to use TypeScript because of type safety');
-            expect(result.metadata.confidence).toBe(0.95); // 0.90 + 0.05
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
 
-        test('should increase confidence with context words', async () => {
+        test('should handle context words appropriately', async () => {
             const result = await parse('therefore, going with MongoDB because of flexibility');
-            expect(result.metadata.confidence).toBe(0.85); // 0.80 + 0.05
-        });
-
-        test('should not increase confidence beyond 1.0', async () => {
-            const result = await parse('therefore [decision:use Docker] for consistency');
-            expect(result.metadata.confidence).toBe(0.95);
+            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
         });
     });
 

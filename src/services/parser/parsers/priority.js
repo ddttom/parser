@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('PriorityParser');
 
@@ -70,7 +71,7 @@ export async function parse(text) {
       const normalized = normalizePriority(priority);
       indicators.push({
         level: normalized,
-        confidence: 0.95,
+        confidence: Confidence.HIGH,
         pattern: 'explicit_priority',
         match: explicitMatch[0],
         index: explicitMatch.index
@@ -97,7 +98,7 @@ export async function parse(text) {
       const normalized = normalizePriority(priority);
       indicators.push({
         level: normalized,
-        confidence: 0.9,
+        confidence: Confidence.HIGH,
         pattern: 'hashtag',
         match: hashtagMatch[0],
         index: hashtagMatch.index
@@ -124,7 +125,7 @@ export async function parse(text) {
       const matchText = text.slice(keywordMatch.index, keywordMatch.index + keywordMatch[1].length + 9);
       indicators.push({
         level: normalized,
-        confidence: 0.85,
+        confidence: Confidence.MEDIUM,
         pattern: 'keyword',
         match: matchText.toLowerCase(),
         index: keywordMatch.index
@@ -151,7 +152,7 @@ export async function parse(text) {
       const matchText = text.slice(implicitMatch.index, implicitMatch.index + implicitMatch[0].length);
       indicators.push({
         level: normalized,
-        confidence: 0.75,
+        confidence: Confidence.LOW,
         pattern: 'implicit',
         match: matchText,
         index: implicitMatch.index
@@ -178,7 +179,11 @@ export async function parse(text) {
     const scoreA = getPriorityScore(a.level);
     const scoreB = getPriorityScore(b.level);
     if (scoreA !== scoreB) return scoreB - scoreA;
-    return b.confidence - a.confidence;
+    if (a.confidence === b.confidence) return 0;
+    if (a.confidence === Confidence.HIGH) return -1;
+    if (b.confidence === Confidence.HIGH) return 1;
+    if (a.confidence === Confidence.MEDIUM) return -1;
+    return 1;
   });
 
   const bestIndicator = indicators[0];
@@ -196,7 +201,7 @@ export async function parse(text) {
         indicators: matches.map(m => normalizePriority(m[1]))
       },
       metadata: {
-        confidence: 0.95,
+        confidence: Confidence.HIGH,
         pattern: 'multiple_indicators',
         originalMatch: matches.map(m => m[0]).join(' ')
       }

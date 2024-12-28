@@ -34,19 +34,13 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
 
 1. **Standardized Parser Architecture**
    - Common base parser template
-   - Consistent confidence scoring system:
-     - High confidence (explicit patterns): >= 0.90
-     - Medium confidence (standard patterns): >= 0.80
-     - Low confidence (implicit patterns): <= 0.80
-     - Invalid/uncertain matches: <= 0.70
+   - Simplified confidence level system:
+     - HIGH: Explicit patterns with clear intent (e.g., [tag:important])
+     - MEDIUM: Standard patterns with good context (e.g., #important)
+     - LOW: Inferred patterns with less certainty
    - Pattern-based matching with priority
    - Rich metadata generation
-   - Best match selection
-   - Confidence adjustments:
-     - Position bonus: +0.05
-     - Context bonus: +0.05
-     - Multiple indicators: +0.05
-     - Weak indicators: -0.05
+   - Best match selection based on confidence levels
 
 2. **Core Parsers:**
    - Date:
@@ -88,7 +82,7 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
 3. **Parser Features:**
    - Async/await support
    - Standardized error handling via error objects
-   - Pattern-based matching with confidence scoring
+   - Pattern-based matching with confidence levels
    - Rich metadata enrichment
    - Input validation
    - Best match selection
@@ -104,13 +98,13 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
   - All generate complete metadata
   - All follow best match selection logic
 
-- **Confidence Scoring Compliance**:
-  - All parsers correctly implement confidence tiers:
-    - Explicit/High: >= 0.90 (typically 0.95)
-    - Standard/Medium: >= 0.80 (typically 0.85-0.90)
-    - Implicit/Low: <= 0.80 (typically 0.75-0.80)
-    - Invalid: <= 0.70
-  - All properly apply confidence adjustments for position and context
+- **Confidence Level Compliance**:
+  - All parsers use standardized confidence enum:
+    - HIGH: For explicit, unambiguous patterns (e.g., [tag:important])
+    - MEDIUM: For standard, well-structured patterns (e.g., #important)
+    - LOW: For inferred or ambiguous patterns
+  - Consistent confidence levels across all parsers
+  - No dynamic confidence adjustments
 
 - **Return Format Compliance**:
   - All parsers return standardized objects with type, value, and metadata
@@ -122,7 +116,7 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
     - Input validation (null, empty, undefined, non-string)
     - Return format (type, metadata, null cases)
     - Pattern matching (explicit, parameters, variations)
-    - Confidence scoring (high, medium, low, adjustments)
+    - Confidence levels (HIGH, MEDIUM, LOW)
     - Error handling (invalid formats, malformed input)
   - Integration tests for complex scenarios and parser interactions
   - Edge case coverage for each parser
@@ -144,7 +138,7 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
            // Parser-specific structure
        },
        metadata: {
-           confidence: Number,
+           confidence: String, // "HIGH" | "MEDIUM" | "LOW"
            pattern: String,
            originalMatch: String
        }
@@ -158,7 +152,7 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
                // Parser-specific structure
            },
            metadata: {
-               confidence: Number,
+               confidence: String, // "HIGH" | "MEDIUM" | "LOW"
                pattern: String,
                originalMatch: String
            }
@@ -178,7 +172,7 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
 
 - **Smart Pattern Recognition**: Uses advanced pattern matching with:
   - Context-aware parsing
-  - Confidence scoring
+  - Standardized confidence levels
   - Multiple format support
   - Validation and error handling
 
@@ -221,10 +215,10 @@ const result = await parser.parse("Meeting tomorrow", {
         },
         metadata: {
             confidence: {
-                date: 0.95,
-                time: 0.9,
-                participants: 0.85,
-                tags: 0.95
+                date: "HIGH",
+                time: "HIGH",
+                participants: "MEDIUM",
+                tags: "HIGH"
             },
             performance: {
                 // Parser execution times
@@ -326,11 +320,11 @@ Each parser test file follows a standardized structure:
    - Multiple formats
    - Edge cases
 
-4. Confidence Scoring
-   - High confidence (>=0.90)
-   - Medium confidence (>=0.80)
-   - Low confidence (<=0.80)
-   - Position and context adjustments
+4. Confidence Levels
+   - HIGH confidence for explicit patterns
+   - MEDIUM confidence for standard patterns
+   - LOW confidence for inferred patterns
+   - Consistent levels for same pattern types
 
 5. Error Handling
    - Invalid formats

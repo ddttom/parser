@@ -1,5 +1,6 @@
 import { createLogger } from '../../../utils/logger.js';
 import { validatePatternMatch, calculateBaseConfidence } from '../utils/patterns.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('DateParser');
 
@@ -44,13 +45,18 @@ export async function parse(text) {
 
     try {
         let bestMatch = null;
-        let highestConfidence = 0;
+        let highestConfidence = Confidence.LOW;
 
         for (const [pattern, regex] of Object.entries(DATE_PATTERNS)) {
             const match = text.match(regex);
             if (match) {
                 const result = await extractDateValue(match[1] || match[0], pattern, match, text);
-                if (result && result.confidence > highestConfidence) {
+                // Update if current confidence is higher or equal priority pattern
+                const shouldUpdate = result && (!bestMatch || 
+                    (result.confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+                    (result.confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW));
+                
+                if (shouldUpdate) {
                     highestConfidence = result.confidence;
                     bestMatch = {
                         type: 'date',
@@ -151,33 +157,20 @@ async function extractDateValue(text, format, match, fullText) {
     }
 }
 
-function calculateConfidence(format, match, text) {
-    let confidence;
-
+function calculateConfidence(format) {
     switch (format) {
         case 'explicit_iso':
-            confidence = 0.95;
-            break;
+            return Confidence.HIGH;
         case 'natural_date':
-            confidence = 0.9;
-            break;
+            return Confidence.HIGH;
         case 'relative_date':
         case 'weekday_reference':
-            confidence = 0.85;
-            break;
+            return Confidence.MEDIUM;
         case 'implicit_date':
-            confidence = 0.75;
-            break;
+            return Confidence.LOW;
         default:
-            confidence = 0.8;
+            return Confidence.MEDIUM;
     }
-
-    // Only apply position bonus for explicit patterns
-    if (format === 'explicit_iso' && match.index === 0) {
-        confidence = Math.min(confidence + 0.05, 0.95);
-    }
-
-    return confidence;
 }
 
 function isValidDateComponents(year, month, day) {

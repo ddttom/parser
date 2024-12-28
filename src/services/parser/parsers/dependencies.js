@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('DependenciesParser');
 
@@ -32,7 +33,6 @@ export async function parse(text) {
   };
 
   let bestMatch = null;
-  let highestConfidence = 0;
 
   for (const [pattern, regex] of Object.entries(patterns)) {
     const match = text.match(regex);
@@ -49,7 +49,7 @@ export async function parse(text) {
 
       switch (pattern) {
         case 'explicit_dependency': {
-          confidence = 0.95;
+          confidence = Confidence.HIGH;
           value = {
             type: 'task',
             id: match[2],
@@ -59,7 +59,7 @@ export async function parse(text) {
         }
 
         case 'multiple_dependencies': {
-          confidence = 0.9;
+          confidence = Confidence.HIGH;
           value = {
             dependencies: [
               {
@@ -78,7 +78,7 @@ export async function parse(text) {
         }
 
         case 'relationship_dependency': {
-          confidence = 0.9;
+          confidence = Confidence.HIGH;
           value = {
             type: 'task',
             id: match[2],
@@ -88,7 +88,7 @@ export async function parse(text) {
         }
 
         case 'implicit_dependency': {
-          confidence = 0.75;
+          confidence = Confidence.LOW;
           value = {
             type: 'task',
             id: match[2],
@@ -98,8 +98,12 @@ export async function parse(text) {
         }
       }
 
-      if (confidence > highestConfidence) {
-        highestConfidence = confidence;
+      // Compare confidence levels - HIGH > MEDIUM > LOW
+      const shouldUpdate = !bestMatch || 
+          confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH ||
+          confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW;
+      
+      if (shouldUpdate) {
         bestMatch = {
           type: name,
           value,

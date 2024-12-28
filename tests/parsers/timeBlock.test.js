@@ -1,4 +1,5 @@
 import { parse } from '../../src/services/parser/parsers/timeBlock.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Time Block Parser', () => {
     describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Time Block Parser', () => {
         test('should return metadata with required fields', async () => {
             const result = await parse('[timeblock:9:00am, 10:00am]');
             expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(Number),
+                confidence: expect.any(String),
                 pattern: expect.any(String),
                 originalMatch: expect.any(String)
             }));
@@ -86,7 +87,7 @@ describe('Time Block Parser', () => {
                     description: 'deep work'
                 },
                 metadata: {
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     pattern: 'explicit'
                 }
             });
@@ -118,7 +119,7 @@ describe('Time Block Parser', () => {
                     description: 'focused work'
                 },
                 metadata: {
-                    confidence: 0.85,
+                    confidence: Confidence.MEDIUM,
                     pattern: 'range'
                 }
             });
@@ -150,7 +151,7 @@ describe('Time Block Parser', () => {
                     description: 'team meeting'
                 },
                 metadata: {
-                    confidence: 0.90,
+                    confidence: Confidence.HIGH,
                     pattern: 'block'
                 }
             });
@@ -182,7 +183,7 @@ describe('Time Block Parser', () => {
                     description: null
                 },
                 metadata: {
-                    confidence: 0.80,
+                    confidence: Confidence.MEDIUM,
                     pattern: 'period'
                 }
             });
@@ -201,30 +202,30 @@ describe('Time Block Parser', () => {
         });
     });
 
-    describe('Confidence Scoring', () => {
-        test('should have high confidence (>=0.90) for explicit patterns', async () => {
+    describe('Confidence Levels', () => {
+        test('should have HIGH confidence for explicit patterns', async () => {
             const result = await parse('[timeblock:9:00am, 10:00am]');
-            expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
 
-        test('should have medium confidence (>=0.80) for standard patterns', async () => {
+        test('should have HIGH confidence for block patterns', async () => {
             const result = await parse('block 9:00am to 10:00am');
-            expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
 
-        test('should have low confidence (<=0.80) for implicit patterns', async () => {
+        test('should have MEDIUM confidence for range patterns', async () => {
+            const result = await parse('9:00am to 10:00am');
+            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+        });
+
+        test('should have MEDIUM confidence for period patterns', async () => {
             const result = await parse('9am deep work time');
-            expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+            expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
         });
 
-        test('should increase confidence for timeblock at start of text', async () => {
+        test('should maintain HIGH confidence for special block format', async () => {
             const result = await parse('block 1pm to 2pm for meeting');
-            expect(result.metadata.confidence).toBe(0.95); // 0.90 + 0.05
-        });
-
-        test('should not increase confidence beyond 1.0', async () => {
-            const result = await parse('[timeblock:9am, 10am, deep work]');
-            expect(result.metadata.confidence).toBe(0.95);
+            expect(result.metadata.confidence).toBe(Confidence.HIGH);
         });
     });
 

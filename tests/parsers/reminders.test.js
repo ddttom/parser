@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/reminders.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Reminders Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Reminders Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[remind:30m]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Reminders Parser', () => {
         },
         metadata: {
           pattern: 'explicit',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[remind:30m]',
           isRelative: true
         }
@@ -105,7 +106,7 @@ describe('Reminders Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[remind:30m(channel=email)]',
           isRelative: true
         }
@@ -206,30 +207,42 @@ describe('Reminders Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[remind:30m]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for specific time patterns', async () => {
+      const result = await parse('remind me at 2:30pm');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have HIGH confidence for before patterns', async () => {
+      const result = await parse('30 minutes before');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for date-based patterns', async () => {
+      const result = await parse('remind me on next Monday');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+    });
+
+    test('should have MEDIUM confidence for relative patterns', async () => {
       const result = await parse('remind me in 30 minutes');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('in half an hour');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+    test('should have LOW confidence for timeword patterns', async () => {
+      const result = await parse('remind me tomorrow');
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
-    test('should increase confidence for reminder at start of text', async () => {
-      const result = await parse('[remind:30m] for task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[remind:30m] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[remind:30m]');
+      const result2 = await parse('[remind:1h]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

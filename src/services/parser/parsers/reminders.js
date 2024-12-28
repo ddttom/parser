@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('RemindersParser');
 
@@ -41,7 +42,7 @@ export async function parse(text) {
             if (matches) {
                 const value = await extractReminderValue(matches, type);
                 if (value) {
-                    const confidence = calculateConfidence(type, matches.index);
+                    const confidence = calculateConfidence(type);
                     return {
                         type: 'reminder',
                         value,
@@ -137,31 +138,17 @@ async function extractReminderValue(matches, type) {
     }
 }
 
-function calculateConfidence(type, position) {
-    let confidence;
-
+function calculateConfidence(type) {
     switch (type) {
         case 'explicit':
-            confidence = 0.95;
-            break;
+            return Confidence.HIGH;
         case 'at':
         case 'before':
-            confidence = 0.90;
-            break;
+            return Confidence.HIGH;
         case 'on':
-            confidence = 0.85;
-            break;
         case 'relative':
-            confidence = 0.80;
-            break;
+            return Confidence.MEDIUM;
         default:
-            confidence = 0.70;
+            return Confidence.LOW;
     }
-
-    // Position-based confidence adjustment
-    if (position === 0) {
-        confidence = Math.min(confidence + 0.05, 1.0);
-    }
-
-    return confidence;
 }

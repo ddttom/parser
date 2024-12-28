@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/participants.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Participants Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Participants Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[participants:John, Sarah]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Participants Parser', () => {
         },
         metadata: {
           pattern: 'explicit_list',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[participants:John, Sarah, Mike]'
         }
       });
@@ -104,7 +105,7 @@ describe('Participants Parser', () => {
         },
         metadata: {
           pattern: 'role_assignment',
-          confidence: 0.9,
+          confidence: Confidence.HIGH,
           originalMatch: 'John (host) and Sarah (presenter)'
         }
       });
@@ -120,7 +121,7 @@ describe('Participants Parser', () => {
         },
         metadata: {
           pattern: 'mentions',
-          confidence: 0.9,
+          confidence: Confidence.HIGH,
           originalMatch: '@john and @sarah'
         }
       });
@@ -139,7 +140,7 @@ describe('Participants Parser', () => {
         },
         metadata: {
           pattern: 'parameterized_list',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[participants:John(team=dev), Sarah(team=design)]'
         }
       });
@@ -155,37 +156,37 @@ describe('Participants Parser', () => {
         },
         metadata: {
           pattern: 'natural_list',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'John, Sarah, and Mike'
         }
       });
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[participants:John, Sarah]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
-      const result = await parse('Meeting with @john and @sarah');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+    test('should have HIGH confidence for parameterized patterns', async () => {
+      const result = await parse('[participants:John(role=host), Sarah(role=guest)]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+    test('should have HIGH confidence for role assignments', async () => {
+      const result = await parse('John (host) and Sarah (presenter)');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for natural lists', async () => {
+      const result = await parse('Meeting with John, Sarah, and Mike');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+    });
+
+    test('should have LOW confidence for implicit patterns', async () => {
       const result = await parse('with John and Sarah');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for participants at start of text', async () => {
-      const result = await parse('[participants:John, Sarah] will attend');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[participants:John, Sarah] are confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
   });
 

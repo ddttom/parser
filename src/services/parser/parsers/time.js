@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('TimeParser');
 
@@ -72,7 +73,7 @@ export async function parse(text) {
                 },
                 metadata: {
                     pattern: '24hour',
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     originalMatch: twentyFourMatch[0]
                 }
             };
@@ -177,26 +178,15 @@ function parseTimeComponents(hours, minutes, meridian) {
 }
 
 function calculateConfidence(matches, text, type) {
-    let confidence = 0.7;
-
     // Pattern-based confidence
     switch (type) {
         case 'specific':
-            confidence = matches[2] ? 0.95 : 0.9; // Higher confidence with minutes specified
-            if (matches[3]) confidence += 0.02; // Additional boost for AM/PM
-            break;
+            return matches[2] || matches[3] ? Confidence.HIGH : Confidence.MEDIUM;
         case 'period':
-            confidence = matches[0].includes('in the') ? 0.85 : 0.8;
-            break;
+            return matches[0].includes('in the') ? Confidence.MEDIUM : Confidence.LOW;
         case 'action':
-            confidence = 0.75;
-            break;
+            return Confidence.LOW;
+        default:
+            return Confidence.LOW;
     }
-
-    // Position-based confidence
-    if (matches.index === 0) {
-        confidence = Math.min(confidence + 0.05, 1.0);
-    }
-
-    return confidence;
 }

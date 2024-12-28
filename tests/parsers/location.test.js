@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/location.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Location Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Location Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[location:Conference Room A]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Location Parser', () => {
         },
         metadata: {
           pattern: 'explicit_location',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[location:Conference Room A]'
         }
       });
@@ -101,7 +102,7 @@ describe('Location Parser', () => {
         },
         metadata: {
           pattern: 'room_location',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'Room 123'
         }
       });
@@ -117,7 +118,7 @@ describe('Location Parser', () => {
         },
         metadata: {
           pattern: 'office_location',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'Office 456'
         }
       });
@@ -133,7 +134,7 @@ describe('Location Parser', () => {
         },
         metadata: {
           pattern: 'building_location',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'Building B'
         }
       });
@@ -152,37 +153,37 @@ describe('Location Parser', () => {
         },
         metadata: {
           pattern: 'parameterized_location',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[location:Conference Room A(floor 3)]'
         }
       });
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[location:Conference Room A]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for parameterized patterns', async () => {
+      const result = await parse('[location:Conference Room A(floor 3)]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for standard patterns', async () => {
       const result = await parse('in Room 123');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+    test('should have LOW confidence for implicit patterns', async () => {
       const result = await parse('in the meeting room');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
-    test('should increase confidence for location at start of text', async () => {
+    test('should maintain HIGH confidence for location at start of text', async () => {
       const result = await parse('[location:Conference Room A] is booked');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[location:Conference Room A] is reserved');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

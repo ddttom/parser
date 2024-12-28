@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('LocationParser');
 
@@ -68,7 +69,7 @@ export async function parse(text) {
             }
           },
           metadata: {
-            confidence: 0.95,
+            confidence: Confidence.HIGH,
             pattern: 'parameterized_location',
             originalMatch: paramMatch[0]
           }
@@ -86,7 +87,7 @@ export async function parse(text) {
           parameters: params
         },
         metadata: {
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           pattern: 'parameterized_location',
           originalMatch: paramMatch[0]
         }
@@ -99,7 +100,7 @@ export async function parse(text) {
       const name = explicitMatch[1].trim();
       if (!name) return null;
 
-      const confidence = 0.95;
+      const confidence = Confidence.HIGH;
       return {
         type: 'location',
         value: {
@@ -127,7 +128,7 @@ export async function parse(text) {
   };
 
   let bestMatch = null;
-  let highestConfidence = 0;
+  let highestConfidence = Confidence.LOW;
 
   for (const [pattern, regex] of Object.entries(patterns)) {
     const match = text.match(regex);
@@ -141,7 +142,7 @@ export async function parse(text) {
           const roomNumber = match[1].trim();
           if (!roomNumber) continue;
 
-          confidence = 0.85;
+          confidence = Confidence.MEDIUM;
           originalMatch = `Room ${roomNumber}`;
           value = {
             name: originalMatch,
@@ -154,7 +155,7 @@ export async function parse(text) {
           const officeNumber = match[1].trim();
           if (!officeNumber) continue;
 
-          confidence = 0.85;
+          confidence = Confidence.MEDIUM;
           originalMatch = `Office ${officeNumber}`;
           value = {
             name: originalMatch,
@@ -167,7 +168,7 @@ export async function parse(text) {
           const buildingId = match[1].trim();
           if (!buildingId) continue;
 
-          confidence = 0.85;
+          confidence = Confidence.MEDIUM;
           originalMatch = `Building ${buildingId}`;
           value = {
             name: originalMatch,
@@ -180,7 +181,7 @@ export async function parse(text) {
           const name = match[1].trim();
           if (!name) continue;
 
-          confidence = 0.75;
+          confidence = Confidence.LOW;
           originalMatch = match[0];
           value = {
             name,
@@ -190,7 +191,12 @@ export async function parse(text) {
         }
       }
 
-      if (confidence > highestConfidence) {
+      // Update if current confidence is higher or equal priority pattern
+      const shouldUpdate = !bestMatch || 
+          (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+          (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+      
+      if (shouldUpdate) {
         highestConfidence = confidence;
         bestMatch = {
           type: 'location',

@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/date.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Date Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Date Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[date:2024-01-20]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Date Parser', () => {
         },
         metadata: {
           pattern: 'explicit_iso',
-          confidence: 0.95
+          confidence: Confidence.HIGH
         }
       });
     });
@@ -100,7 +101,7 @@ describe('Date Parser', () => {
         },
         metadata: {
           pattern: 'natural_date',
-          confidence: 0.90
+          confidence: Confidence.HIGH
         }
       });
     });
@@ -114,7 +115,7 @@ describe('Date Parser', () => {
         },
         metadata: {
           pattern: 'relative_date',
-          confidence: 0.85
+          confidence: Confidence.MEDIUM
         }
       });
       expect(result.value.date).toBeDefined();
@@ -129,37 +130,37 @@ describe('Date Parser', () => {
         },
         metadata: {
           pattern: 'weekday_reference',
-          confidence: 0.85
+          confidence: Confidence.MEDIUM
         }
       });
       expect(result.value.date).toBeDefined();
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit ISO patterns', async () => {
       const result = await parse('[date:2024-01-20]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for natural date patterns', async () => {
       const result = await parse('on January 20th, 2024');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+    test('should have MEDIUM confidence for relative dates', async () => {
+      const result = await parse('tomorrow');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+    });
+
+    test('should have MEDIUM confidence for weekday references', async () => {
+      const result = await parse('next Wednesday');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+    });
+
+    test('should have LOW confidence for implicit patterns', async () => {
       const result = await parse('sometime next week');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for date at start of text', async () => {
-      const result = await parse('[date:2024-01-20] is the deadline');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[date:2024-01-20] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
   });
 

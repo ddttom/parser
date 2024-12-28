@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/dependencies.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Dependencies Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Dependencies Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('depends on [task:123]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -86,7 +87,7 @@ describe('Dependencies Parser', () => {
         },
         metadata: {
           pattern: 'explicit_dependency',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: 'depends on [task:123]'
         }
       });
@@ -104,7 +105,7 @@ describe('Dependencies Parser', () => {
         },
         metadata: {
           pattern: 'multiple_dependencies',
-          confidence: 0.9,
+          confidence: Confidence.HIGH,
           originalMatch: 'After [task:123] and [task:456]'
         }
       });
@@ -121,7 +122,7 @@ describe('Dependencies Parser', () => {
         },
         metadata: {
           pattern: 'relationship_dependency',
-          confidence: 0.9,
+          confidence: Confidence.HIGH,
           originalMatch: 'Blocks [task:789]'
         }
       });
@@ -164,58 +165,54 @@ describe('Dependencies Parser', () => {
     test('should handle depends_on relationship', async () => {
       const result = await parse('depends on [task:123]');
       expect(result.value.relationship).toBe('depends_on');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
     test('should handle blocks relationship', async () => {
       const result = await parse('blocks [task:123]');
       expect(result.value.relationship).toBe('blocks');
-      expect(result.metadata.confidence).toBe(0.9);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
     test('should handle after relationship', async () => {
       const result = await parse('after task 123');
       expect(result.value.relationship).toBe('after');
-      expect(result.metadata.confidence).toBe(0.75);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
     test('should handle implicit relationships', async () => {
       const result = await parse('after task abc');
       expect(result.value.relationship).toBe('after');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.8);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
-      const result = await parse('[task:123] depends on [task:456]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
-    });
-
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit dependencies', async () => {
       const result = await parse('depends on [task:123]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+    test('should have HIGH confidence for multiple dependencies', async () => {
+      const result = await parse('after [task:123] and [task:456]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have HIGH confidence for relationship dependencies', async () => {
+      const result = await parse('blocks [task:789]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have LOW confidence for implicit dependencies', async () => {
       const result = await parse('after task abc');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for dependency at start of text', async () => {
-      const result = await parse('depends on [task:123] for completion');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[task:123] depends on [task:456] explicitly');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
     test('should have consistent confidence for same pattern type', async () => {
       const result1 = await parse('depends on [task:123]');
       const result2 = await parse('depends on [task:456]');
       expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/links.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Links Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Links Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('https://example.com');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -81,7 +82,7 @@ describe('Links Parser', () => {
         url: 'http://example.com',
         type: 'url'
       });
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
     test('should detect HTTPS URLs', async () => {
@@ -90,7 +91,7 @@ describe('Links Parser', () => {
         url: 'https://example.com',
         type: 'url'
       });
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
     test('should handle URLs with paths and query params', async () => {
@@ -128,7 +129,7 @@ describe('Links Parser', () => {
         text: 'Example',
         type: 'markdown'
       });
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
     test('should validate markdown link text', async () => {
@@ -152,7 +153,7 @@ describe('Links Parser', () => {
         path: 'documents/report.pdf',
         type: 'file'
       });
-      expect(result.metadata.confidence).toBe(0.9);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
     test('should handle relative file paths', async () => {
@@ -189,7 +190,7 @@ describe('Links Parser', () => {
         url: 'https://example.com',
         type: 'url'
       });
-      expect(result.metadata.confidence).toBe(0.75);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
     test('should handle various TLDs', async () => {
@@ -268,36 +269,32 @@ describe('Links Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit URLs', async () => {
       const result = await parse('https://example.com');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for markdown links', async () => {
       const result = await parse('[Example](https://example.com)');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+    test('should have HIGH confidence for file links', async () => {
+      const result = await parse('[file:documents/report.pdf]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have LOW confidence for inferred URLs', async () => {
       const result = await parse('example.com');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for link at start of text', async () => {
-      const result = await parse('https://example.com is the website');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('https://example.com is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
     test('should have consistent confidence for same pattern type', async () => {
       const result1 = await parse('https://example1.com');
       const result2 = await parse('https://example2.com');
       expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 });

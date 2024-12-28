@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('ContactParser');
 
@@ -21,7 +22,7 @@ export async function parse(text) {
   };
 
   let bestMatch = null;
-  let highestConfidence = 0;
+  let highestConfidence = Confidence.LOW;
 
   for (const [pattern, regex] of Object.entries(patterns)) {
     const match = text.match(regex);
@@ -36,7 +37,7 @@ export async function parse(text) {
           if (!email.includes('@') || !email.includes('.')) {
             continue;
           }
-          confidence = 0.95;
+          confidence = Confidence.HIGH;
           const nameParts = email.split('@')[0].split(/[._]/);
           const name = nameParts
             .map(part => part.charAt(0).toUpperCase() + part.slice(1))
@@ -55,7 +56,7 @@ export async function parse(text) {
           if (!name) {
             continue;
           }
-          confidence = 0.95;
+          confidence = Confidence.HIGH;
           value = {
             type: 'reference',
             name,
@@ -70,7 +71,7 @@ export async function parse(text) {
           if (!phone.match(/^\+\d{1,3}-\d{3}-\d{3}-\d{4}$/)) {
             continue;
           }
-          confidence = 0.9;
+          confidence = Confidence.HIGH;
           value = {
             type: 'phone',
             value: phone.replace(/-/g, ''),
@@ -81,7 +82,7 @@ export async function parse(text) {
 
         case 'inferred_contact': {
           const name = match[1].trim();
-          confidence = 0.75;
+          confidence = Confidence.LOW;
           value = {
             type: 'reference',
             name,
@@ -91,7 +92,12 @@ export async function parse(text) {
         }
       }
 
-      if (confidence > highestConfidence && value) {
+      // Update if current confidence is higher or equal priority pattern
+      const shouldUpdate = value && (!bestMatch || 
+          (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+          (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW));
+      
+      if (shouldUpdate) {
         highestConfidence = confidence;
         bestMatch = {
           type: 'contact',

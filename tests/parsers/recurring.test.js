@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/recurring.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Recurring Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Recurring Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[recur:daily]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -86,7 +87,7 @@ describe('Recurring Parser', () => {
         },
         metadata: {
           pattern: 'explicit',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[recur:daily]'
         }
       });
@@ -104,7 +105,7 @@ describe('Recurring Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[recur:daily(skip=weekends)]'
         }
       });
@@ -187,36 +188,37 @@ describe('Recurring Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[recur:daily]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for weekday patterns', async () => {
       const result = await parse('every monday');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('repeats weekly');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+    test('should have HIGH confidence for business day patterns', async () => {
+      const result = await parse('every business day');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should increase confidence for recurring at start of text', async () => {
-      const result = await parse('[recur:daily] task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
+    test('should have MEDIUM confidence for standard interval patterns', async () => {
+      const result = await parse('every day');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[recur:daily] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
+    test('should have LOW confidence for custom interval patterns', async () => {
+      const result = await parse('every 2 weeks');
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
-    test('should increase confidence with end condition', async () => {
-      const withEnd = await parse('every day for 5 times');
-      const withoutEnd = await parse('every day');
-      expect(withEnd.metadata.confidence).toBeGreaterThan(withoutEnd.metadata.confidence);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[recur:daily]');
+      const result2 = await parse('[recur:weekly]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

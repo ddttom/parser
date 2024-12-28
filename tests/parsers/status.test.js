@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/status.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Status Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Status Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[status:completed]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String),
         level: expect.any(Number)
@@ -85,7 +86,7 @@ describe('Status Parser', () => {
         },
         metadata: {
           pattern: 'explicit',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[status:completed]',
           level: 3
         }
@@ -104,7 +105,7 @@ describe('Status Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[status:blocked(reason=dependency)]',
           level: 2
         }
@@ -137,7 +138,7 @@ describe('Status Parser', () => {
         },
         metadata: {
           pattern: 'progress',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: '50% complete',
           level: 1
         }
@@ -187,30 +188,30 @@ describe('Status Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[status:completed]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
-      const result = await parse('status: completed');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+    test('should have HIGH confidence for shorthand patterns', async () => {
+      const result = await parse('[completed]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+    test('should have MEDIUM confidence for state patterns', async () => {
+      const result = await parse('is completed');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+    });
+
+    test('should have MEDIUM confidence for progress patterns', async () => {
+      const result = await parse('50% complete');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+    });
+
+    test('should have LOW confidence for contextual patterns', async () => {
       const result = await parse('task is done');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for status at start of text', async () => {
-      const result = await parse('[status:completed] task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[status:completed] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
   });
 

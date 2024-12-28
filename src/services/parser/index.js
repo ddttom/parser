@@ -1,6 +1,7 @@
 // src/services/parser/index.js
 import { createLogger } from '../../utils/logger.js';
 import { compilePatterns } from './utils/patterns.js';
+import { Confidence } from './utils/confidence.js';
 
 // Import all parsers
 import * as actionParser from './parsers/action.js';
@@ -221,15 +222,19 @@ class ParserService {
         this.totalParses += 1;
     }
 
-    // Calculate overall confidence score
+    // Calculate overall confidence level
     calculateOverallConfidence(confidenceScores) {
         if (!confidenceScores || Object.keys(confidenceScores).length === 0) {
-            return 0;
+            return Confidence.LOW;
         }
 
         const scores = Object.values(confidenceScores);
-        const total = scores.reduce((sum, score) => sum + score, 0);
-        return total / scores.length;
+        const highCount = scores.filter(s => s === Confidence.HIGH).length;
+        const mediumCount = scores.filter(s => s === Confidence.MEDIUM).length;
+        
+        if (highCount > scores.length / 2) return Confidence.HIGH;
+        if (mediumCount > scores.length / 2) return Confidence.MEDIUM;
+        return Confidence.LOW;
     }
 }
 

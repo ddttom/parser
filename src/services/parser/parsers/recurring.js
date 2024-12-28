@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('RecurringParser');
 
@@ -42,7 +43,7 @@ export async function parse(text) {
                 const value = await extractRecurringValue(matches, type);
                 if (value) {
                     const endCondition = await extractEndCondition(text);
-                    const confidence = calculateConfidence(type, endCondition, matches.index);
+                    const confidence = calculateConfidence(type);
 
                     return {
                         type: 'recurring',
@@ -153,38 +154,20 @@ async function extractEndCondition(text) {
     return null;
 }
 
-function calculateConfidence(type, endCondition, position) {
-    // Base confidence by type
-    let confidence = {
-        explicit: 0.95,
-        weekday: 0.90,
-        business: 0.85,
-        daily: 0.75,
-        weekly: 0.75,
-        monthly: 0.75,
-        hourly: 0.75,
-        interval: 0.70
-    }[type] || 0.70;
-
-    // End condition increases confidence slightly
-    if (endCondition) {
-        confidence = Math.min(confidence + 0.02, type === 'explicit' ? 0.95 : 0.85);
+function calculateConfidence(type) {
+    // Return confidence level based on pattern type
+    switch (type) {
+        case 'explicit':
+            return Confidence.HIGH;
+        case 'weekday':
+        case 'business':
+            return Confidence.HIGH;
+        case 'daily':
+        case 'weekly':
+        case 'monthly':
+        case 'hourly':
+            return Confidence.MEDIUM;
+        default:
+            return Confidence.LOW;
     }
-
-    // Position-based confidence adjustment
-    if (position === 0) {
-        confidence = Math.min(confidence + 0.02, type === 'explicit' ? 0.95 : 0.85);
-    }
-
-    // Ensure natural patterns don't exceed 0.8 except for special cases
-    if (!['explicit', 'weekday', 'business'].includes(type)) {
-        confidence = Math.min(confidence, 0.8);
-    }
-
-    // Restore weekday confidence to 0.9 if it was reduced
-    if (type === 'weekday') {
-        confidence = 0.9;
-    }
-
-    return confidence;
 }

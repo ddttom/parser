@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/tags.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Tags Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Tags Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[tag:important]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -82,7 +83,7 @@ describe('Tags Parser', () => {
         value: ['important'],
         metadata: {
           pattern: 'explicit_tag',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[tag:important]'
         }
       });
@@ -98,7 +99,7 @@ describe('Tags Parser', () => {
         },
         metadata: {
           pattern: 'parameterized_tag',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[tag:feature(type=enhancement)]'
         }
       });
@@ -111,7 +112,7 @@ describe('Tags Parser', () => {
         value: ['frontend', 'backend'],
         metadata: {
           pattern: 'hashtag',
-          confidence: 0.80,
+          confidence: Confidence.MEDIUM,
           originalMatch: '#frontend #backend'
         }
       });
@@ -124,7 +125,7 @@ describe('Tags Parser', () => {
         value: ['important', 'frontend', 'backend'],
         metadata: {
           pattern: 'mixed_format',
-          confidence: 0.90,
+          confidence: Confidence.HIGH,
           originalMatch: '[tag:important] #frontend #backend'
         }
       });
@@ -137,7 +138,7 @@ describe('Tags Parser', () => {
         value: ['feature/ui'],
         metadata: {
           pattern: 'categorized_tag',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: '#feature/ui'
         }
       });
@@ -174,35 +175,32 @@ describe('Tags Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[tag:important]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for parameterized patterns', async () => {
+      const result = await parse('[tag:feature(type=enhancement)]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for hashtag patterns', async () => {
       const result = await parse('#frontend');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('tagged as important');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[tag:important]');
+      const result2 = await parse('[tag:feature]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should increase confidence for tags at start of text', async () => {
-      const result = await parse('[tag:important] task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[tag:important] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
-    });
-
-    test('should increase confidence for multiple matching tags', async () => {
+    test('should maintain MEDIUM confidence for multiple hashtags', async () => {
       const result = await parse('#frontend #backend #api');
-      expect(result.metadata.confidence).toBeGreaterThan(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
   });
 

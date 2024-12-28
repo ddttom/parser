@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('RoleParser');
 
@@ -37,7 +38,6 @@ export async function parse(text) {
         };
 
         let bestMatch = null;
-        let highestConfidence = 0;
 
         for (const [pattern, regex] of Object.entries(patterns)) {
             const match = text.match(regex);
@@ -53,17 +53,21 @@ export async function parse(text) {
 
                 switch (pattern) {
                     case 'explicit': {
-                        confidence = 0.95;
+                        confidence = Confidence.HIGH;
                         break;
                     }
                     case 'inferred': {
-                        confidence = 0.80;
+                        confidence = Confidence.MEDIUM;
                         break;
                     }
                 }
 
-                if (confidence > highestConfidence) {
-                    highestConfidence = confidence;
+                // Update if current confidence is higher or equal priority pattern
+                const shouldUpdate = !bestMatch || 
+                    confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH ||
+                    confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW;
+                
+                if (shouldUpdate) {
                     bestMatch = {
                         type: 'role',
                         value: {

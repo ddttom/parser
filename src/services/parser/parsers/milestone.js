@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('MilestoneParser');
 
@@ -49,7 +50,7 @@ export async function parse(text) {
         };
 
         let bestMatch = null;
-        let highestConfidence = 0;
+        let highestConfidence = Confidence.LOW;
 
         for (const [pattern, regex] of Object.entries(patterns)) {
             const match = text.match(regex);
@@ -66,7 +67,7 @@ export async function parse(text) {
 
                 switch (pattern) {
                     case 'explicit': {
-                        confidence = 0.95;
+                        confidence = Confidence.HIGH;
                         value = {
                             milestone,
                             type,
@@ -76,11 +77,7 @@ export async function parse(text) {
                     }
 
                     case 'labeled': {
-                        confidence = 0.90;
-                        // Apply position bonus only if there's more text after the milestone
-                        if (match.index === 0 && text.length > match[0].length) {
-                            confidence = 0.95;
-                        }
+                        confidence = Confidence.HIGH;
                         value = {
                             milestone,
                             type,
@@ -90,7 +87,7 @@ export async function parse(text) {
                     }
 
                     case 'delivery': {
-                        confidence = 0.90;
+                        confidence = Confidence.HIGH;
                         value = {
                             milestone,
                             type: 'delivery',
@@ -100,7 +97,7 @@ export async function parse(text) {
                     }
 
                     case 'phase': {
-                        confidence = 0.85;
+                        confidence = Confidence.MEDIUM;
                         value = {
                             milestone,
                             type: 'phase',
@@ -110,7 +107,7 @@ export async function parse(text) {
                     }
 
                     case 'implicit': {
-                        confidence = 0.80;
+                        confidence = Confidence.MEDIUM;
                         value = {
                             milestone,
                             type,
@@ -120,7 +117,12 @@ export async function parse(text) {
                     }
                 }
 
-                if (confidence > highestConfidence) {
+                // Update if current confidence is higher or equal priority pattern
+                const shouldUpdate = !bestMatch || 
+                    (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+                    (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+                
+                if (shouldUpdate) {
                     highestConfidence = confidence;
                     bestMatch = {
                         type: 'milestone',

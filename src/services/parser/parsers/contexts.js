@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('ContextsParser');
 
@@ -31,7 +32,7 @@ export async function parse(text) {
   };
 
   let bestMatch = null;
-  let highestConfidence = 0;
+  let highestConfidence = Confidence.LOW;
 
   for (const [pattern, regex] of Object.entries(patterns)) {
     const match = text.match(regex);
@@ -48,7 +49,7 @@ export async function parse(text) {
               type: contextTypes[context] || 'location'
             };
           });
-          confidence = 0.95;
+          confidence = Confidence.HIGH;
           value = { contexts };
           break;
         }
@@ -60,7 +61,7 @@ export async function parse(text) {
           if (!parameter || match[0].endsWith('()')) {
             return null;
           }
-          confidence = 0.95;
+          confidence = Confidence.HIGH;
           value = {
             context,
             type: contextTypes[context] || 'location',
@@ -71,7 +72,7 @@ export async function parse(text) {
 
         case 'explicit_context': {
           const context = match[1];
-          confidence = 0.9;
+          confidence = Confidence.HIGH;
           value = {
             context,
             type: contextTypes[context] || 'location'
@@ -81,7 +82,7 @@ export async function parse(text) {
 
         case 'implicit_context': {
           const context = match[1].toLowerCase();
-          confidence = 0.75;
+          confidence = Confidence.LOW;
           value = {
             context,
             type: contextTypes[context] || 'location'
@@ -90,19 +91,18 @@ export async function parse(text) {
         }
       }
 
-      // Apply position bonus for matches at start of text
-      let adjustedConfidence = confidence;
-      if (match.index === 0) {
-        adjustedConfidence = Math.min(confidence + 0.05, 0.95);
-      }
-
-      if (adjustedConfidence > highestConfidence) {
-        highestConfidence = adjustedConfidence;
+      // Update if current confidence is higher or equal priority pattern
+      const shouldUpdate = !bestMatch || 
+          (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+          (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+      
+      if (shouldUpdate) {
+        highestConfidence = confidence;
         bestMatch = {
           type: name,
           value,
           metadata: {
-            confidence: adjustedConfidence,
+            confidence,
             pattern,
             originalMatch: match[0]
           }

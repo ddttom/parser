@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/context.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Context Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Context Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[context:office]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -164,37 +165,34 @@ describe('Context Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[context:work]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have MEDIUM confidence for known context types', async () => {
       const result = await parse('at office');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+    test('should have LOW confidence for unknown context types', async () => {
       const result = await parse('at somewhere');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
-    test('should increase confidence for context at start of text', async () => {
-      const result = await parse('[context:office] meeting');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
+    test('should prioritize explicit patterns over known types', async () => {
+      const explicit = await parse('[context:somewhere]');
+      const known = await parse('at office');
+      expect(explicit.metadata.confidence).toBe(Confidence.HIGH);
+      expect(known.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[context:office] is booked');
-      expect(result.metadata.confidence).toBe(0.95);
-    });
-
-    test('increases confidence for known context types', async () => {
-      const withKnownType = await parse('at office');
-      const withUnknownType = await parse('at somewhere');
-      expect(withKnownType.metadata.confidence)
-        .toBeGreaterThan(withUnknownType.metadata.confidence);
+    test('should prioritize known types over unknown', async () => {
+      const known = await parse('at office');
+      const unknown = await parse('at somewhere');
+      expect(known.metadata.confidence).toBe(Confidence.MEDIUM);
+      expect(unknown.metadata.confidence).toBe(Confidence.LOW);
     });
   });
 

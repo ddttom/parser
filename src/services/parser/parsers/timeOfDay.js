@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('TimeOfDayParser');
 
@@ -48,7 +49,7 @@ export async function parse(text) {
                 },
                 metadata: {
                     pattern: 'explicit_time',
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     originalMatch: explicitMatch[0]
                 }
             };
@@ -77,7 +78,7 @@ export async function parse(text) {
                 },
                 metadata: {
                     pattern: '12h_time',
-                    confidence: 0.9,
+                    confidence: Confidence.HIGH,
                     originalMatch: twelveHourMatch[0]
                 }
             };
@@ -96,7 +97,7 @@ export async function parse(text) {
                     },
                     metadata: {
                         pattern: 'natural_time',
-                        confidence: 0.8,
+                        confidence: Confidence.MEDIUM,
                         originalMatch: naturalMatch[1]
                     }
                 };

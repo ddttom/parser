@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('SprintParser');
 
@@ -54,7 +55,6 @@ export async function parse(text) {
         ]);
 
         let bestMatch = null;
-        let highestConfidence = 0;
 
         for (const [pattern, regex] of patterns.entries()) {
             const match = text.match(regex);
@@ -69,7 +69,7 @@ export async function parse(text) {
 
                 switch (pattern) {
                     case 'explicit': {
-                        confidence = 0.95;
+                        confidence = Confidence.HIGH;
                         const description = match[2]?.trim() || null;
                         value = {
                             number: sprintNumber,
@@ -81,7 +81,7 @@ export async function parse(text) {
                     }
 
                     case 'phase': {
-                        confidence = 0.85;
+                        confidence = Confidence.MEDIUM;
                         const phaseText = match[0].toLowerCase();
                         let phase = 'general';
                         if (phaseText.includes('planning')) phase = 'planning';
@@ -97,7 +97,7 @@ export async function parse(text) {
                     }
 
                     case 'labeled': {
-                        confidence = 0.90;
+                        confidence = Confidence.HIGH;
                         const separator = match[2];
                         const description = match[3]?.trim() || null;
                         value = {
@@ -106,25 +106,16 @@ export async function parse(text) {
                             description,
                             isExplicit: true
                         };
-                        // Apply position bonus for confidence scoring test case
-                        if (match.index === 0 && text === 'sprint 11: Development Phase') {
-                            confidence = 0.95;
-                        }
                         break;
                     }
 
                     case 'implicit': {
-                        confidence = 0.80;
+                        confidence = Confidence.MEDIUM;
                         value = {
                             number: sprintNumber,
                             phase: 'general',
                             isExplicit: false
                         };
-                        // Apply context bonus for planning/review/retro words
-                        const contextWords = ['planning', 'review', 'retro', 'demo'];
-                        if (contextWords.some(word => text.toLowerCase().includes(word))) {
-                            confidence = 0.85;
-                        }
                         break;
                     }
                 }
@@ -134,8 +125,12 @@ export async function parse(text) {
                     continue;
                 }
 
-                if (confidence > highestConfidence) {
-                    highestConfidence = confidence;
+                // Update if current confidence is higher or equal priority pattern
+                const shouldUpdate = !bestMatch || 
+                    (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+                    (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+                
+                if (shouldUpdate) {
                     bestMatch = {
                         type: 'sprint',
                         value,

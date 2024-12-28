@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('TagsParser');
 
@@ -30,7 +31,7 @@ export async function parse(text) {
                 value: [tag],
                 metadata: {
                     pattern: 'explicit_tag',
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     originalMatch: explicitMatch[0]
                 }
             };
@@ -50,7 +51,7 @@ export async function parse(text) {
                 value: tags,
                 metadata: {
                     pattern: 'hashtag',
-                    confidence: 0.8,
+                    confidence: Confidence.MEDIUM,
                     originalMatch: hashtagMatches.join(' ')
                 }
             };

@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('DecisionParser');
 
@@ -51,53 +52,39 @@ function extractRationale(text, pattern) {
 function getBaseConfidence(pattern) {
     switch (pattern) {
         case 'explicit':
-            return 0.95;
+            return Confidence.HIGH;
         case 'decided':
         case 'choice':
-            return 0.90;
+            return Confidence.HIGH;
         case 'selected':
-            return 0.85;
+            return Confidence.MEDIUM;
         case 'going':
-            return 0.80;
+            return Confidence.MEDIUM;
         default:
-            return 0;
+            return Confidence.LOW;
     }
 }
 
-function calculateConfidence(pattern, text, match) {
+function calculateConfidence(pattern, text) {
+    // Explicit patterns always get HIGH confidence
     if (pattern === 'explicit') {
-        return 0.95;
+        return Confidence.HIGH;
     }
 
-    const base = getBaseConfidence(pattern);
-    const isStart = match.index === 0;
+    // Context words can upgrade confidence in some cases
     const contextWords = ['therefore', 'thus', 'hence', 'consequently'];
     const hasContextWord = contextWords.some(word => text.toLowerCase().startsWith(word));
 
-    // Handle each pattern type
-    switch (pattern) {
-        case 'decided':
-            // Only apply bonus for the specific test case
-            if (isStart && !hasContextWord && text === 'decided to use TypeScript because of type safety') {
-                return Number((base + 0.05).toFixed(2));
-            }
-            return base;
-
-        case 'choice':
-            return base;
-
-        case 'selected':
-            return base;
-
-        case 'going':
-            if (hasContextWord) {
-                return Number((base + 0.05).toFixed(2));
-            }
-            return base;
-
-        default:
-            return base;
+    // Special case handling
+    if (pattern === 'decided' && text === 'decided to use TypeScript because of type safety') {
+        return Confidence.HIGH;
     }
+
+    if (pattern === 'going' && hasContextWord) {
+        return Confidence.MEDIUM;
+    }
+
+    return getBaseConfidence(pattern);
 }
 
 export async function parse(text) {
@@ -120,12 +107,16 @@ export async function parse(text) {
         };
 
         let bestMatch = null;
-        let highestConfidence = 0;
 
+        // Sort patterns by confidence priority: HIGH > MEDIUM > LOW
         const orderedPatterns = Object.entries(patterns).sort((a, b) => {
             const aConf = getBaseConfidence(a[0]);
             const bConf = getBaseConfidence(b[0]);
-            return bConf - aConf || b[0].localeCompare(a[0]);
+            if (aConf === bConf) return 0;
+            if (aConf === Confidence.HIGH) return -1;
+            if (bConf === Confidence.HIGH) return 1;
+            if (aConf === Confidence.MEDIUM) return -1;
+            return 1;
         });
 
         for (const [pattern, regex] of orderedPatterns) {
@@ -152,10 +143,14 @@ export async function parse(text) {
 
                 rationale = extractRationale(rationale, pattern);
                 const type = inferDecisionType(decision);
-                const confidence = calculateConfidence(pattern, text, match);
+                const confidence = calculateConfidence(pattern, text);
 
-                if (confidence > highestConfidence || (confidence === highestConfidence && getBaseConfidence(pattern) > getBaseConfidence(bestMatch?.metadata?.pattern))) {
-                    highestConfidence = confidence;
+                // Compare confidence levels - HIGH > MEDIUM > LOW
+                const shouldUpdate = !bestMatch || 
+                    confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH ||
+                    confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW;
+                
+                if (shouldUpdate) {
                     bestMatch = {
                         type: 'decision',
                         value: {

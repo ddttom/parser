@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/team.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Team Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Team Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[team:frontend]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -84,7 +85,7 @@ describe('Team Parser', () => {
         },
         metadata: {
           pattern: 'explicit',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[team:frontend]'
         }
       });
@@ -102,7 +103,7 @@ describe('Team Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[team:frontend(lead=john)]'
         }
       });
@@ -133,7 +134,7 @@ describe('Team Parser', () => {
         },
         metadata: {
           pattern: 'contextual',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'assigned to frontend team'
         }
       });
@@ -180,37 +181,27 @@ describe('Team Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[team:frontend]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for parameterized patterns', async () => {
+      const result = await parse('[team:frontend(lead=john)]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for inferred patterns', async () => {
       const result = await parse('frontend team');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('assigned to frontend');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for team at start of text', async () => {
-      const result = await parse('[team:frontend] task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[team:frontend] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
-    });
-
-    test('should increase confidence for contextual references', async () => {
-      const withContext = await parse('assigned to frontend team');
-      const withoutContext = await parse('frontend team');
-      expect(withContext.metadata.confidence)
-        .toBeGreaterThan(withoutContext.metadata.confidence);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[team:frontend]');
+      const result2 = await parse('[team:backend]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

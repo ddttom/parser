@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/time.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Time Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Time Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[time:14:30]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Time Parser', () => {
         },
         metadata: {
           pattern: 'explicit',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[time:14:30]'
         }
       });
@@ -104,7 +105,7 @@ describe('Time Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[time:14:30(timezone=UTC)]'
         }
       });
@@ -163,7 +164,7 @@ describe('Time Parser', () => {
         },
         metadata: {
           pattern: 'period',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'in the morning'
         }
       });
@@ -206,37 +207,37 @@ describe('Time Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[time:14:30]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for 24-hour format', async () => {
+      const result = await parse('Meeting at 14:30');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have HIGH confidence for specific 12-hour format', async () => {
       const result = await parse('Meeting at 2:30pm');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('sometime in the morning');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+    test('should have MEDIUM confidence for period patterns', async () => {
+      const result = await parse('Meeting in the morning');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should increase confidence for time at start of text', async () => {
-      const result = await parse('[time:14:30] meeting');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
+    test('should have LOW confidence for action patterns', async () => {
+      const result = await parse('meet at 2');
+      expect(result.metadata.confidence).toBe(Confidence.LOW);
     });
 
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[time:14:30] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
-    });
-
-    test('should increase confidence for specific times over periods', async () => {
-      const specific = await parse('Meeting at 2:30pm');
-      const period = await parse('Meeting in the morning');
-      expect(specific.metadata.confidence)
-        .toBeGreaterThan(period.metadata.confidence);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[time:14:30]');
+      const result2 = await parse('[time:15:45]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 
@@ -340,7 +341,7 @@ describe('Time Parser', () => {
       for (const input of ambiguous) {
         const result = await parse(input);
         if (result) {
-          expect(result.metadata.confidence).toBeLessThanOrEqual(0.8);
+          expect(result.metadata.confidence).toBe(Confidence.LOW);
         }
       }
     });

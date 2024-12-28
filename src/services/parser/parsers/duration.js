@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('DurationParser');
 
@@ -25,7 +26,6 @@ export async function parse(text) {
   };
 
   let bestMatch = null;
-  let highestConfidence = 0;
 
   for (const [pattern, regex] of Object.entries(patterns)) {
     const match = text.match(regex);
@@ -42,7 +42,7 @@ export async function parse(text) {
             continue;
           }
 
-          confidence = 0.95;
+          confidence = Confidence.HIGH;
           value = {
             hours,
             minutes,
@@ -60,7 +60,7 @@ export async function parse(text) {
             continue;
           }
 
-          confidence = 0.9;
+          confidence = Confidence.HIGH;
           value = {
             hours,
             minutes,
@@ -78,7 +78,7 @@ export async function parse(text) {
             continue;
           }
 
-          confidence = 0.9;
+          confidence = Confidence.HIGH;
           value = {
             hours,
             minutes,
@@ -109,7 +109,7 @@ export async function parse(text) {
             continue;
           }
 
-          confidence = 0.8;
+          confidence = Confidence.MEDIUM;
           value = {
             hours,
             minutes,
@@ -119,13 +119,12 @@ export async function parse(text) {
         }
       }
 
-      // Apply position bonus only for explicit and short patterns
-      if (match.index === 0 && (pattern === 'explicit_duration' || pattern === 'short_duration' || pattern === 'minutes_only')) {
-        confidence = Math.min(confidence + 0.05, 0.95);
-      }
-
-      if (confidence > highestConfidence) {
-        highestConfidence = confidence;
+      // Compare confidence levels - HIGH > MEDIUM > LOW
+      const shouldUpdate = !bestMatch || 
+          confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH ||
+          confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW;
+      
+      if (shouldUpdate) {
         bestMatch = {
           type: name,
           value,

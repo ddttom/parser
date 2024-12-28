@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/complexity.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Complexity Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Complexity Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[complexity:high]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Complexity Parser', () => {
         },
         metadata: {
           pattern: 'explicit_complexity',
-          confidence: 0.9,
+          confidence: Confidence.HIGH,
           originalMatch: '[complexity:high]'
         }
       });
@@ -101,7 +102,7 @@ describe('Complexity Parser', () => {
         },
         metadata: {
           pattern: 'numeric_complexity',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[complexity:3]'
         }
       });
@@ -117,37 +118,27 @@ describe('Complexity Parser', () => {
         },
         metadata: {
           pattern: 'keyword_complexity',
-          confidence: 0.8,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'complex'
         }
       });
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for numeric complexity', async () => {
       const result = await parse('[complexity:3]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for explicit complexity', async () => {
       const result = await parse('[complexity:high]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('this is complex');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for complexity at start of text', async () => {
-      const result = await parse('[complexity:high] task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[complexity:3] is important');
-      expect(result.metadata.confidence).toBe(0.95);
+    test('should have MEDIUM confidence for keyword patterns', async () => {
+      const result = await parse('this is a complex task');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
   });
 

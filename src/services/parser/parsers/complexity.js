@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('ComplexityParser');
 
@@ -20,7 +21,7 @@ export async function parse(text) {
     };
 
     let bestMatch = null;
-    let highestConfidence = 0;
+    let highestConfidence = Confidence.LOW;
 
     const complexityLevels = {
         high: 3,
@@ -51,7 +52,7 @@ export async function parse(text) {
                     if (score < 1 || score > 3) {
                         continue;
                     }
-                    confidence = 0.95;
+                    confidence = Confidence.HIGH;
                     value = {
                         level: score >= 3 ? 'high' : score >= 2 ? 'medium' : 'low',
                         score
@@ -60,7 +61,7 @@ export async function parse(text) {
                 }
 
                 case 'explicit_complexity': {
-                    confidence = 0.9;
+                    confidence = Confidence.HIGH;
                     const level = match[1].toLowerCase();
                     value = {
                         level,
@@ -70,7 +71,7 @@ export async function parse(text) {
                 }
 
                 case 'keyword_complexity': {
-                    confidence = 0.8;
+                    confidence = Confidence.MEDIUM;
                     const level = keywordMap[match[1].toLowerCase()];
                     value = {
                         level,
@@ -80,19 +81,18 @@ export async function parse(text) {
                 }
             }
 
-            // Apply position bonus for matches at start of text
-            let adjustedConfidence = confidence;
-            if (match.index === 0) {
-                adjustedConfidence = Math.min(confidence + 0.05, 0.95);
-            }
-
-            if (adjustedConfidence > highestConfidence) {
-                highestConfidence = adjustedConfidence;
+            // Update if current confidence is higher or equal priority pattern
+            const shouldUpdate = !bestMatch || 
+                (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+                (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+            
+            if (shouldUpdate) {
+                highestConfidence = confidence;
                 bestMatch = {
                     type: 'complexity',
                     value,
                     metadata: {
-                        confidence: adjustedConfidence,
+                        confidence,
                         pattern,
                         originalMatch: match[0]
                     }

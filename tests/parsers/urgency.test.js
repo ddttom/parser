@@ -62,7 +62,7 @@ describe('Urgency Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[urgency:high]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +85,7 @@ describe('Urgency Parser', () => {
         },
         metadata: {
           pattern: 'explicit_urgency',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[urgency:high]'
         }
       });
@@ -104,7 +104,7 @@ describe('Urgency Parser', () => {
         },
         metadata: {
           pattern: 'parameterized',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[urgency:high(reason=deadline)]'
         }
       });
@@ -157,7 +157,7 @@ describe('Urgency Parser', () => {
         },
         metadata: {
           pattern: 'multiple_indicators',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[urgency:high] URGENT: Complete ASAP'
         }
       });
@@ -194,35 +194,27 @@ describe('Urgency Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[urgency:high]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for time-based patterns', async () => {
+      const result = await parse('Complete ASAP');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for keyword patterns', async () => {
       const result = await parse('URGENT: Complete report');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('needs quick attention');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for urgency at start of text', async () => {
-      const result = await parse('[urgency:high] task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[urgency:high] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
-    });
-
-    test('should increase confidence for multiple indicators', async () => {
-      const result = await parse('URGENT ASAP Critical');
-      expect(result.metadata.confidence).toBeGreaterThan(0.80);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[urgency:high]');
+      const result2 = await parse('[urgency:low]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

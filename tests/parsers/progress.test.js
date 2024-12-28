@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/progress.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Progress Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Progress Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[progress:75%]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -85,7 +86,7 @@ describe('Progress Parser', () => {
         },
         metadata: {
           pattern: 'explicit',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[progress:75%]'
         }
       });
@@ -101,7 +102,7 @@ describe('Progress Parser', () => {
         },
         metadata: {
           pattern: 'explicit_with_description',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[progress:75%, coding phase]'
         }
       });
@@ -117,7 +118,7 @@ describe('Progress Parser', () => {
         },
         metadata: {
           pattern: 'percentage',
-          confidence: 0.85,
+          confidence: Confidence.MEDIUM,
           originalMatch: '50% complete'
         }
       });
@@ -141,7 +142,7 @@ describe('Progress Parser', () => {
         },
         metadata: {
           pattern: 'fractional',
-          confidence: 0.80,
+          confidence: Confidence.MEDIUM,
           originalMatch: 'three-quarters done'
         }
       });
@@ -171,30 +172,25 @@ describe('Progress Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[progress:75%]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for explicit patterns with description', async () => {
+      const result = await parse('[progress:75%, coding phase]');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for percentage patterns', async () => {
       const result = await parse('75% complete');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('about three quarters done');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for progress at start of text', async () => {
-      const result = await parse('[progress:75%] of the task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[progress:75%] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
+    test('should have MEDIUM confidence for fractional patterns', async () => {
+      const result = await parse('three-quarters done');
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
   });
 

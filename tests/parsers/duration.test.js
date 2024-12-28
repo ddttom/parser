@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/duration.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Duration Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Duration Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[duration:2h30m]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -86,7 +87,7 @@ describe('Duration Parser', () => {
         },
         metadata: {
           pattern: 'explicit_duration',
-          confidence: 0.95,
+          confidence: Confidence.HIGH,
           originalMatch: '[duration:2h30m]'
         }
       });
@@ -103,7 +104,7 @@ describe('Duration Parser', () => {
         },
         metadata: {
           pattern: 'natural',
-          confidence: 0.8,
+          confidence: Confidence.MEDIUM,
           originalMatch: '2 hours and 30 minutes'
         }
       });
@@ -120,37 +121,39 @@ describe('Duration Parser', () => {
         },
         metadata: {
           pattern: 'short_duration',
-          confidence: 0.9,
+          confidence: Confidence.HIGH,
           originalMatch: '2.5h'
         }
       });
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit duration markers', async () => {
       const result = await parse('[duration:2h30m]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for short duration formats', async () => {
       const result = await parse('Duration: 2.5h');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
+    test('should have HIGH confidence for minutes only format', async () => {
+      const result = await parse('takes 90m');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for natural duration expressions', async () => {
       const result = await parse('takes about 30 minutes');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
-    test('should increase confidence for duration at start of text', async () => {
-      const result = await parse('[duration:2h30m] for the task');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[duration:2h30m] is confirmed');
-      expect(result.metadata.confidence).toBe(0.95);
+    test('should have consistent confidence for same pattern type', async () => {
+      const result1 = await parse('[duration:2h30m]');
+      const result2 = await parse('[duration:1h45m]');
+      expect(result1.metadata.confidence).toBe(result2.metadata.confidence);
+      expect(result1.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

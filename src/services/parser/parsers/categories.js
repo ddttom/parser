@@ -1,4 +1,6 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
+
 const logger = createLogger('CategoriesParser');
 
 export const name = 'categories';
@@ -77,7 +79,7 @@ export async function parse(text) {
                     type: name,
                     value: { categories },
                     metadata: {
-                        confidence: multipleMatch.index === 0 ? 0.95 : 0.9,
+                        confidence: Confidence.HIGH,
                         pattern: 'multiple_categories',
                         originalMatch: multipleMatch[0]
                     }
@@ -99,7 +101,7 @@ export async function parse(text) {
                     subcategories: parts.slice(1)
                 },
                 metadata: {
-                    confidence: 0.95, // Nested categories always have high confidence
+                    confidence: Confidence.HIGH, // Nested categories have high confidence
                     pattern: 'nested_category',
                     originalMatch: nestedMatch[0]
                 }
@@ -117,7 +119,7 @@ export async function parse(text) {
                     subcategories: []
                 },
                 metadata: {
-                    confidence: explicitMatch.index === 0 ? 0.95 : 0.9,
+                    confidence: Confidence.HIGH,
                     pattern: 'explicit_category',
                     originalMatch: explicitMatch[0]
                 }
@@ -138,7 +140,7 @@ export async function parse(text) {
                     subcategories: []
                 },
                 metadata: {
-                    confidence: 0.8, // Inferred categories always have low confidence
+                    confidence: Confidence.MEDIUM, // Inferred categories have medium confidence
                     pattern: 'inferred_category',
                     originalMatch: inferredMatch[0]
                 }

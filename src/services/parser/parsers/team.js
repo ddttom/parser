@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('TeamParser');
 
@@ -47,7 +48,7 @@ export async function parse(text) {
                 },
                 metadata: {
                     pattern: 'explicit',
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     originalMatch: explicitMatch[0]
                 }
             };
@@ -62,7 +63,7 @@ export async function parse(text) {
                 value: mentions,
                 metadata: {
                     pattern: 'mentions',
-                    confidence: 0.95,
+                    confidence: Confidence.HIGH,
                     originalMatch: mentions.map(m => `@${m}`).join(', ')
                 }
             };
@@ -83,7 +84,7 @@ export async function parse(text) {
                     value: names,
                     metadata: {
                         pattern: 'name_list',
-                        confidence: 0.85,
+                        confidence: Confidence.MEDIUM,
                         originalMatch: nameMatch[0]
                     }
                 };
@@ -105,7 +106,7 @@ export async function parse(text) {
                 },
                 metadata: {
                     pattern: 'inferred',
-                    confidence: 0.80,
+                    confidence: Confidence.MEDIUM,
                     originalMatch: inferredMatch[0]
                 }
             };

@@ -1,4 +1,5 @@
 import { name, parse } from '../../src/services/parser/parsers/cost.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Cost Parser', () => {
   describe('Input Validation', () => {
@@ -62,7 +63,7 @@ describe('Cost Parser', () => {
     test('should return metadata with required fields', async () => {
       const result = await parse('[cost:$100]');
       expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
+        confidence: expect.any(String),
         pattern: expect.any(String),
         originalMatch: expect.any(String)
       }));
@@ -161,30 +162,20 @@ describe('Cost Parser', () => {
     });
   });
 
-  describe('Confidence Scoring', () => {
-    test('should have high confidence (>=0.90) for explicit patterns', async () => {
+  describe('Confidence Levels', () => {
+    test('should have HIGH confidence for explicit patterns', async () => {
       const result = await parse('[cost:$500]');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.90);
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
 
-    test('should have medium confidence (>=0.80) for standard patterns', async () => {
+    test('should have HIGH confidence for currency patterns', async () => {
+      const result = await parse('$500');
+      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    });
+
+    test('should have MEDIUM confidence for natural patterns', async () => {
       const result = await parse('price: $500');
-      expect(result.metadata.confidence).toBeGreaterThanOrEqual(0.80);
-    });
-
-    test('should have low confidence (<=0.80) for implicit patterns', async () => {
-      const result = await parse('estimated to be $500');
-      expect(result.metadata.confidence).toBeLessThanOrEqual(0.80);
-    });
-
-    test('should increase confidence for cost at start of text', async () => {
-      const result = await parse('[cost:$500] for project');
-      expect(result.metadata.confidence).toBe(0.95); // Base + 0.05
-    });
-
-    test('should not increase confidence beyond 1.0', async () => {
-      const result = await parse('[cost:$500] is approved');
-      expect(result.metadata.confidence).toBe(0.95);
+      expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
     });
 
     test('confidence levels are consistent across currencies', async () => {
@@ -192,8 +183,9 @@ describe('Cost Parser', () => {
       const gbpResult = await parse('[cost:£500]');
       const eurResult = await parse('[cost:€500]');
       
-      expect(usdResult.metadata.confidence).toBe(gbpResult.metadata.confidence);
-      expect(gbpResult.metadata.confidence).toBe(eurResult.metadata.confidence);
+      expect(usdResult.metadata.confidence).toBe(Confidence.HIGH);
+      expect(gbpResult.metadata.confidence).toBe(Confidence.HIGH);
+      expect(eurResult.metadata.confidence).toBe(Confidence.HIGH);
     });
   });
 

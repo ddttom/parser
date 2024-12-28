@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('ParticipantsParser');
 
@@ -50,7 +51,7 @@ function findNaturalList(text) {
       return {
         match: listPart,
         participants,
-        confidence: 0.85
+        confidence: Confidence.MEDIUM
       };
     }
   }
@@ -64,7 +65,7 @@ function findNaturalList(text) {
       return {
         match: listPart,
         participants,
-        confidence: 0.7
+        confidence: Confidence.LOW
       };
     }
   }
@@ -100,7 +101,7 @@ export async function parse(text) {
         },
         metadata: {
           confidence: naturalList.confidence,
-          pattern: naturalList.confidence === 0.85 ? 'natural_list' : 'implicit',
+          pattern: naturalList.confidence === Confidence.MEDIUM ? 'natural_list' : 'implicit',
           originalMatch: naturalList.match
         }
       };
@@ -108,7 +109,7 @@ export async function parse(text) {
   }
 
   let bestMatch = null;
-  let highestConfidence = 0;
+  let highestConfidence = Confidence.LOW;
 
   // Process other patterns in priority order
   const patternOrder = [
@@ -143,7 +144,7 @@ export async function parse(text) {
 
           if (participants.length === 0) continue;
 
-          confidence = 0.95;
+          confidence = Confidence.HIGH;
           value = {
             participants,
             count: participants.length
@@ -158,7 +159,7 @@ export async function parse(text) {
           const participants = extractParticipants(match[1]);
           if (participants.length === 0) continue;
 
-          confidence = 0.95;
+          confidence = Confidence.HIGH;
           value = {
             participants,
             count: participants.length
@@ -188,7 +189,7 @@ export async function parse(text) {
 
           if (participants.length === 0) continue;
 
-          confidence = 0.9;
+          confidence = Confidence.HIGH;
           value = {
             participants,
             count: participants.length
@@ -207,7 +208,7 @@ export async function parse(text) {
 
           if (participants.length === 0) continue;
 
-          confidence = 0.9;
+          confidence = Confidence.HIGH;
           value = {
             participants,
             count: participants.length
@@ -216,12 +217,12 @@ export async function parse(text) {
         }
       }
 
-      // Apply position bonus only for explicit patterns
-      if (match.index === 0 && ['parameterized_list', 'explicit_list'].includes(pattern)) {
-        confidence = Math.min(confidence + 0.05, 0.95);
-      }
-
-      if (confidence > highestConfidence) {
+      // Update if current confidence is higher or equal priority pattern
+      const shouldUpdate = !bestMatch || 
+          (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
+          (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
+      
+      if (shouldUpdate) {
         highestConfidence = confidence;
         bestMatch = {
           type: 'participants',

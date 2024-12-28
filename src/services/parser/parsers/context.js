@@ -1,4 +1,5 @@
 import { createLogger } from '../../../utils/logger.js';
+import { Confidence } from '../utils/confidence.js';
 
 const logger = createLogger('ContextParser');
 
@@ -109,22 +110,17 @@ function inferContextType(context) {
     return 'general';
 }
 
-function calculateConfidence(type, context, match) {
-    // Base confidence
-    let confidence = type === 'explicit' ? 0.9 : 0.75;
+function calculateConfidence(type, context) {
+    // Explicit patterns get HIGH confidence
+    if (type === 'explicit') {
+        return Confidence.HIGH;
+    }
     
-    // Boost confidence for well-known context types
+    // Well-known context types get MEDIUM confidence
     if (inferContextType(context) !== 'general') {
-        // For explicit patterns, stay at or below 0.95
-        // For inferred patterns, stay at or below 0.8
-        const maxConfidence = type === 'explicit' ? 0.95 : 0.8;
-        confidence = Math.min(confidence + 0.05, maxConfidence);
-    }
-
-    // Apply position bonus for matches at start of text
-    if (match.index === 0) {
-        confidence = Math.min(confidence + 0.05, 0.95);
+        return Confidence.MEDIUM;
     }
     
-    return confidence;
+    // All other patterns get LOW confidence
+    return Confidence.LOW;
 }
