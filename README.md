@@ -4,6 +4,17 @@ A sophisticated natural language processing library designed to parse and extrac
 
 The project uses ES Modules (ESM) with explicit `.js` extensions for all imports/exports.
 
+**Explicitly avoiding TypeScript** for:
+
+- Reduced build complexity
+- Simplified maintenance
+- Minimal toolchain requirements
+- **Quality assurance through:**
+  - Comprehensive documentation
+  - Thorough testing
+  - Clear code organization
+  - Review processes
+
 ## Features
 
 - **Comprehensive Text Analysis**: Extract multiple data points from natural text including:
