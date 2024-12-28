@@ -7,15 +7,6 @@ describe('Reminders Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('remind me in 30 minutes');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -29,9 +20,6 @@ describe('Reminders Parser', () => {
         type: 'offset',
         minutes: 30
       });
-      expect(result.metadata.pattern).toBe('relative');
-      expect(result.metadata.originalMatch).toBe('in 30 minutes');
-      expect(result.metadata.isRelative).toBe(true);
     });
 
     test('should handle various time units', async () => {
@@ -47,8 +35,6 @@ describe('Reminders Parser', () => {
           type: 'offset',
           minutes
         });
-        expect(result.metadata.pattern).toBe('relative');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -63,8 +49,6 @@ describe('Reminders Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.type).toBe('before');
-        expect(result.metadata.pattern).toBe('before');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -83,7 +67,6 @@ describe('Reminders Parser', () => {
           hour,
           minutes
         });
-        expect(result.metadata.pattern).toBe('at');
       }
     });
 
@@ -98,7 +81,6 @@ describe('Reminders Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.type).toBe('date');
-        expect(result.metadata.pattern).toBe('on');
       }
     });
 
@@ -115,7 +97,6 @@ describe('Reminders Parser', () => {
           type: 'offset',
           minutes
         });
-        expect(result.metadata.pattern).toBe('timeword');
       }
     });
   });
@@ -136,7 +117,6 @@ describe('Reminders Parser', () => {
           hour,
           minutes
         });
-        expect(result.metadata.pattern).toBe('at');
       }
     });
 
@@ -147,7 +127,6 @@ describe('Reminders Parser', () => {
         hour: 15,
         minutes: 0
       });
-      expect(result.metadata.pattern).toBe('at');
     });
 
     test('should handle plural and singular units', async () => {
@@ -161,7 +140,6 @@ describe('Reminders Parser', () => {
       for (const { input, minutes } of cases) {
         const result = await parse(input);
         expect(result.value.minutes).toBe(minutes);
-        expect(result.metadata.pattern).toBe('relative');
       }
     });
   });

@@ -7,15 +7,6 @@ describe('Time Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('at 2:30pm');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -34,8 +25,6 @@ describe('Time Parser', () => {
       for (const { input, hours, minutes } of times) {
         const result = await parse(`Meeting at ${input}`);
         expect(result.value).toEqual({ hours, minutes });
-        expect(result.metadata.pattern).toBe('specific');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -50,8 +39,6 @@ describe('Time Parser', () => {
       for (const { input, hours, minutes } of times) {
         const result = await parse(`Meeting at ${input}`);
         expect(result.value).toEqual({ hours, minutes });
-        expect(result.metadata.pattern).toBe('twentyFourHour');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -64,8 +51,6 @@ describe('Time Parser', () => {
       for (const { input, hours, minutes } of times) {
         const result = await parse(`Meeting at ${input}`);
         expect(result.value).toEqual({ hours, minutes });
-        expect(result.metadata.pattern).toBe('specific');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
   });
@@ -78,8 +63,6 @@ describe('Time Parser', () => {
         start: 9,
         end: 12
       });
-      expect(result.metadata.pattern).toBe('period');
-      expect(result.metadata.originalMatch).toBe('in the morning');
     });
 
     test('should parse afternoon period', async () => {
@@ -89,8 +72,6 @@ describe('Time Parser', () => {
         start: 12,
         end: 17
       });
-      expect(result.metadata.pattern).toBe('period');
-      expect(result.metadata.originalMatch).toBe('in the afternoon');
     });
 
     test('should parse evening period', async () => {
@@ -100,8 +81,6 @@ describe('Time Parser', () => {
         start: 17,
         end: 21
       });
-      expect(result.metadata.pattern).toBe('period');
-      expect(result.metadata.originalMatch).toBe('in the evening');
     });
   });
 

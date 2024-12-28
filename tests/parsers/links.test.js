@@ -7,15 +7,6 @@ describe('Links Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('https://example.com');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -29,8 +20,6 @@ describe('Links Parser', () => {
         url: 'http://example.com',
         type: 'url'
       });
-      expect(result.metadata.pattern).toBe('url');
-      expect(result.metadata.originalMatch).toBe('http://example.com');
     });
 
     test('should detect HTTPS URLs', async () => {
@@ -39,8 +28,6 @@ describe('Links Parser', () => {
         url: 'https://example.com',
         type: 'url'
       });
-      expect(result.metadata.pattern).toBe('url');
-      expect(result.metadata.originalMatch).toBe('https://example.com');
     });
 
     test('should handle URLs with paths and query params', async () => {
@@ -53,8 +40,6 @@ describe('Links Parser', () => {
       for (const url of urls) {
         const result = await parse(`Visit ${url}`);
         expect(result.value.url).toBe(url);
-        expect(result.metadata.pattern).toBe('url');
-        expect(result.metadata.originalMatch).toBe(url);
       }
     });
 
@@ -68,8 +53,6 @@ describe('Links Parser', () => {
       for (const url of urls) {
         const result = await parse(`Visit ${url}`);
         expect(result.value.url).toBe(url);
-        expect(result.metadata.pattern).toBe('url');
-        expect(result.metadata.originalMatch).toBe(url);
       }
     });
   });
@@ -82,8 +65,6 @@ describe('Links Parser', () => {
         text: 'Example',
         type: 'markdown'
       });
-      expect(result.metadata.pattern).toBe('markdown_link');
-      expect(result.metadata.originalMatch).toBe('[Example](https://example.com)');
     });
 
     test('should validate markdown link text', async () => {
@@ -97,8 +78,6 @@ describe('Links Parser', () => {
     test('should handle markdown links with complex URLs', async () => {
       const result = await parse('[Search](https://example.com/search?q=test&page=1#results)');
       expect(result.value.url).toBe('https://example.com/search?q=test&page=1#results');
-      expect(result.metadata.pattern).toBe('markdown_link');
-      expect(result.metadata.originalMatch).toBe('[Search](https://example.com/search?q=test&page=1#results)');
     });
   });
 
@@ -109,8 +88,6 @@ describe('Links Parser', () => {
         url: 'https://example.com',
         type: 'url'
       });
-      expect(result.metadata.pattern).toBe('inferred_url');
-      expect(result.metadata.originalMatch).toBe('example.com');
     });
 
     test('should handle various TLDs', async () => {
@@ -126,8 +103,6 @@ describe('Links Parser', () => {
       for (const domain of domains) {
         const result = await parse(`Visit ${domain}`);
         expect(result.value.url).toBe(`https://${domain}`);
-        expect(result.metadata.pattern).toBe('inferred_url');
-        expect(result.metadata.originalMatch).toBe(domain);
       }
     });
 
@@ -141,8 +116,6 @@ describe('Links Parser', () => {
       for (const domain of domains) {
         const result = await parse(`Visit ${domain}`);
         expect(result.value.url).toBe(`https://${domain}`);
-        expect(result.metadata.pattern).toBe('inferred_url');
-        expect(result.metadata.originalMatch).toBe(domain);
       }
     });
   });

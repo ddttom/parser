@@ -7,15 +7,6 @@ describe('Categories Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('#Work');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -34,7 +25,6 @@ describe('Categories Parser', () => {
         const result = await parse(input);
         expect(result.value).toHaveProperty('categories');
         expect(result.value.categories.length).toBeGreaterThanOrEqual(2);
-        expect(result.metadata.pattern).toBe('hashtag_categories');
       }
     });
 
@@ -50,7 +40,6 @@ describe('Categories Parser', () => {
         const result = await parse(input);
         expect(result.value).toHaveProperty('categories');
         expect(result.value.categories.length).toBeGreaterThanOrEqual(2);
-        expect(result.metadata.pattern).toBe('category_list');
       }
     });
 
@@ -68,7 +57,6 @@ describe('Categories Parser', () => {
           subcategories: expect.any(Array)
         });
         expect(result.value.subcategories.length).toBeGreaterThanOrEqual(1);
-        expect(result.metadata.pattern).toBe('nested_category');
       }
     });
 
@@ -86,7 +74,6 @@ describe('Categories Parser', () => {
           subcategories: expect.any(Array)
         });
         expect(result.value.subcategories.length).toBeGreaterThanOrEqual(1);
-        expect(result.metadata.pattern).toBe('nested_category');
       }
     });
 
@@ -103,7 +90,6 @@ describe('Categories Parser', () => {
           category: expect.any(String),
           subcategories: []
         });
-        expect(result.metadata.pattern).toBe('single_hashtag');
       }
     });
   });

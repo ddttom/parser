@@ -7,15 +7,6 @@ describe('Recurring Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('every day');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -39,8 +30,6 @@ describe('Recurring Parser', () => {
           excludeWeekends: true,
           end: null
         });
-        expect(result.metadata.pattern).toBe('business');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -64,8 +53,6 @@ describe('Recurring Parser', () => {
           interval: 1,
           end: null
         });
-        expect(result.metadata.pattern).toBe('weekday');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -84,7 +71,6 @@ describe('Recurring Parser', () => {
           interval: 1,
           end: null
         });
-        expect(result.metadata.pattern).toBe(type);
       }
     });
 
@@ -103,7 +89,6 @@ describe('Recurring Parser', () => {
           interval,
           end: null
         });
-        expect(result.metadata.pattern).toBe('interval');
       }
     });
   });
@@ -123,7 +108,6 @@ describe('Recurring Parser', () => {
           type: 'count',
           value: parseInt(input.match(/(\d+)\s+times/)[1], 10)
         });
-        expect(result.metadata.includesEndCondition).toBe(true);
       }
     });
 
@@ -141,7 +125,6 @@ describe('Recurring Parser', () => {
           type: 'until',
           value: input.split('until ')[1]
         });
-        expect(result.metadata.includesEndCondition).toBe(true);
       }
     });
 

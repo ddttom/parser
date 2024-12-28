@@ -8,15 +8,6 @@ describe('Contact Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('contact John Smith');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -38,8 +29,6 @@ describe('Contact Parser', () => {
           value: 'john.doe@example.com',
           name: 'John Doe'
         });
-        expect(result.metadata.pattern).toBe('email');
-        expect(result.metadata.confidence).toBe(Confidence.HIGH);
       }
     });
 
@@ -57,8 +46,6 @@ describe('Contact Parser', () => {
           value: '+15551234567',
           formatted: '+1-555-123-4567'
         });
-        expect(result.metadata.pattern).toBe('phone');
-        expect(result.metadata.confidence).toBe(Confidence.HIGH);
       }
     });
 
@@ -76,8 +63,6 @@ describe('Contact Parser', () => {
           name: 'John Smith',
           id: 'john_smith'
         });
-        expect(result.metadata.pattern).toBe('name_reference');
-        expect(result.metadata.confidence).toBe(Confidence.HIGH);
       }
     });
 
@@ -95,8 +80,6 @@ describe('Contact Parser', () => {
           name: 'John Smith',
           id: 'john_smith'
         });
-        expect(result.metadata.pattern).toBe('inferred_contact');
-        expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
       }
     });
   });

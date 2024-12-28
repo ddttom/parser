@@ -7,15 +7,6 @@ describe('Duration Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('takes 2 hours and 30 minutes');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -37,7 +28,6 @@ describe('Duration Parser', () => {
           minutes: 30,
           totalMinutes: 150
         });
-        expect(result.metadata.pattern).toBe('natural');
       }
     });
 
@@ -55,7 +45,6 @@ describe('Duration Parser', () => {
           minutes,
           totalMinutes: hours * 60 + minutes
         });
-        expect(result.metadata.pattern).toBe('short_duration');
       }
     });
 
@@ -73,7 +62,6 @@ describe('Duration Parser', () => {
           minutes,
           totalMinutes: hours * 60 + minutes
         });
-        expect(result.metadata.pattern).toBe('minutes_only');
       }
     });
   });
@@ -93,7 +81,6 @@ describe('Duration Parser', () => {
           minutes: 0,
           totalMinutes: 120
         });
-        expect(result.metadata.pattern).toBe('natural');
       }
     });
 
@@ -111,7 +98,6 @@ describe('Duration Parser', () => {
           minutes: 45,
           totalMinutes: 45
         });
-        expect(result.metadata.pattern).toBe('natural');
       }
     });
 
@@ -129,7 +115,6 @@ describe('Duration Parser', () => {
           minutes: 30,
           totalMinutes: 90
         });
-        expect(result.metadata.pattern).toBe('natural');
       }
     });
   });

@@ -7,15 +7,6 @@ describe('Contexts Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('at the office');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -36,7 +27,6 @@ describe('Contexts Parser', () => {
           context: expect.any(String),
           type: expect.any(String)
         });
-        expect(result.metadata.pattern).toBe('explicit_context');
       }
     });
 
@@ -51,7 +41,6 @@ describe('Contexts Parser', () => {
         const result = await parse(input);
         expect(result.value).toHaveProperty('contexts');
         expect(result.value.contexts.length).toBeGreaterThan(1);
-        expect(result.metadata.pattern).toBe('multiple_contexts');
       }
     });
 
@@ -69,7 +58,6 @@ describe('Contexts Parser', () => {
           type: expect.any(String),
           parameter: expect.any(String)
         });
-        expect(result.metadata.pattern).toBe('parameterized_context');
       }
     });
 
@@ -87,7 +75,6 @@ describe('Contexts Parser', () => {
           context: expect.any(String),
           type: expect.any(String)
         });
-        expect(result.metadata.pattern).toBe('implicit_context');
       }
     });
   });

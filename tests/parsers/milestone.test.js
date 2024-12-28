@@ -7,15 +7,6 @@ describe('Milestone Parser', () => {
             expect(result.type).toBe('milestone');
         });
 
-        test('should return metadata with required fields', async () => {
-            const result = await parse('milestone: Beta Release');
-            expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(String),
-                pattern: expect.any(String),
-                originalMatch: expect.any(String)
-            }));
-        });
-
         test('should return null for no matches', async () => {
             const result = await parse('   ');
             expect(result).toBeNull();
@@ -38,7 +29,6 @@ describe('Milestone Parser', () => {
                     type,
                     isExplicit: true
                 });
-                expect(result.metadata.pattern).toBe('labeled');
             }
         });
 
@@ -56,7 +46,6 @@ describe('Milestone Parser', () => {
                     type: 'delivery',
                     isExplicit: true
                 });
-                expect(result.metadata.pattern).toBe('delivery');
             }
         });
 
@@ -74,7 +63,6 @@ describe('Milestone Parser', () => {
                     type: 'phase',
                     isExplicit: true
                 });
-                expect(result.metadata.pattern).toBe('phase');
             }
         });
 
@@ -92,7 +80,6 @@ describe('Milestone Parser', () => {
                     type,
                     isExplicit: false
                 });
-                expect(result.metadata.pattern).toBe('implicit');
             }
         });
     });

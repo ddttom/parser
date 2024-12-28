@@ -7,15 +7,6 @@ describe('TimeOfDay Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('2:30 PM');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -39,8 +30,6 @@ describe('TimeOfDay Parser', () => {
           format: '12h',
           period
         });
-        expect(result.metadata.pattern).toBe('12h_time');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -58,8 +47,6 @@ describe('TimeOfDay Parser', () => {
           period,
           approximate: true
         });
-        expect(result.metadata.pattern).toBe('natural_time');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
   });
@@ -76,7 +63,6 @@ describe('TimeOfDay Parser', () => {
       for (const { input, normalized } of variations) {
         const result = await parse(`Meeting at 2:30 ${input}`);
         expect(result.value.period).toBe(normalized);
-        expect(result.metadata.pattern).toBe('12h_time');
       }
     });
 
@@ -91,7 +77,6 @@ describe('TimeOfDay Parser', () => {
       for (const { input, period } of variations) {
         const result = await parse(input);
         expect(result.value.period).toBe(period);
-        expect(result.metadata.pattern).toBe('natural_time');
       }
     });
   });

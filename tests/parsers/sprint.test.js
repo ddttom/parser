@@ -7,15 +7,6 @@ describe('Sprint Parser', () => {
             expect(result.type).toBe('sprint');
         });
 
-        test('should return metadata with required fields', async () => {
-            const result = await parse('sprint 5: Development Phase');
-            expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(String),
-                pattern: expect.any(String),
-                originalMatch: expect.any(String)
-            }));
-        });
-
         test('should return null for no matches', async () => {
             const result = await parse('   ');
             expect(result).toBeNull();
@@ -30,8 +21,6 @@ describe('Sprint Parser', () => {
                 description: 'Development Phase',
                 isExplicit: true
             });
-            expect(result.metadata.pattern).toBe('labeled');
-            expect(result.metadata.originalMatch).toBe('sprint 4: Development Phase');
         });
 
         test('should parse sprint with hyphen separator', async () => {
@@ -42,8 +31,6 @@ describe('Sprint Parser', () => {
                 description: 'Final Review',
                 isExplicit: true
             });
-            expect(result.metadata.pattern).toBe('labeled');
-            expect(result.metadata.originalMatch).toBe('sprint 6 - Final Review');
         });
 
         test('should infer phase from description', async () => {
@@ -56,7 +43,6 @@ describe('Sprint Parser', () => {
             for (const { input, phase } of phases) {
                 const result = await parse(input);
                 expect(result.value.phase).toBe(phase);
-                expect(result.metadata.pattern).toBe('labeled');
             }
         });
     });
@@ -69,8 +55,6 @@ describe('Sprint Parser', () => {
                 phase: 'planning',
                 isExplicit: true
             });
-            expect(result.metadata.pattern).toBe('phase');
-            expect(result.metadata.originalMatch).toBe('sprint planning for sprint 7');
         });
 
         test('should parse sprint review format', async () => {
@@ -80,8 +64,6 @@ describe('Sprint Parser', () => {
                 phase: 'review',
                 isExplicit: true
             });
-            expect(result.metadata.pattern).toBe('phase');
-            expect(result.metadata.originalMatch).toBe('sprint review for sprint 8');
         });
 
         test('should parse retrospective format', async () => {
@@ -99,7 +81,6 @@ describe('Sprint Parser', () => {
                     phase: 'retro',
                     isExplicit: true
                 });
-                expect(result.metadata.pattern).toBe('phase');
             }
         });
     });
@@ -120,7 +101,6 @@ describe('Sprint Parser', () => {
                     phase: 'general',
                     isExplicit: false
                 });
-                expect(result.metadata.pattern).toBe('implicit');
             }
         });
     });

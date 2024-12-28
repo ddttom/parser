@@ -7,16 +7,6 @@ describe('Status Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('is completed');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String),
-        level: expect.any(Number)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -29,9 +19,6 @@ describe('Status Parser', () => {
       expect(result.value).toEqual({
         status: 'completed'
       });
-      expect(result.metadata.pattern).toBe('state');
-      expect(result.metadata.originalMatch).toBe('is completed');
-      expect(result.metadata.level).toBe(3);
     });
 
     test('should detect progress indicators', async () => {
@@ -39,8 +26,6 @@ describe('Status Parser', () => {
       expect(result.value).toEqual({
         progress: 50
       });
-      expect(result.metadata.pattern).toBe('progress');
-      expect(result.metadata.originalMatch).toBe('50% complete');
     });
 
     test('should detect contextual status', async () => {
@@ -48,9 +33,6 @@ describe('Status Parser', () => {
       expect(result.value).toEqual({
         status: 'blocked'
       });
-      expect(result.metadata.pattern).toBe('contextual');
-      expect(result.metadata.originalMatch).toBe('waiting');
-      expect(result.metadata.level).toBe(2);
     });
 
     test('should handle all status types', async () => {
@@ -65,9 +47,6 @@ describe('Status Parser', () => {
       for (const { input, status, level } of statuses) {
         const result = await parse(input);
         expect(result.value.status).toBe(status);
-        expect(result.metadata.pattern).toBe('state');
-        expect(result.metadata.originalMatch).toBe(input);
-        expect(result.metadata.level).toBe(level);
       }
     });
   });
@@ -84,8 +63,6 @@ describe('Status Parser', () => {
       for (const { input, expected } of aliases) {
         const result = await parse(input);
         expect(result.value.status).toBe(expected);
-        expect(result.metadata.pattern).toBe('contextual');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -99,8 +76,6 @@ describe('Status Parser', () => {
       for (const { input, expected } of variations) {
         const result = await parse(input);
         expect(result.value.status).toBe(expected);
-        expect(result.metadata.pattern).toBe('state');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
   });

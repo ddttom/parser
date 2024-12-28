@@ -151,17 +151,8 @@ describe('Input Validation', () => {
 ### 2. Return Format
 
 - Verify type property matches parser name
-- Validate metadata structure contains required fields:
-
-  ```javascript
-  {
-    confidence: String, // "HIGH" | "MEDIUM" | "LOW"
-    pattern: String,
-    originalMatch: String
-  }
-  ```
-
 - Verify null return for no matches
+- Verify value structure matches parser's expected output format
 
 ### 3. Pattern Matching
 
@@ -238,15 +229,6 @@ describe('Example Parser', () => {
     test('should return correct type property', async () => {
       const result = await parse('high priority task');
       expect(result.type).toBe(name);
-    });
-
-    test('should return metadata with required fields', async () => {
-      const result = await parse('high priority task');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
     });
 
     test('should return null for no matches', async () => {

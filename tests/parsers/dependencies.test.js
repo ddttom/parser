@@ -7,15 +7,6 @@ describe('Dependencies Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('depends on task 123');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -33,7 +24,6 @@ describe('Dependencies Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.relationship).toBe('depends_on');
-        expect(result.metadata.pattern).toBe('natural_dependency');
       }
     });
 
@@ -49,7 +39,6 @@ describe('Dependencies Parser', () => {
         expect(result.value.dependencies).toHaveLength(2);
         expect(result.value.dependencies[0].relationship).toBe('after');
         expect(result.value.dependencies[1].relationship).toBe('after');
-        expect(result.metadata.pattern).toBe('multiple_dependencies');
       }
     });
 
@@ -63,7 +52,6 @@ describe('Dependencies Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.relationship).toBe('blocks');
-        expect(result.metadata.pattern).toBe('relationship_dependency');
       }
     });
 
@@ -77,7 +65,6 @@ describe('Dependencies Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.relationship).toBe('after');
-        expect(result.metadata.pattern).toBe('implicit_dependency');
       }
     });
   });
@@ -93,7 +80,6 @@ describe('Dependencies Parser', () => {
       for (const { input, expected, pattern } of relationships) {
         const result = await parse(input);
         expect(result.value.relationship).toBe(expected);
-        expect(result.metadata.pattern).toBe(pattern);
       }
     });
 

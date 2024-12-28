@@ -7,15 +7,6 @@ describe('Progress Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('Task is 75% complete');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -28,8 +19,6 @@ describe('Progress Parser', () => {
       expect(result.value).toEqual({
         percentage: 50
       });
-      expect(result.metadata.pattern).toBe('inferred');
-      expect(result.metadata.originalMatch).toBe('50% complete');
     });
 
     test('should handle various completion terms', async () => {
@@ -42,8 +31,6 @@ describe('Progress Parser', () => {
       for (const { input, percentage } of terms) {
         const result = await parse(input);
         expect(result.value).toEqual({ percentage });
-        expect(result.metadata.pattern).toBe('inferred');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -58,7 +45,6 @@ describe('Progress Parser', () => {
       for (const input of contexts) {
         const result = await parse(input);
         expect(result.value.percentage).toBeGreaterThan(0);
-        expect(result.metadata.pattern).toBe('inferred');
       }
     });
   });
@@ -76,7 +62,6 @@ describe('Progress Parser', () => {
       for (const { input, percentage } of percentages) {
         const result = await parse(input);
         expect(result.value.percentage).toBe(percentage);
-        expect(result.metadata.pattern).toBe('inferred');
       }
     });
 

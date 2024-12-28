@@ -7,15 +7,6 @@ describe('Version Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('version 1.0.0');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -36,8 +27,6 @@ describe('Version Parser', () => {
           minor: 0,
           patch: 0
         });
-        expect(result.metadata.pattern).toBe('version');
-        expect(result.metadata.originalMatch).toBe(match);
       }
     });
   });
@@ -54,8 +43,6 @@ describe('Version Parser', () => {
       for (const { input, match } of validVersions) {
         const result = await parse(input);
         expect(result).not.toBeNull();
-        expect(result.metadata.pattern).toBe('version');
-        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
@@ -69,7 +56,6 @@ describe('Version Parser', () => {
       for (const { input, major, minor, patch } of versions) {
         const result = await parse(input);
         expect(result.value).toEqual({ major, minor, patch });
-        expect(result.metadata.pattern).toBe('version');
       }
     });
 
@@ -86,8 +72,6 @@ describe('Version Parser', () => {
           minor: 0,
           patch: 0
         });
-        expect(result.metadata.pattern).toBe('version');
-        expect(result.metadata.originalMatch).toBe(match);
       }
     });
   });

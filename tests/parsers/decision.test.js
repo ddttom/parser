@@ -7,15 +7,6 @@ describe('Decision Parser', () => {
             expect(result.type).toBe('decision');
         });
 
-        test('should return metadata with required fields', async () => {
-            const result = await parse('decided to use React');
-            expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(String),
-                pattern: expect.any(String),
-                originalMatch: expect.any(String)
-            }));
-        });
-
         test('should return null for no matches', async () => {
             const result = await parse('   ');
             expect(result).toBeNull();
@@ -35,7 +26,6 @@ describe('Decision Parser', () => {
                 expect(result.value.type).toBe('technical');
                 expect(result.value.rationale).toBeTruthy();
                 expect(result.value.isExplicit).toBe(true);
-                expect(result.metadata.pattern).toBe('decided');
             }
         });
 
@@ -50,7 +40,6 @@ describe('Decision Parser', () => {
                 const result = await parse(input);
                 expect(result.value.rationale).toBeTruthy();
                 expect(result.value.isExplicit).toBe(true);
-                expect(result.metadata.pattern).toBe('choice');
             }
         });
 
@@ -66,7 +55,6 @@ describe('Decision Parser', () => {
                 expect(result.value.alternative).toBeTruthy();
                 expect(result.value.rationale).toBeTruthy();
                 expect(result.value.isExplicit).toBe(true);
-                expect(result.metadata.pattern).toBe('selected');
             }
         });
 
@@ -81,7 +69,6 @@ describe('Decision Parser', () => {
                 const result = await parse(input);
                 expect(result.value.rationale).toBeTruthy();
                 expect(result.value.isExplicit).toBe(false);
-                expect(result.metadata.pattern).toBe('going');
             }
         });
     });

@@ -7,15 +7,6 @@ describe('Time Block Parser', () => {
             expect(result.type).toBe('timeblock');
         });
 
-        test('should return metadata with required fields', async () => {
-            const result = await parse('10:00am to 11:30am for focused work');
-            expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(String),
-                pattern: expect.any(String),
-                originalMatch: expect.any(String)
-            }));
-        });
-
         test('should return null for no matches', async () => {
             const result = await parse('   ');
             expect(result).toBeNull();
@@ -31,8 +22,6 @@ describe('Time Block Parser', () => {
                 type: 'deep',
                 description: 'focused work'
             });
-            expect(result.metadata.pattern).toBe('range');
-            expect(result.metadata.originalMatch).toBe('10:00am to 11:30am for focused work');
         });
 
         test('should parse time range with hyphen', async () => {
@@ -43,8 +32,6 @@ describe('Time Block Parser', () => {
                 type: 'admin',
                 description: 'planning session'
             });
-            expect(result.metadata.pattern).toBe('range');
-            expect(result.metadata.originalMatch).toBe('2pm-3:30pm for planning session');
         });
 
         test('should parse time range without description', async () => {
@@ -55,8 +42,6 @@ describe('Time Block Parser', () => {
                 type: 'general',
                 description: null
             });
-            expect(result.metadata.pattern).toBe('range');
-            expect(result.metadata.originalMatch).toBe('9am to 10am');
         });
     });
 
@@ -69,8 +54,6 @@ describe('Time Block Parser', () => {
                 type: 'meeting',
                 description: 'team meeting'
             });
-            expect(result.metadata.pattern).toBe('block');
-            expect(result.metadata.originalMatch).toBe('block 1:00pm to 2:30pm for team meeting');
         });
 
         test('should parse schedule format', async () => {
@@ -81,8 +64,6 @@ describe('Time Block Parser', () => {
                 type: 'break',
                 description: 'break'
             });
-            expect(result.metadata.pattern).toBe('block');
-            expect(result.metadata.originalMatch).toBe('schedule 3pm to 4pm for break');
         });
 
         test('should parse block format without description', async () => {
@@ -93,8 +74,6 @@ describe('Time Block Parser', () => {
                 type: 'general',
                 description: null
             });
-            expect(result.metadata.pattern).toBe('block');
-            expect(result.metadata.originalMatch).toBe('block 2pm to 3pm');
         });
     });
 
@@ -107,8 +86,6 @@ describe('Time Block Parser', () => {
                 type: 'deep',
                 description: null
             });
-            expect(result.metadata.pattern).toBe('period');
-            expect(result.metadata.originalMatch).toBe('9am deep work block');
         });
 
         test('should parse period format with minutes', async () => {
@@ -119,8 +96,6 @@ describe('Time Block Parser', () => {
                 type: 'deep',
                 description: null
             });
-            expect(result.metadata.pattern).toBe('period');
-            expect(result.metadata.originalMatch).toBe('2:30pm focused time');
         });
 
         test('should parse different block types', async () => {
@@ -134,7 +109,6 @@ describe('Time Block Parser', () => {
             for (const { input, type } of blocks) {
                 const result = await parse(input);
                 expect(result.value.type).toBe(type);
-                expect(result.metadata.pattern).toBe('period');
             }
         });
     });

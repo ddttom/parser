@@ -7,15 +7,6 @@ describe('Participants Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('Meeting with John and Sarah');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -36,7 +27,6 @@ describe('Participants Parser', () => {
           participants: ['John', 'Sarah', 'Mike'],
           count: 3
         });
-        expect(result.metadata.pattern).toBe('natural_list');
       }
     });
 
@@ -53,7 +43,6 @@ describe('Participants Parser', () => {
           participants: ['John', 'Sarah'],
           count: 2
         });
-        expect(result.metadata.pattern).toBe('implicit');
       }
     });
 
@@ -69,7 +58,6 @@ describe('Participants Parser', () => {
         expect(result.value.participants).toHaveLength(2);
         expect(result.value.participants[0].role).toBe(roles[0]);
         expect(result.value.participants[1].role).toBe(roles[1]);
-        expect(result.metadata.pattern).toBe('role_assignment');
       }
     });
 
@@ -86,7 +74,6 @@ describe('Participants Parser', () => {
           participants,
           count: 2
         });
-        expect(result.metadata.pattern).toBe('mentions');
       }
     });
   });

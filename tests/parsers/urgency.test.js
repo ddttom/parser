@@ -7,15 +7,6 @@ describe('Urgency Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('URGENT: Complete report');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -39,8 +30,6 @@ describe('Urgency Parser', () => {
           score: 3,
           timeBased: true
         });
-        expect(result.metadata.pattern).toBe('time_urgency');
-        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
@@ -61,8 +50,6 @@ describe('Urgency Parser', () => {
           score: level === 'high' ? 3 : level === 'medium' ? 2 : 1,
           keyword
         });
-        expect(result.metadata.pattern).toBe('keyword_urgency');
-        expect(result.metadata.originalMatch).toBe(keyword);
       }
     });
   });
@@ -94,7 +81,6 @@ describe('Urgency Parser', () => {
       for (const { input, expected } of variations) {
         const result = await parse(input);
         expect(result.value.level).toBe(expected);
-        expect(result.metadata.pattern).toBe('keyword_urgency');
       }
     });
   });

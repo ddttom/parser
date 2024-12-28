@@ -7,15 +7,6 @@ describe('Cost Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('costs $100');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -37,7 +28,6 @@ describe('Cost Parser', () => {
           amount: 99.99,
           currency: 'USD'
         });
-        expect(result.metadata.pattern).toBe('natural');
       }
     });
 
@@ -54,7 +44,6 @@ describe('Cost Parser', () => {
           amount: 150.00,
           currency: 'USD'
         });
-        expect(result.metadata.pattern).toBe('amount');
       }
     });
 
@@ -68,7 +57,6 @@ describe('Cost Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.amount).toBe(parseFloat(input.match(/\d+\.\d+/)[0]));
-        expect(result.metadata.pattern).toBe('currency');
       }
     });
   });

@@ -7,17 +7,6 @@ describe('Subject Parser', () => {
             expect(result.type).toBe(name);
         });
 
-        test('should return metadata with required fields', async () => {
-            const result = await parse('Update documentation');
-            expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(String),
-                pattern: expect.any(String),
-                originalMatch: expect.any(String),
-                hasActionVerb: expect.any(Boolean),
-                removedParts: expect.any(Array)
-            }));
-        });
-
         test('should return null for no matches', async () => {
             const result = await parse('   ');
             expect(result).toBeNull();
@@ -28,56 +17,41 @@ describe('Subject Parser', () => {
         test('removes time references', async () => {
             const result = await parse('Review docs at 2:30pm');
             expect(result.value.text).toBe('Review docs');
-            expect(result.metadata.removedParts).toContain('at 2:30pm');
         });
 
         test('removes date references', async () => {
             const result = await parse('Submit report by Monday');
             expect(result.value.text).toBe('Submit report');
-            expect(result.metadata.removedParts).toContain('by Monday');
         });
 
         test('removes project references', async () => {
             const result = await parse('Update UI for project Alpha');
             expect(result.value.text).toBe('Update UI');
-            expect(result.metadata.removedParts).toContain('for project Alpha');
         });
 
         test('removes priority markers', async () => {
             const result = await parse('High priority Fix bug');
             expect(result.value.text).toBe('Fix bug');
-            expect(result.metadata.removedParts).toContain('High priority');
         });
 
         test('removes tags and mentions', async () => {
             const result = await parse('Review PR #frontend @john');
             expect(result.value.text).toBe('Review PR');
-            expect(result.metadata.removedParts).toContain('#frontend');
-            expect(result.metadata.removedParts).toContain('@john');
         });
 
         test('handles multiple cleanup patterns in one text', async () => {
             const result = await parse('High priority Review PR #frontend @john at 2:30pm by Monday for project Alpha');
             expect(result.value.text).toBe('Review PR');
-            expect(result.metadata.removedParts).toContain('High priority');
-            expect(result.metadata.removedParts).toContain('#frontend');
-            expect(result.metadata.removedParts).toContain('@john');
-            expect(result.metadata.removedParts).toContain('at 2:30pm');
-            expect(result.metadata.removedParts).toContain('by Monday');
-            expect(result.metadata.removedParts).toContain('for project Alpha');
         });
 
         test('preserves important text between cleanup patterns', async () => {
             const result = await parse('Review important documentation at 2:30pm with critical updates by Monday');
             expect(result.value.text).toBe('Review important documentation with critical updates');
-            expect(result.metadata.removedParts).toContain('at 2:30pm');
-            expect(result.metadata.removedParts).toContain('by Monday');
         });
 
         test('handles consecutive cleanup patterns', async () => {
             const result = await parse('Update UI at 2:30pm by Monday for project Alpha #frontend @john');
             expect(result.value.text).toBe('Update UI');
-            expect(result.metadata.removedParts).toHaveLength(5);
         });
     });
 
@@ -114,7 +88,6 @@ describe('Subject Parser', () => {
         test('extracts action verbs', async () => {
             const result = await parse('Create new documentation');
             expect(result.value.keyTerms).toContain('create');
-            expect(result.metadata.hasActionVerb).toBe(true);
         });
 
         test('identifies significant terms', async () => {
@@ -143,7 +116,6 @@ describe('Subject Parser', () => {
             const result = await parse('Create and update documentation');
             expect(result.value.keyTerms).toContain('create');
             expect(result.value.keyTerms).toContain('update');
-            expect(result.metadata.hasActionVerb).toBe(true);
         });
 
         test('handles technical terms', async () => {
@@ -177,30 +149,4 @@ describe('Subject Parser', () => {
         });
     });
 
-    describe('Metadata Validation', () => {
-        test('includes all required metadata fields', async () => {
-            const result = await parse('Update documentation');
-            expect(result.metadata).toEqual(expect.objectContaining({
-                confidence: expect.any(String),
-                pattern: expect.any(String),
-                originalMatch: expect.any(String),
-                hasActionVerb: expect.any(Boolean),
-                removedParts: expect.any(Array)
-            }));
-        });
-
-        test('preserves original text in metadata', async () => {
-            const text = 'Update docs at 2:30pm';
-            const result = await parse(text);
-            expect(result.metadata.originalMatch).toBe(text);
-        });
-
-        test('tracks all removed parts', async () => {
-            const result = await parse('High priority Update docs at 2:30pm #docs @team');
-            expect(result.metadata.removedParts).toHaveLength(4);
-            expect(result.metadata.removedParts).toEqual(
-                expect.arrayContaining(['High priority', 'at 2:30pm', '#docs', '@team'])
-            );
-        });
-    });
 });

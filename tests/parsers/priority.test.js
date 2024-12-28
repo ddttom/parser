@@ -7,15 +7,6 @@ describe('Priority Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('#high');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -29,8 +20,6 @@ describe('Priority Parser', () => {
         level: 'urgent',
         score: 4
       });
-      expect(result.metadata.pattern).toBe('hashtag');
-      expect(result.metadata.originalMatch).toBe('#urgent');
     });
 
     test('should detect priority keywords', async () => {
@@ -39,8 +28,6 @@ describe('Priority Parser', () => {
         level: 'high',
         score: 3
       });
-      expect(result.metadata.pattern).toBe('keyword');
-      expect(result.metadata.originalMatch).toBe('high priority');
     });
 
     test('should detect implicit priority', async () => {
@@ -49,8 +36,6 @@ describe('Priority Parser', () => {
         level: 'high',
         score: 3
       });
-      expect(result.metadata.pattern).toBe('implicit');
-      expect(result.metadata.originalMatch).toBe('high priority');
     });
 
     test('should detect multiple priority indicators', async () => {
@@ -60,8 +45,6 @@ describe('Priority Parser', () => {
         score: 4,
         indicators: ['urgent', 'high']
       });
-      expect(result.metadata.pattern).toBe('multiple_indicators');
-      expect(result.metadata.originalMatch).toBe('#urgent High priority');
     });
   });
 
@@ -79,7 +62,6 @@ describe('Priority Parser', () => {
         const result = await parse(input);
         expect(result.value.level).toBe(level);
         expect(result.value.score).toBe(score);
-        expect(result.metadata.pattern).toBe('hashtag');
       }
     });
 
@@ -94,7 +76,6 @@ describe('Priority Parser', () => {
       for (const { input, level } of aliases) {
         const result = await parse(input);
         expect(result.value.level).toBe(level);
-        expect(result.metadata.pattern).toBe('hashtag');
       }
     });
   });

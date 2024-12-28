@@ -7,15 +7,6 @@ describe('Team Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('@frontend');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -26,15 +17,11 @@ describe('Team Parser', () => {
     test('should detect @mentions', async () => {
       const result = await parse('Task for @frontend and @backend');
       expect(result.value).toEqual(['frontend', 'backend']);
-      expect(result.metadata.pattern).toBe('mentions');
-      expect(result.metadata.originalMatch).toBe('@frontend, @backend');
     });
 
     test('should detect name lists', async () => {
       const result = await parse('involving frontend, backend and design');
       expect(result.value).toEqual(['frontend', 'backend', 'design']);
-      expect(result.metadata.pattern).toBe('name_list');
-      expect(result.metadata.originalMatch).toBe('involving frontend, backend and design');
     });
 
     test('should detect inferred team references', async () => {
@@ -48,8 +35,6 @@ describe('Team Parser', () => {
       for (const { input, team } of formats) {
         const result = await parse(input);
         expect(result.value).toEqual({ team });
-        expect(result.metadata.pattern).toBe('inferred');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
   });
@@ -72,7 +57,6 @@ describe('Team Parser', () => {
       for (const team of validTeams) {
         const result = await parse(`${team} team`);
         expect(result.value).toEqual({ team });
-        expect(result.metadata.pattern).toBe('inferred');
       }
     });
 
@@ -86,7 +70,6 @@ describe('Team Parser', () => {
       for (const { input, expected } of variations) {
         const result = await parse(input);
         expect(result.value).toEqual({ team: expected });
-        expect(result.metadata.pattern).toBe('inferred');
       }
     });
 
@@ -101,7 +84,6 @@ describe('Team Parser', () => {
         const result = await parse(input);
         expect(result.value).toContain('frontend');
         expect(result.value).toContain('backend');
-        expect(result.metadata.pattern).toBe('name_list');
       }
     });
   });

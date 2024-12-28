@@ -7,15 +7,6 @@ describe('Task Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('task 123');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -35,8 +26,6 @@ describe('Task Parser', () => {
         expect(result.value).toEqual({
           taskId: 123
         });
-        expect(result.metadata.pattern).toBe('inferred');
-        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
@@ -45,10 +34,6 @@ describe('Task Parser', () => {
       const withoutHash = await parse('task 123');
       expect(withHash.value.taskId).toBe(123);
       expect(withoutHash.value.taskId).toBe(123);
-      expect(withHash.metadata.pattern).toBe('inferred');
-      expect(withoutHash.metadata.pattern).toBe('inferred');
-      expect(withHash.metadata.originalMatch).toBe('task #123');
-      expect(withoutHash.metadata.originalMatch).toBe('task 123');
     });
 
     test('should detect task references in context', async () => {
@@ -63,7 +48,6 @@ describe('Task Parser', () => {
       for (const input of references) {
         const result = await parse(input);
         expect(result.value.taskId).toBe(123);
-        expect(result.metadata.pattern).toBe('inferred');
       }
     });
   });
@@ -78,8 +62,6 @@ describe('Task Parser', () => {
       const result = await parse('task 123');
       expect(typeof result.value.taskId).toBe('number');
       expect(result.value.taskId).toBe(123);
-      expect(result.metadata.pattern).toBe('inferred');
-      expect(result.metadata.originalMatch).toBe('task 123');
     });
 
     test('should handle task ID ranges', async () => {
@@ -87,8 +69,6 @@ describe('Task Parser', () => {
       for (const id of validIds) {
         const result = await parse(`task ${id}`);
         expect(result.value.taskId).toBe(id);
-        expect(result.metadata.pattern).toBe('inferred');
-        expect(result.metadata.originalMatch).toBe(`task ${id}`);
       }
     });
   });

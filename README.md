@@ -39,7 +39,6 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
      - MEDIUM: Standard patterns with good context (e.g., "#important", "@team")
      - LOW: Inferred patterns with less certainty (e.g., "sometime next week")
    - Pattern-based matching with priority
-   - Rich metadata generation
    - Best match selection based on confidence levels
 
 2. **Core Parsers:**
@@ -82,7 +81,6 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
    - Async/await support
    - Standardized error handling via error objects
    - Pattern-based matching with confidence levels
-   - Rich metadata enrichment
    - Centralized input validation:
      - Common validation utility (validateParserInput) in utils/validation.js
      - Standardized validation for all parsers with consistent error messages
@@ -101,9 +99,7 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
 All parsers in `src/services/parser/parsers/` have been verified for compliance with the standardized architecture and testing standards:
 
 - **Architecture Compliance**:
-  - All parsers extend from base parser template
   - All implement pattern-based matching with priority
-  - All generate complete metadata
   - All follow best match selection logic
 
 - **Confidence Level Compliance**:
@@ -115,20 +111,19 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
   - No dynamic confidence adjustments
 
 - **Return Format Compliance**:
-  - All parsers return standardized objects with type, value, and metadata
+  - All parsers return standardized objects with type and value
   - All implement proper error handling with error objects
   - All use null returns appropriately for no matches
 
 - **Testing Standards**:
   - All parsers have comprehensive test coverage following standardized structure:
-    - Return format (type, metadata, null cases)
+    - Return format (type, value structure, null cases)
     - Pattern matching (natural language, hashtags, variations)
     - Error handling (invalid formats, malformed input)
   - Integration tests for complex scenarios and parser interactions
   - Edge case coverage for each parser
   - Performance testing for critical paths
   - Input validation is handled centrally by validation.test.js
-  - Note: Confidence levels are determined by the parser implementation and should not be tested
 
 - **Quality Standards**:
   - All parsers implement appropriate validation functions
@@ -136,7 +131,7 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
   - All include proper logging
   - All expose test hooks where needed
 
-5. **Return Format:**
+1. **Return Format:**
 
    ```javascript
    // Success (single match)
@@ -144,11 +139,6 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
        type: 'parsertype',
        value: {
            // Parser-specific structure
-       },
-       metadata: {
-           confidence: String, // "HIGH" | "MEDIUM" | "LOW"
-           pattern: String,
-           originalMatch: String
        }
    }
 
@@ -158,11 +148,6 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
            type: 'parsertype',
            value: {
                // Parser-specific structure
-           },
-           metadata: {
-               confidence: String, // "HIGH" | "MEDIUM" | "LOW"
-               pattern: String,
-               originalMatch: String
            }
        }
    ]
@@ -180,7 +165,6 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
 
 - **Smart Pattern Recognition**: Uses advanced pattern matching with:
   - Context-aware parsing
-  - Standardized confidence levels
   - Multiple format support
   - Validation and error handling
 
@@ -221,16 +205,8 @@ const result = await parser.parse("Meeting tomorrow", {
             participants: ["John"],
             tags: ["important"]
         },
-        metadata: {
-            confidence: {
-                date: "HIGH",
-                time: "HIGH",
-                participants: "MEDIUM",
-                tags: "HIGH"
-            },
-            performance: {
-                // Parser execution times
-            }
+        performance: {
+            // Parser execution times
         },
         summary: "Meeting with John on Jan 20, 2024 at 2:00 PM"
     }
@@ -313,11 +289,9 @@ tests/
 
 Each parser test file focuses on parser-specific functionality with this standardized structure:
 
-Note: Confidence levels are determined by the parser implementation and should not be tested. They are part of the parser's internal logic for determining match quality.
-
 1. Return Format
    - Type property verification
-   - Metadata structure validation (presence of required fields)
+   - Value structure validation
    - Null return cases
 
 2. Pattern Matching

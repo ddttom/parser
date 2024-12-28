@@ -7,15 +7,6 @@ describe('Action Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('[action:call John]');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -30,8 +21,6 @@ describe('Action Parser', () => {
         object: 'John',
         isComplete: false
       });
-      expect(result.metadata.pattern).toBe('explicit_verb');
-      expect(result.metadata.originalMatch).toBe('call John');
     });
 
     test('should detect action with "to" prefix', async () => {
@@ -41,8 +30,6 @@ describe('Action Parser', () => {
         object: 'documents',
         isComplete: false
       });
-      expect(result.metadata.pattern).toBe('to_prefix');
-      expect(result.metadata.originalMatch).toBe('to review documents');
     });
 
     test('should detect completed actions', async () => {
@@ -52,8 +39,6 @@ describe('Action Parser', () => {
         object: 'email to team',
         isComplete: true
       });
-      expect(result.metadata.pattern).toBe('completed_action');
-      expect(result.metadata.originalMatch).toBe('✓ sent email to team');
     });
   });
 

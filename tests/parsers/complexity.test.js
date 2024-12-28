@@ -7,15 +7,6 @@ describe('Complexity Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('complexity level is high');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -37,7 +28,6 @@ describe('Complexity Parser', () => {
           level: 'high',
           score: 3
         });
-        expect(result.metadata.pattern).toBe('level_complexity');
       }
     });
 
@@ -55,7 +45,6 @@ describe('Complexity Parser', () => {
           level: 'high',
           score: 3
         });
-        expect(result.metadata.pattern).toBe('numeric_level');
       }
     });
 
@@ -71,7 +60,6 @@ describe('Complexity Parser', () => {
       for (const { input, level, score } of variations) {
         const result = await parse(input);
         expect(result.value).toEqual({ level, score });
-        expect(result.metadata.pattern).toBe('keyword_complexity');
       }
     });
   });

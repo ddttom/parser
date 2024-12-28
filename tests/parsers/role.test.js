@@ -7,15 +7,6 @@ describe('Role Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('acting as developer');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -29,8 +20,6 @@ describe('Role Parser', () => {
         role: 'developer',
         originalName: 'developer'
       });
-      expect(result.metadata.pattern).toBe('inferred');
-      expect(result.metadata.originalMatch).toBe('acting as developer');
     });
 
     test('should handle various role patterns', async () => {
@@ -48,8 +37,6 @@ describe('Role Parser', () => {
           role: 'developer',
           originalName: 'developer'
         });
-        expect(result.metadata.pattern).toBe('inferred');
-        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
@@ -64,7 +51,6 @@ describe('Role Parser', () => {
       for (const input of contexts) {
         const result = await parse(input);
         expect(result.value.role).toBe('developer');
-        expect(result.metadata.pattern).toBe('inferred');
       }
     });
   });
@@ -86,7 +72,6 @@ describe('Role Parser', () => {
       for (const role of validRoles) {
         const result = await parse(`acting as ${role}`);
         expect(result.value.role).toBe(role);
-        expect(result.metadata.pattern).toBe('inferred');
       }
     });
 
@@ -100,7 +85,6 @@ describe('Role Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.role).toBe('developer');
-        expect(result.metadata.pattern).toBe('inferred');
       }
     });
   });

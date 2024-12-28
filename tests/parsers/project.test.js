@@ -7,15 +7,6 @@ describe('Project Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('re: Project Alpha');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -33,7 +24,6 @@ describe('Project Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.project).toBe('Beta');
-        expect(result.metadata.pattern).toBe('reference');
       }
     });
 
@@ -47,7 +37,6 @@ describe('Project Parser', () => {
       for (const { input, id } of variations) {
         const result = await parse(input);
         expect(result.value.project).toBe(id);
-        expect(result.metadata.pattern).toBe('identifier');
       }
     });
 
@@ -61,7 +50,6 @@ describe('Project Parser', () => {
       for (const { input, project } of variations) {
         const result = await parse(input);
         expect(result.value.project).toBe(project);
-        expect(result.metadata.pattern).toBe('shorthand');
       }
     });
 
@@ -75,7 +63,6 @@ describe('Project Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.project).toBeTruthy();
-        expect(result.metadata.pattern).toBe('contextual');
       }
     });
 
@@ -89,7 +76,6 @@ describe('Project Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.project).toBeTruthy();
-        expect(result.metadata.pattern).toBe('regarding');
       }
     });
 
@@ -103,7 +89,6 @@ describe('Project Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.project).toBeTruthy();
-        expect(result.metadata.pattern).toBe('inferred');
       }
     });
   });
@@ -149,28 +134,6 @@ describe('Project Parser', () => {
         const result = await parse(`project ${term}`);
         expect(result).toBeNull();
       }
-    });
-  });
-
-  describe('Project Indicators', () => {
-    test('should detect project terms', async () => {
-      const result = await parse('milestone for project Alpha');
-      expect(result.metadata.indicators).toContain('project_term');
-    });
-
-    test('should detect task organization', async () => {
-      const result = await parse('story under project Beta');
-      expect(result.metadata.indicators).toContain('task_organization');
-    });
-
-    test('should detect stakeholders', async () => {
-      const result = await parse('client project Gamma');
-      expect(result.metadata.indicators).toContain('stakeholder');
-    });
-
-    test('should detect timeline references', async () => {
-      const result = await parse('roadmap for project Delta');
-      expect(result.metadata.indicators).toContain('timeline');
     });
   });
 

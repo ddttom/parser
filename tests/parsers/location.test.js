@@ -7,15 +7,6 @@ describe('Location Parser', () => {
       expect(result.type).toBe(name);
     });
 
-    test('should return metadata with required fields', async () => {
-      const result = await parse('in Room 123');
-      expect(result.metadata).toEqual(expect.objectContaining({
-        confidence: expect.any(String),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      }));
-    });
-
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
@@ -34,7 +25,6 @@ describe('Location Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.type).toBe('room');
-        expect(result.metadata.pattern).toBe('room_location');
       }
     });
 
@@ -48,7 +38,6 @@ describe('Location Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.type).toBe('office');
-        expect(result.metadata.pattern).toBe('office_location');
       }
     });
 
@@ -62,7 +51,6 @@ describe('Location Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result.value.type).toBe('building');
-        expect(result.metadata.pattern).toBe('building_location');
       }
     });
 
@@ -88,7 +76,6 @@ describe('Location Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.metadata.pattern).toBe('inferred_location');
       }
     });
   });
