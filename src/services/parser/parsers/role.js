@@ -62,12 +62,9 @@ export async function parse(text) {
                 
                 if (shouldUpdate) {
                     bestMatch = {
-                        type: 'role',
-                        value: {
+                        role: {
                             role,
-                            originalName: match[1]
-                        },
-                        metadata: {
+                            originalName: match[1],
                             confidence,
                             pattern,
                             originalMatch: match[0]
@@ -81,9 +78,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in role parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            role: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

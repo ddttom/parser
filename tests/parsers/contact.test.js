@@ -3,14 +3,27 @@ import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Contact Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with contact key', async () => {
       const result = await parse('contact John Smith');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('contact');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('contact John Smith');
+      const expectedProps = {
+        type: expect.any(String),
+        name: expect.any(String),
+        id: expect.any(String),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.contact).toMatchObject(expectedProps);
     });
   });
 
@@ -24,7 +37,7 @@ describe('Contact Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.contact).toMatchObject({
           type: 'email',
           value: 'john.doe@example.com',
           name: 'John Doe'
@@ -41,7 +54,7 @@ describe('Contact Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.contact).toMatchObject({
           type: 'phone',
           value: '+15551234567',
           formatted: '+1-555-123-4567'
@@ -58,7 +71,7 @@ describe('Contact Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.contact).toMatchObject({
           type: 'reference',
           name: 'John Smith',
           id: 'john_smith'
@@ -75,7 +88,7 @@ describe('Contact Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.contact).toMatchObject({
           type: 'reference',
           name: 'John Smith',
           id: 'john_smith'
@@ -94,8 +107,8 @@ describe('Contact Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.name).toBeTruthy();
-        expect(result.value.id).toBe(result.value.name.toLowerCase());
+        expect(result.contact.name).toBeTruthy();
+        expect(result.contact.id).toBe(result.contact.name.toLowerCase());
       }
     });
 
@@ -108,8 +121,8 @@ describe('Contact Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.name.split(' ')).toHaveLength(2);
-        expect(result.value.id).toBe(result.value.name.toLowerCase().replace(' ', '_'));
+        expect(result.contact.name.split(' ')).toHaveLength(2);
+        expect(result.contact.id).toBe(result.contact.name.toLowerCase().replace(' ', '_'));
       }
     });
 
@@ -122,7 +135,7 @@ describe('Contact Parser', () => {
 
       for (const { email, name } of variations) {
         const result = await parse(email);
-        expect(result.value.name).toBe(name);
+        expect(result.contact.name).toBe(name);
       }
     });
   });

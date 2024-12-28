@@ -2,14 +2,25 @@ import { name, parse } from '../../src/services/parser/parsers/time.js';
 
 describe('Time Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with time key', async () => {
       const result = await parse('at 2:30pm');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('time');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('at 2:30pm');
+      expect(result.time).toEqual(expect.objectContaining({
+        hours: expect.any(Number),
+        minutes: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
     });
   });
 
@@ -24,7 +35,7 @@ describe('Time Parser', () => {
 
       for (const { input, hours, minutes } of times) {
         const result = await parse(`Meeting at ${input}`);
-        expect(result.value).toEqual({ hours, minutes });
+        expect(result.time).toEqual(expect.objectContaining({ hours, minutes }));
       }
     });
 
@@ -38,7 +49,7 @@ describe('Time Parser', () => {
 
       for (const { input, hours, minutes } of times) {
         const result = await parse(`Meeting at ${input}`);
-        expect(result.value).toEqual({ hours, minutes });
+        expect(result.time).toEqual(expect.objectContaining({ hours, minutes }));
       }
     });
 
@@ -50,7 +61,7 @@ describe('Time Parser', () => {
 
       for (const { input, hours, minutes } of times) {
         const result = await parse(`Meeting at ${input}`);
-        expect(result.value).toEqual({ hours, minutes });
+        expect(result.time).toEqual(expect.objectContaining({ hours, minutes }));
       }
     });
   });
@@ -58,29 +69,29 @@ describe('Time Parser', () => {
   describe('Time Periods', () => {
     test('should parse morning period', async () => {
       const result = await parse('Meeting in the morning');
-      expect(result.value).toEqual({
+      expect(result.time).toEqual(expect.objectContaining({
         period: 'morning',
         start: 9,
         end: 12
-      });
+      }));
     });
 
     test('should parse afternoon period', async () => {
       const result = await parse('Meeting in the afternoon');
-      expect(result.value).toEqual({
+      expect(result.time).toEqual(expect.objectContaining({
         period: 'afternoon',
         start: 12,
         end: 17
-      });
+      }));
     });
 
     test('should parse evening period', async () => {
       const result = await parse('Meeting in the evening');
-      expect(result.value).toEqual({
+      expect(result.time).toEqual(expect.objectContaining({
         period: 'evening',
         start: 17,
         end: 21
-      });
+      }));
     });
   });
 
@@ -141,11 +152,10 @@ describe('Time Parser', () => {
       for (const input of inputs) {
         const result = await parse(input);
         expect(result).not.toBeNull();
-        expect(result.type).toBe('time');
-        expect(result.value).toEqual({
+        expect(result.time).toEqual(expect.objectContaining({
           hours: expect.any(Number),
           minutes: expect.any(Number)
-        });
+        }));
       }
     });
   });

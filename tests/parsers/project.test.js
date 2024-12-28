@@ -2,14 +2,27 @@ import { name, parse } from '../../src/services/parser/parsers/project.js';
 
 describe('Project Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with project key', async () => {
       const result = await parse('re: Project Alpha');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('project');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('re: Project Alpha');
+      const expectedProps = {
+        project: expect.any(String),
+        originalName: expect.any(String),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String),
+        indicators: expect.any(Array)
+      };
+      expect(result.project).toMatchObject(expectedProps);
     });
   });
 
@@ -23,7 +36,7 @@ describe('Project Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.project).toBe('Beta');
+        expect(result.project.project).toBe('Beta');
       }
     });
 
@@ -36,7 +49,7 @@ describe('Project Parser', () => {
 
       for (const { input, id } of variations) {
         const result = await parse(input);
-        expect(result.value.project).toBe(id);
+        expect(result.project.project).toBe(id);
       }
     });
 
@@ -49,7 +62,7 @@ describe('Project Parser', () => {
 
       for (const { input, project } of variations) {
         const result = await parse(input);
-        expect(result.value.project).toBe(project);
+        expect(result.project.project).toBe(project);
       }
     });
 
@@ -62,7 +75,7 @@ describe('Project Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.project).toBeTruthy();
+        expect(result.project.project).toBeTruthy();
       }
     });
 
@@ -75,7 +88,7 @@ describe('Project Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.project).toBeTruthy();
+        expect(result.project.project).toBeTruthy();
       }
     });
 
@@ -88,7 +101,7 @@ describe('Project Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.project).toBeTruthy();
+        expect(result.project.project).toBeTruthy();
       }
     });
   });

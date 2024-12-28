@@ -49,13 +49,10 @@ export async function parse(text) {
             const timeMatch = text.match(pattern);
             if (timeMatch) {
                 return {
-                    type: 'urgency',
-                    value: {
+                    urgency: {
                         level: 'high',
                         score: URGENCY_LEVELS.high,
-                        timeBased: true
-                    },
-                    metadata: {
+                        timeBased: true,
                         pattern: 'time_urgency',
                         confidence: Confidence.HIGH,
                         originalMatch: timeMatch[0]
@@ -69,13 +66,10 @@ export async function parse(text) {
             const keywordMatch = text.match(new RegExp(`\\b${keyword}\\b`, 'i'));
             if (keywordMatch) {
                 return {
-                    type: 'urgency',
-                    value: {
+                    urgency: {
                         level,
                         score: URGENCY_LEVELS[level],
-                        keyword: keyword.toLowerCase()
-                    },
-                    metadata: {
+                        keyword: keyword.toLowerCase(),
                         pattern: 'keyword_urgency',
                         confidence: Confidence.MEDIUM,
                         originalMatch: keywordMatch[0]
@@ -88,9 +82,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in urgency parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            urgency: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

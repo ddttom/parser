@@ -2,14 +2,26 @@ import { name, parse } from '../../src/services/parser/parsers/cost.js';
 
 describe('Cost Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with cost key', async () => {
       const result = await parse('costs $100');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('cost');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('costs $100');
+      const expectedProps = {
+        amount: expect.any(Number),
+        currency: expect.any(String),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.cost).toMatchObject(expectedProps);
     });
   });
 
@@ -24,7 +36,7 @@ describe('Cost Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.cost).toMatchObject({
           amount: 99.99,
           currency: 'USD'
         });
@@ -40,7 +52,7 @@ describe('Cost Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.cost).toMatchObject({
           amount: 150.00,
           currency: 'USD'
         });
@@ -56,7 +68,7 @@ describe('Cost Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.amount).toBe(parseFloat(input.match(/\d+\.\d+/)[0]));
+        expect(result.cost.amount).toBe(parseFloat(input.match(/\d+\.\d+/)[0]));
       }
     });
   });
@@ -71,7 +83,7 @@ describe('Cost Parser', () => {
 
       for (const { input, amount, currency } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({ amount, currency });
+        expect(result.cost).toMatchObject({ amount, currency });
       }
     });
 
@@ -84,7 +96,7 @@ describe('Cost Parser', () => {
 
       for (const { input, amount, currency } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({ amount, currency });
+        expect(result.cost).toMatchObject({ amount, currency });
       }
     });
 
@@ -97,7 +109,7 @@ describe('Cost Parser', () => {
 
       for (const { input, amount, currency } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({ amount, currency });
+        expect(result.cost).toMatchObject({ amount, currency });
       }
     });
   });
@@ -112,7 +124,7 @@ describe('Cost Parser', () => {
 
       for (const { input, amount } of variations) {
         const result = await parse(input);
-        expect(result.value.amount).toBe(amount);
+        expect(result.cost.amount).toBe(amount);
       }
     });
 
@@ -125,7 +137,7 @@ describe('Cost Parser', () => {
 
       for (const { input, amount } of variations) {
         const result = await parse(input);
-        expect(result.value.amount).toBe(amount);
+        expect(result.cost.amount).toBe(amount);
       }
     });
 
@@ -138,7 +150,7 @@ describe('Cost Parser', () => {
 
       for (const { input, amount } of variations) {
         const result = await parse(input);
-        expect(result.value.amount).toBe(amount);
+        expect(result.cost.amount).toBe(amount);
       }
     });
   });
@@ -166,7 +178,7 @@ describe('Cost Parser', () => {
 
       for (const input of invalid) {
         const result = await parse(input);
-        expect(result?.type).toBe('error');
+        expect(result?.cost?.error).toBe('PARSER_ERROR');
       }
     });
 
@@ -179,7 +191,7 @@ describe('Cost Parser', () => {
 
       for (const input of invalid) {
         const result = await parse(input);
-        expect(result?.type).toBe('error');
+        expect(result?.cost?.error).toBe('PARSER_ERROR');
       }
     });
   });

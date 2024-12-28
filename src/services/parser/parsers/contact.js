@@ -94,9 +94,8 @@ export async function parse(text) {
       if (shouldUpdate) {
         highestConfidence = confidence;
         bestMatch = {
-          type: 'contact',
-          value,
-          metadata: {
+          contact: {
+            ...value,
             confidence,
             pattern,
             originalMatch: pattern === 'phone' ? match[1] : match[0]

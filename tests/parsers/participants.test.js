@@ -2,14 +2,26 @@ import { name, parse } from '../../src/services/parser/parsers/participants.js';
 
 describe('Participants Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with participants key', async () => {
       const result = await parse('Meeting with John and Sarah');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('participants');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('Meeting with John and Sarah');
+      const expectedProps = {
+        participants: expect.any(Array),
+        count: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.participants).toMatchObject(expectedProps);
     });
   });
 
@@ -23,7 +35,7 @@ describe('Participants Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.participants).toMatchObject({
           participants: ['John', 'Sarah', 'Mike'],
           count: 3
         });
@@ -39,7 +51,7 @@ describe('Participants Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.participants).toMatchObject({
           participants: ['John', 'Sarah'],
           count: 2
         });
@@ -55,9 +67,9 @@ describe('Participants Parser', () => {
 
       for (const { input, roles } of variations) {
         const result = await parse(input);
-        expect(result.value.participants).toHaveLength(2);
-        expect(result.value.participants[0].role).toBe(roles[0]);
-        expect(result.value.participants[1].role).toBe(roles[1]);
+        expect(result.participants.participants).toHaveLength(2);
+        expect(result.participants.participants[0].role).toBe(roles[0]);
+        expect(result.participants.participants[1].role).toBe(roles[1]);
       }
     });
 
@@ -70,7 +82,7 @@ describe('Participants Parser', () => {
 
       for (const { input, participants } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.participants).toMatchObject({
           participants,
           count: 2
         });
@@ -89,7 +101,7 @@ describe('Participants Parser', () => {
       for (const input of validNames) {
         const result = await parse(input);
         expect(result).not.toBeNull();
-        expect(result.value.participants).toHaveLength(2);
+        expect(result.participants.participants).toHaveLength(2);
       }
     });
 
@@ -118,9 +130,9 @@ describe('Participants Parser', () => {
       for (const input of validRoles) {
         const result = await parse(input);
         expect(result).not.toBeNull();
-        expect(result.value.participants).toHaveLength(2);
-        expect(result.value.participants[0].role).toBeTruthy();
-        expect(result.value.participants[1].role).toBeTruthy();
+        expect(result.participants.participants).toHaveLength(2);
+        expect(result.participants.participants[0].role).toBeTruthy();
+        expect(result.participants.participants[1].role).toBeTruthy();
       }
     });
 

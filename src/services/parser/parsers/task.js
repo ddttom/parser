@@ -27,11 +27,8 @@ export async function parse(text) {
             if (!isValid) return null;
 
             return {
-                type: 'task',
-                value: {
-                    taskId: parseInt(taskId, 10)
-                },
-                metadata: {
+                task: {
+                    taskId: parseInt(taskId, 10),
                     pattern: 'inferred',
                     confidence: Confidence.MEDIUM,
                     originalMatch: inferredMatch[0]
@@ -43,9 +40,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in task parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            task: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

@@ -2,26 +2,37 @@ import { name, parse } from '../../src/services/parser/parsers/team.js';
 
 describe('Team Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with team key', async () => {
       const result = await parse('@frontend');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('team');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
     });
+
+    test('should include all required properties', async () => {
+      const result = await parse('@frontend');
+      const expectedProps = {
+        members: expect.any(Array),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.team).toMatchObject(expectedProps);
+    });
   });
 
   describe('Pattern Matching', () => {
     test('should detect @mentions', async () => {
       const result = await parse('Task for @frontend and @backend');
-      expect(result.value).toEqual(['frontend', 'backend']);
+      expect(result.team.members).toEqual(['frontend', 'backend']);
     });
 
     test('should detect name lists', async () => {
       const result = await parse('involving frontend, backend and design');
-      expect(result.value).toEqual(['frontend', 'backend', 'design']);
+      expect(result.team.members).toEqual(['frontend', 'backend', 'design']);
     });
 
     test('should detect inferred team references', async () => {
@@ -34,7 +45,7 @@ describe('Team Parser', () => {
 
       for (const { input, team } of formats) {
         const result = await parse(input);
-        expect(result.value).toEqual({ team });
+        expect(result.team.name).toBe(team);
       }
     });
   });
@@ -56,7 +67,7 @@ describe('Team Parser', () => {
 
       for (const team of validTeams) {
         const result = await parse(`${team} team`);
-        expect(result.value).toEqual({ team });
+        expect(result.team.name).toBe(team);
       }
     });
 
@@ -69,7 +80,7 @@ describe('Team Parser', () => {
 
       for (const { input, expected } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({ team: expected });
+        expect(result.team.name).toBe(expected);
       }
     });
 
@@ -82,8 +93,8 @@ describe('Team Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toContain('frontend');
-        expect(result.value).toContain('backend');
+        expect(result.team.members).toContain('frontend');
+        expect(result.team.members).toContain('backend');
       }
     });
   });
@@ -130,9 +141,10 @@ describe('Team Parser', () => {
       try {
         const result = await parse('frontend team');
         expect(result).toEqual({
-          type: 'error',
-          error: 'PARSER_ERROR',
-          message: 'Validation error'
+          team: {
+            error: 'PARSER_ERROR',
+            message: 'Validation error'
+          }
         });
       } finally {
         // Restore original function

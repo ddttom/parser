@@ -2,14 +2,27 @@ import { name, parse } from '../../src/services/parser/parsers/duration.js';
 
 describe('Duration Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with duration key', async () => {
       const result = await parse('takes 2 hours and 30 minutes');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('duration');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('takes 2 hours and 30 minutes');
+      const expectedProps = {
+        hours: expect.any(Number),
+        minutes: expect.any(Number),
+        totalMinutes: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.duration).toMatchObject(expectedProps);
     });
   });
 
@@ -23,7 +36,7 @@ describe('Duration Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.duration).toMatchObject({
           hours: 2,
           minutes: 30,
           totalMinutes: 150
@@ -40,7 +53,7 @@ describe('Duration Parser', () => {
 
       for (const { input, hours, minutes } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.duration).toMatchObject({
           hours,
           minutes,
           totalMinutes: hours * 60 + minutes
@@ -57,7 +70,7 @@ describe('Duration Parser', () => {
 
       for (const { input, hours, minutes } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.duration).toMatchObject({
           hours,
           minutes,
           totalMinutes: hours * 60 + minutes
@@ -76,7 +89,7 @@ describe('Duration Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.duration).toMatchObject({
           hours: 2,
           minutes: 0,
           totalMinutes: 120
@@ -93,7 +106,7 @@ describe('Duration Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.duration).toMatchObject({
           hours: 0,
           minutes: 45,
           totalMinutes: 45
@@ -110,7 +123,7 @@ describe('Duration Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.duration).toMatchObject({
           hours: 1,
           minutes: 30,
           totalMinutes: 90

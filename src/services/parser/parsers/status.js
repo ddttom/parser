@@ -88,9 +88,8 @@ export async function parse(text) {
                 
                 if (shouldUpdate) {
                     bestMatch = {
-                        type: 'status',
-                        value,
-                        metadata: {
+                        status: {
+                            ...value,
                             confidence,
                             pattern,
                             originalMatch: match[0],
@@ -105,9 +104,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in status parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            status: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

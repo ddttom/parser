@@ -145,5 +145,20 @@ export async function parse(text) {
     }
   }
 
-  return bestMatch;
+  // Return null if no match found
+  if (!bestMatch) {
+    return null;
+  }
+
+  // Return standardized format with parser name as key
+  return {
+    action: {
+      verb: bestMatch.value.verb,
+      object: bestMatch.value.object,
+      isComplete: bestMatch.value.isComplete,
+      confidence: bestMatch.metadata.confidence,
+      pattern: bestMatch.metadata.pattern,
+      originalMatch: bestMatch.metadata.originalMatch
+    }
+  };
 }

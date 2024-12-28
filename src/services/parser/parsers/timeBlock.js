@@ -68,13 +68,12 @@ export async function parse(text) {
 
         let bestMatch = null;
 
-        for (const [pattern, regex] of Object.entries(patterns)) {
+        for (const [patternName, regex] of Object.entries(patterns)) {
             const match = text.match(regex);
             if (match) {
-                let confidence;
-                let value;
+                let matchData = null;
 
-                switch (pattern) {
+                switch (patternName) {
                     case 'range': {
                         const start = parseTimeComponent(match[1]);
                         const end = parseTimeComponent(match[2]);
@@ -82,12 +81,14 @@ export async function parse(text) {
 
                         if (!start || !end) continue;
 
-                        confidence = Confidence.MEDIUM;
-                        value = {
+                        matchData = {
                             start,
                             end,
                             type: description ? inferBlockType(description) : 'general',
-                            description: description || null
+                            description: description || null,
+                            confidence: Confidence.MEDIUM,
+                            pattern: patternName,
+                            originalText: match[0]
                         };
                         break;
                     }
@@ -99,12 +100,14 @@ export async function parse(text) {
 
                         if (!start || !end) continue;
 
-                        confidence = Confidence.HIGH;
-                        value = {
+                        matchData = {
                             start,
                             end,
                             type: description ? inferBlockType(description) : 'general',
-                            description: description || null
+                            description: description || null,
+                            confidence: Confidence.HIGH,
+                            pattern: patternName,
+                            originalText: match[0]
                         };
                         break;
                     }
@@ -119,31 +122,24 @@ export async function parse(text) {
                             minutes: start.minutes
                         };
 
-                        confidence = Confidence.MEDIUM;
-                        value = {
+                        matchData = {
                             start,
                             end,
                             type: inferBlockType(match[0]),
-                            description: null
+                            description: null,
+                            confidence: Confidence.MEDIUM,
+                            pattern: patternName,
+                            originalText: match[0]
                         };
                         break;
                     }
                 }
 
-                // Update if current confidence is higher or equal priority pattern
-                const shouldUpdate = !bestMatch || 
-                    (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
-                    (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
-                
-                if (shouldUpdate) {
+                if (matchData && (!bestMatch || 
+                    (matchData.confidence === Confidence.HIGH && bestMatch.timeblock.confidence !== Confidence.HIGH) ||
+                    (matchData.confidence === Confidence.MEDIUM && bestMatch.timeblock.confidence === Confidence.LOW))) {
                     bestMatch = {
-                        type: 'timeblock',
-                        value,
-                        metadata: {
-                            confidence,
-                            pattern,
-                            originalMatch: match[0]
-                        }
+                        timeblock: matchData
                     };
                 }
             }
@@ -153,9 +149,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in timeblock parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            timeblock: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

@@ -45,14 +45,11 @@ export async function parse(text) {
             const hour = convertTo24Hour(rawHour, period);
 
             return {
-                type: 'timeofday',
-                value: {
+                timeofday: {
                     hour,
                     minute,
                     format: '12h',
-                    period
-                },
-                metadata: {
+                    period,
                     pattern: '12h_time',
                     confidence: Confidence.HIGH,
                     originalMatch: twelveHourMatch[0]
@@ -66,12 +63,9 @@ export async function parse(text) {
             const period = naturalMatch[1].toLowerCase();
             if (period in NATURAL_PERIODS) {
                 return {
-                    type: 'timeofday',
-                    value: {
+                    timeofday: {
                         period,
-                        approximate: true
-                    },
-                    metadata: {
+                        approximate: true,
                         pattern: 'natural_time',
                         confidence: Confidence.MEDIUM,
                         originalMatch: naturalMatch[1]
@@ -84,9 +78,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in timeofday parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            timeofday: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

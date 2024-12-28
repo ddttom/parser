@@ -2,31 +2,41 @@ import { name, parse } from '../../src/services/parser/parsers/tags.js';
 
 describe('Tags Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with tag key', async () => {
       const result = await parse('#important');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('tag');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
     });
+
+    test('should include all required properties', async () => {
+      const result = await parse('#important');
+      expect(result.tag).toEqual(expect.objectContaining({
+        tags: expect.any(Array),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
+    });
   });
 
   describe('Pattern Matching', () => {
     test('should detect single hashtag', async () => {
       const result = await parse('#important');
-      expect(result.value).toEqual(['important']);
+      expect(result.tag.tags).toEqual(['important']);
     });
 
     test('should detect multiple hashtags', async () => {
       const result = await parse('#frontend #backend');
-      expect(result.value).toEqual(['frontend', 'backend']);
+      expect(result.tag.tags).toEqual(['frontend', 'backend']);
     });
 
     test('should detect hashtags in text', async () => {
       const result = await parse('Task for #frontend team with #priority-high');
-      expect(result.value).toEqual(['frontend', 'priority-high']);
+      expect(result.tag.tags).toEqual(['frontend', 'priority-high']);
     });
   });
 
@@ -42,7 +52,7 @@ describe('Tags Parser', () => {
 
       for (const tag of validTags) {
         const result = await parse(`#${tag}`);
-        expect(result.value).toContain(tag);
+        expect(result.tag.tags).toContain(tag);
       }
     });
 
@@ -55,7 +65,7 @@ describe('Tags Parser', () => {
 
       for (const { input, expected } of variations) {
         const result = await parse(`#${input}`);
-        expect(result.value).toContain(expected.toLowerCase());
+        expect(result.tag.tags).toContain(expected.toLowerCase());
       }
     });
   });

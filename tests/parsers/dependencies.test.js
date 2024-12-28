@@ -2,14 +2,27 @@ import { name, parse } from '../../src/services/parser/parsers/dependencies.js';
 
 describe('Dependencies Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with dependencies key', async () => {
       const result = await parse('depends on task 123');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('dependencies');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('depends on task 123');
+      const expectedProps = {
+        type: expect.any(String),
+        id: expect.any(String),
+        relationship: expect.any(String),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.dependencies).toMatchObject(expectedProps);
     });
   });
 
@@ -23,7 +36,7 @@ describe('Dependencies Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.relationship).toBe('depends_on');
+        expect(result.dependencies.relationship).toBe('depends_on');
       }
     });
 
@@ -36,9 +49,9 @@ describe('Dependencies Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.dependencies).toHaveLength(2);
-        expect(result.value.dependencies[0].relationship).toBe('after');
-        expect(result.value.dependencies[1].relationship).toBe('after');
+        expect(result.dependencies.dependencies).toHaveLength(2);
+        expect(result.dependencies.dependencies[0].relationship).toBe('after');
+        expect(result.dependencies.dependencies[1].relationship).toBe('after');
       }
     });
 
@@ -51,7 +64,7 @@ describe('Dependencies Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.relationship).toBe('blocks');
+        expect(result.dependencies.relationship).toBe('blocks');
       }
     });
 
@@ -64,7 +77,7 @@ describe('Dependencies Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.relationship).toBe('after');
+        expect(result.dependencies.relationship).toBe('after');
       }
     });
   });
@@ -79,7 +92,7 @@ describe('Dependencies Parser', () => {
 
       for (const { input, expected, pattern } of relationships) {
         const result = await parse(input);
-        expect(result.value.relationship).toBe(expected);
+        expect(result.dependencies.relationship).toBe(expected);
       }
     });
 
@@ -93,7 +106,7 @@ describe('Dependencies Parser', () => {
       for (const input of variations) {
         const result = await parse(input);
         expect(result).not.toBeNull();
-        expect(result.value.relationship).toBeDefined();
+        expect(result.dependencies.relationship).toBeDefined();
       }
     });
   });
@@ -110,7 +123,7 @@ describe('Dependencies Parser', () => {
       for (const id of validIds) {
         const result = await parse(`depends on task ${id}`);
         expect(result).not.toBeNull();
-        expect(result.value.id).toBe(id);
+        expect(result.dependencies.id).toBe(id);
       }
     });
 

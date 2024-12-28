@@ -2,14 +2,26 @@ import { name, parse } from '../../src/services/parser/parsers/complexity.js';
 
 describe('Complexity Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with complexity key', async () => {
       const result = await parse('complexity level is high');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('complexity');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('complexity level is high');
+      const expectedProps = {
+        level: expect.any(String),
+        score: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.complexity).toMatchObject(expectedProps);
     });
   });
 
@@ -24,7 +36,7 @@ describe('Complexity Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.complexity).toMatchObject({
           level: 'high',
           score: 3
         });
@@ -41,7 +53,7 @@ describe('Complexity Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.complexity).toMatchObject({
           level: 'high',
           score: 3
         });
@@ -59,7 +71,7 @@ describe('Complexity Parser', () => {
 
       for (const { input, level, score } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({ level, score });
+        expect(result.complexity).toMatchObject({ level, score });
       }
     });
   });
@@ -75,8 +87,8 @@ describe('Complexity Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.level).toBe('high');
-        expect(result.value.score).toBe(3);
+        expect(result.complexity.level).toBe('high');
+        expect(result.complexity.score).toBe(3);
       }
     });
 
@@ -89,8 +101,8 @@ describe('Complexity Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.level).toBe('medium');
-        expect(result.value.score).toBe(2);
+        expect(result.complexity.level).toBe('medium');
+        expect(result.complexity.score).toBe(2);
       }
     });
 
@@ -104,8 +116,8 @@ describe('Complexity Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.level).toBe('low');
-        expect(result.value.score).toBe(1);
+        expect(result.complexity.level).toBe('low');
+        expect(result.complexity.score).toBe(1);
       }
     });
   });

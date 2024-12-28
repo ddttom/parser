@@ -89,12 +89,9 @@ export async function parse(text) {
   const naturalList = findNaturalList(text);
   if (naturalList) {
     return {
-      type: 'participants',
-      value: {
+      participants: {
         participants: naturalList.participants,
-        count: naturalList.participants.length
-      },
-      metadata: {
+        count: naturalList.participants.length,
         confidence: naturalList.confidence,
         pattern: naturalList.confidence === Confidence.MEDIUM ? 'natural_list' : 'implicit',
         originalMatch: naturalList.match
@@ -174,9 +171,8 @@ export async function parse(text) {
       if (shouldUpdate) {
         highestConfidence = confidence;
         bestMatch = {
-          type: 'participants',
-          value,
-          metadata: {
+          participants: {
+            ...value,
             confidence,
             pattern,
             originalMatch: match[0]

@@ -2,15 +2,28 @@ import { parse } from '../../src/services/parser/parsers/milestone.js';
 
 describe('Milestone Parser', () => {
     describe('Return Format', () => {
-        test('should return correct type property', async () => {
-            const result = await parse('milestone: Beta Release');
-            expect(result.type).toBe('milestone');
-        });
+    test('should return object with milestone key', async () => {
+        const result = await parse('milestone: Beta Release');
+        expect(result).toHaveProperty('milestone');
+    });
 
-        test('should return null for no matches', async () => {
-            const result = await parse('   ');
-            expect(result).toBeNull();
-        });
+    test('should return null for no matches', async () => {
+        const result = await parse('   ');
+        expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+        const result = await parse('milestone: Beta Release');
+        const expectedProps = {
+            milestone: expect.any(String),
+            type: expect.any(String),
+            isExplicit: expect.any(Boolean),
+            confidence: expect.any(Number),
+            pattern: expect.any(String),
+            originalMatch: expect.any(String)
+        };
+        expect(result.milestone).toMatchObject(expectedProps);
+    });
     });
 
     describe('Pattern Matching', () => {
@@ -24,7 +37,7 @@ describe('Milestone Parser', () => {
 
             for (const { input, type } of variations) {
                 const result = await parse(input);
-                expect(result.value).toEqual({
+                expect(result.milestone).toMatchObject({
                     milestone: input.split(': ')[1],
                     type,
                     isExplicit: true
@@ -41,7 +54,7 @@ describe('Milestone Parser', () => {
 
             for (const input of variations) {
                 const result = await parse(input);
-                expect(result.value).toEqual({
+                expect(result.milestone).toMatchObject({
                     milestone: input.split(': ')[1],
                     type: 'delivery',
                     isExplicit: true
@@ -58,7 +71,7 @@ describe('Milestone Parser', () => {
 
             for (const input of variations) {
                 const result = await parse(input);
-                expect(result.value).toEqual({
+                expect(result.milestone).toMatchObject({
                     milestone: input.split(': ')[1],
                     type: 'phase',
                     isExplicit: true
@@ -75,7 +88,7 @@ describe('Milestone Parser', () => {
 
             for (const { input, type } of variations) {
                 const result = await parse(input);
-                expect(result.value).toEqual({
+                expect(result.milestone).toMatchObject({
                     milestone: input.split(': ')[1],
                     type,
                     isExplicit: false
@@ -95,7 +108,7 @@ describe('Milestone Parser', () => {
 
             for (const input of releases) {
                 const result = await parse(input);
-                expect(result.value.type).toBe('release');
+                expect(result.milestone.type).toBe('release');
             }
         });
 
@@ -108,7 +121,7 @@ describe('Milestone Parser', () => {
 
             for (const input of reviews) {
                 const result = await parse(input);
-                expect(result.value.type).toBe('review');
+                expect(result.milestone.type).toBe('review');
             }
         });
 
@@ -121,7 +134,7 @@ describe('Milestone Parser', () => {
 
             for (const input of completions) {
                 const result = await parse(input);
-                expect(result.value.type).toBe('completion');
+                expect(result.milestone.type).toBe('completion');
             }
         });
     });

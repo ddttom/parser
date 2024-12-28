@@ -2,21 +2,34 @@ import { parse } from '../../src/services/parser/parsers/sprint.js';
 
 describe('Sprint Parser', () => {
     describe('Return Format', () => {
-        test('should return correct type property', async () => {
-            const result = await parse('sprint 5: Development Phase');
-            expect(result.type).toBe('sprint');
-        });
+    test('should return object with sprint key', async () => {
+        const result = await parse('sprint 5: Development Phase');
+        expect(result).toHaveProperty('sprint');
+    });
 
-        test('should return null for no matches', async () => {
-            const result = await parse('   ');
-            expect(result).toBeNull();
-        });
+    test('should return null for no matches', async () => {
+        const result = await parse('   ');
+        expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+        const result = await parse('sprint 5: Development Phase');
+        const expectedProps = {
+            number: expect.any(Number),
+            phase: expect.any(String),
+            isExplicit: expect.any(Boolean),
+            confidence: expect.any(Number),
+            pattern: expect.any(String),
+            originalMatch: expect.any(String)
+        };
+        expect(result.sprint).toMatchObject(expectedProps);
+    });
     });
 
     describe('Labeled Format', () => {
         test('should parse labeled sprint format', async () => {
             const result = await parse('sprint 4: Development Phase');
-            expect(result.value).toEqual({
+            expect(result.sprint).toMatchObject({
                 number: 4,
                 description: 'Development Phase',
                 isExplicit: true
@@ -25,7 +38,7 @@ describe('Sprint Parser', () => {
 
         test('should parse sprint with hyphen separator', async () => {
             const result = await parse('sprint 6 - Final Review');
-            expect(result.value).toEqual({
+            expect(result.sprint).toMatchObject({
                 number: 6,
                 phase: 'review',
                 description: 'Final Review',
@@ -42,7 +55,7 @@ describe('Sprint Parser', () => {
 
             for (const { input, phase } of phases) {
                 const result = await parse(input);
-                expect(result.value.phase).toBe(phase);
+                expect(result.sprint.phase).toBe(phase);
             }
         });
     });
@@ -50,7 +63,7 @@ describe('Sprint Parser', () => {
     describe('Phase Format', () => {
         test('should parse sprint planning format', async () => {
             const result = await parse('sprint planning for sprint 7');
-            expect(result.value).toEqual({
+            expect(result.sprint).toMatchObject({
                 number: 7,
                 phase: 'planning',
                 isExplicit: true
@@ -59,7 +72,7 @@ describe('Sprint Parser', () => {
 
         test('should parse sprint review format', async () => {
             const result = await parse('sprint review for sprint 8');
-            expect(result.value).toEqual({
+            expect(result.sprint).toMatchObject({
                 number: 8,
                 phase: 'review',
                 isExplicit: true
@@ -76,7 +89,7 @@ describe('Sprint Parser', () => {
 
             for (const input of variations) {
                 const result = await parse(input);
-                expect(result.value).toEqual({
+                expect(result.sprint).toMatchObject({
                     number: 9,
                     phase: 'retro',
                     isExplicit: true
@@ -96,7 +109,7 @@ describe('Sprint Parser', () => {
 
             for (const input of references) {
                 const result = await parse(input);
-                expect(result.value).toEqual({
+                expect(result.sprint).toMatchObject({
                     number: 10,
                     phase: 'general',
                     isExplicit: false

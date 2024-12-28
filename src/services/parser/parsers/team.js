@@ -36,9 +36,8 @@ export async function parse(text) {
         const mentions = [...text.matchAll(mentionPattern)].map(m => m[1]);
         if (mentions.length > 0) {
             return {
-                type: 'team',
-                value: mentions,
-                metadata: {
+                team: {
+                    members: mentions,
                     pattern: 'mentions',
                     confidence: Confidence.HIGH,
                     originalMatch: mentions.map(m => `@${m}`).join(', ')
@@ -57,9 +56,8 @@ export async function parse(text) {
 
             if (names.length > 0) {
                 return {
-                    type: 'team',
-                    value: names,
-                    metadata: {
+                    team: {
+                        members: names,
                         pattern: 'name_list',
                         confidence: Confidence.MEDIUM,
                         originalMatch: nameMatch[0]
@@ -77,11 +75,8 @@ export async function parse(text) {
             if (!isValid) return null;
 
             return {
-                type: 'team',
-                value: {
-                    team: team.toLowerCase()
-                },
-                metadata: {
+                team: {
+                    name: team.toLowerCase(),
                     pattern: 'inferred',
                     confidence: Confidence.MEDIUM,
                     originalMatch: inferredMatch[0]
@@ -93,9 +88,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in team parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            team: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

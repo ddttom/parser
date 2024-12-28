@@ -2,14 +2,26 @@ import { name, parse } from '../../src/services/parser/parsers/categories.js';
 
 describe('Categories Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with categories key', async () => {
       const result = await parse('#Work');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('categories');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('#Work');
+      const expectedProps = {
+        category: expect.any(String),
+        subcategories: expect.any(Array),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.categories).toMatchObject(expectedProps);
     });
   });
 
@@ -23,8 +35,8 @@ describe('Categories Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toHaveProperty('categories');
-        expect(result.value.categories.length).toBeGreaterThanOrEqual(2);
+        expect(result.categories).toHaveProperty('categories');
+        expect(result.categories.categories.length).toBeGreaterThanOrEqual(2);
       }
     });
 
@@ -38,8 +50,8 @@ describe('Categories Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toHaveProperty('categories');
-        expect(result.value.categories.length).toBeGreaterThanOrEqual(2);
+        expect(result.categories).toHaveProperty('categories');
+        expect(result.categories.categories.length).toBeGreaterThanOrEqual(2);
       }
     });
 
@@ -52,11 +64,11 @@ describe('Categories Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.categories).toMatchObject({
           category: expect.any(String),
           subcategories: expect.any(Array)
         });
-        expect(result.value.subcategories.length).toBeGreaterThanOrEqual(1);
+        expect(result.categories.subcategories.length).toBeGreaterThanOrEqual(1);
       }
     });
 
@@ -69,11 +81,11 @@ describe('Categories Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.categories).toMatchObject({
           category: expect.any(String),
           subcategories: expect.any(Array)
         });
-        expect(result.value.subcategories.length).toBeGreaterThanOrEqual(1);
+        expect(result.categories.subcategories.length).toBeGreaterThanOrEqual(1);
       }
     });
 
@@ -86,7 +98,7 @@ describe('Categories Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.categories).toMatchObject({
           category: expect.any(String),
           subcategories: []
         });
@@ -135,7 +147,7 @@ describe('Categories Parser', () => {
       for (const input of valid) {
         const result = await parse(input);
         expect(result).not.toBeNull();
-        expect(result.value.subcategories.length).toBeGreaterThan(0);
+        expect(result.categories.subcategories.length).toBeGreaterThan(0);
       }
     });
 

@@ -32,30 +32,34 @@ The utility returns standardized error objects for invalid inputs:
 ```javascript
 // Null input
 {
-    type: 'error',
-    error: 'INVALID_INPUT',
-    message: 'ParserName: Input cannot be null'
+    [parserName]: {
+        error: 'INVALID_INPUT',
+        message: 'ParserName: Input cannot be null'
+    }
 }
 
 // Undefined input
 {
-    type: 'error',
-    error: 'INVALID_INPUT',
-    message: 'ParserName: Input cannot be undefined'
+    [parserName]: {
+        error: 'INVALID_INPUT',
+        message: 'ParserName: Input cannot be undefined'
+    }
 }
 
 // Non-string input
 {
-    type: 'error',
-    error: 'INVALID_INPUT',
-    message: 'ParserName: Input must be a string, got typeof'
+    [parserName]: {
+        error: 'INVALID_INPUT',
+        message: 'ParserName: Input must be a string, got typeof'
+    }
 }
 
 // Empty string
 {
-    type: 'error',
-    error: 'INVALID_INPUT',
-    message: 'ParserName: Input cannot be empty'
+    [parserName]: {
+        error: 'INVALID_INPUT',
+        message: 'ParserName: Input cannot be empty'
+    }
 }
 ```
 
@@ -88,36 +92,40 @@ describe('Input Validation', () => {
         test('should handle null input', () => {
             const result = validateParserInput(null, 'TestParser');
             expect(result).toEqual({
-                type: 'error',
-                error: 'INVALID_INPUT',
-                message: 'TestParser: Input cannot be null'
+                testParser: {
+                    error: 'INVALID_INPUT',
+                    message: 'TestParser: Input cannot be null'
+                }
             });
         });
 
         test('should handle undefined input', () => {
             const result = validateParserInput(undefined, 'TestParser');
             expect(result).toEqual({
-                type: 'error',
-                error: 'INVALID_INPUT',
-                message: 'TestParser: Input cannot be undefined'
+                testParser: {
+                    error: 'INVALID_INPUT',
+                    message: 'TestParser: Input cannot be undefined'
+                }
             });
         });
 
         test('should handle non-string input', () => {
             const result = validateParserInput(123, 'TestParser');
             expect(result).toEqual({
-                type: 'error',
-                error: 'INVALID_INPUT',
-                message: 'TestParser: Input must be a string, got number'
+                testParser: {
+                    error: 'INVALID_INPUT',
+                    message: 'TestParser: Input must be a string, got number'
+                }
             });
         });
 
         test('should handle empty string input', () => {
             const result = validateParserInput('', 'TestParser');
             expect(result).toEqual({
-                type: 'error',
-                error: 'INVALID_INPUT',
-                message: 'TestParser: Input cannot be empty'
+                testParser: {
+                    error: 'INVALID_INPUT',
+                    message: 'TestParser: Input cannot be empty'
+                }
             });
         });
     });
@@ -126,9 +134,10 @@ describe('Input Validation', () => {
         test('should use validation utility', async () => {
             const result = await parse(null);
             expect(result).toEqual({
-                type: 'error',
-                error: 'INVALID_INPUT',
-                message: expect.stringContaining('Input cannot be null')
+                testParser: {
+                    error: 'INVALID_INPUT',
+                    message: expect.stringContaining('Input cannot be null')
+                }
             });
         });
 
@@ -226,9 +235,18 @@ import { name, parse } from '../../src/services/parser/parsers/example.js';
 
 describe('Example Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with parser name as key', async () => {
       const result = await parse('high priority task');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('priority');
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('high priority task');
+      expect(result.priority).toEqual(expect.objectContaining({
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
     });
 
     test('should return null for no matches', async () => {
@@ -240,21 +258,28 @@ describe('Example Parser', () => {
   describe('Pattern Matching', () => {
     test('should detect natural language patterns', async () => {
       const result = await parse('high priority task');
-      expect(result.value).toEqual({
-        priority: 'high'
-      });
+      expect(result.priority).toEqual(expect.objectContaining({
+        value: 'high',
+        confidence: expect.any(Number),
+        pattern: 'natural_language',
+        originalMatch: 'high priority'
+      }));
     });
 
     test('should handle hashtag patterns', async () => {
       const result = await parse('#important task');
-      expect(result.value).toEqual({
-        priority: 'high'
-      });
+      expect(result.priority).toEqual(expect.objectContaining({
+        value: 'high',
+        confidence: expect.any(Number),
+        pattern: 'hashtag',
+        originalMatch: '#important'
+      }));
     });
 
     test('should handle edge cases', async () => {
       const result = await parse('very-high-priority');
       expect(result).not.toBeNull();
+      expect(result.priority).toBeDefined();
     });
   });
 
@@ -267,6 +292,14 @@ describe('Example Parser', () => {
     test('should handle malformed patterns', async () => {
       const result = await parse('priority(invalid)');
       expect(result).toBeNull();
+    });
+
+    test('should return error with parser name as key', async () => {
+      const result = await parse(null);
+      expect(result.priority).toEqual(expect.objectContaining({
+        error: expect.any(String),
+        message: expect.any(String)
+      }));
     });
   });
 });

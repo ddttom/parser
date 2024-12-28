@@ -33,13 +33,10 @@ export async function parse(text) {
             const config = TIME_OF_DAY[period];
             if (config) {
                 return {
-                    type: 'time',
-                    value: {
+                    time: {
                         period,
                         start: config.start,
-                        end: config.end
-                    },
-                    metadata: {
+                        end: config.end,
                         pattern: 'period',
                         confidence: calculateConfidence(periodMatch, text, 'period'),
                         originalMatch: periodMatch[0]
@@ -57,19 +54,17 @@ export async function parse(text) {
             // Validate hours and minutes
             if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
                 return {
-                    type: 'error',
-                    error: 'PARSER_ERROR',
-                    message: 'Invalid time values'
+                    time: {
+                        error: 'PARSER_ERROR',
+                        message: 'Invalid time values'
+                    }
                 };
             }
 
             return {
-                type: 'time',
-                value: {
+                time: {
                     hours,
-                    minutes
-                },
-                metadata: {
+                    minutes,
                     pattern: '24hour',
                     confidence: Confidence.HIGH,
                     originalMatch: twentyFourMatch[0]
@@ -91,9 +86,10 @@ export async function parse(text) {
             );
             if (!timeValue) {
                 return {
-                    type: 'error',
-                    error: 'PARSER_ERROR',
-                    message: 'Invalid time values'
+                    time: {
+                        error: 'PARSER_ERROR',
+                        message: 'Invalid time values'
+                    }
                 };
             }
 
@@ -101,9 +97,8 @@ export async function parse(text) {
             const originalMatch = timeMatch[0].replace(/^(?:at|by)\s+/i, '');
 
             return {
-                type: 'time',
-                value: timeValue,
-                metadata: {
+                time: {
+                    ...timeValue,
                     pattern: 'specific',
                     confidence: calculateConfidence(timeMatch, text, 'specific'),
                     originalMatch
@@ -119,9 +114,10 @@ export async function parse(text) {
             input: text
         });
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            time: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

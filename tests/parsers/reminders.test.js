@@ -2,24 +2,36 @@ import { name, parse } from '../../src/services/parser/parsers/reminders.js';
 
 describe('Reminders Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with reminder key', async () => {
       const result = await parse('remind me in 30 minutes');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('reminder');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
     });
+
+    test('should include all required properties', async () => {
+      const result = await parse('remind me in 30 minutes');
+      expect(result.reminder).toEqual(expect.objectContaining({
+        type: expect.any(String),
+        minutes: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String),
+        isRelative: expect.any(Boolean)
+      }));
+    });
   });
 
   describe('Pattern Matching', () => {
     test('should detect relative time reminders', async () => {
       const result = await parse('in 30 minutes');
-      expect(result.value).toEqual({
+      expect(result.reminder).toEqual(expect.objectContaining({
         type: 'offset',
         minutes: 30
-      });
+      }));
     });
 
     test('should handle various time units', async () => {
@@ -31,10 +43,10 @@ describe('Reminders Parser', () => {
 
       for (const { input, minutes } of cases) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.reminder).toEqual(expect.objectContaining({
           type: 'offset',
           minutes
-        });
+        }));
       }
     });
 
@@ -48,7 +60,7 @@ describe('Reminders Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.type).toBe('before');
+        expect(result.reminder.type).toBe('before');
       }
     });
 
@@ -62,11 +74,11 @@ describe('Reminders Parser', () => {
 
       for (const { input, hour, minutes } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.reminder).toEqual(expect.objectContaining({
           type: 'time',
           hour,
           minutes
-        });
+        }));
       }
     });
 
@@ -80,7 +92,7 @@ describe('Reminders Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.type).toBe('date');
+        expect(result.reminder.type).toBe('date');
       }
     });
 
@@ -93,10 +105,10 @@ describe('Reminders Parser', () => {
 
       for (const { input, minutes } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.reminder).toEqual(expect.objectContaining({
           type: 'offset',
           minutes
-        });
+        }));
       }
     });
   });
@@ -112,21 +124,21 @@ describe('Reminders Parser', () => {
 
       for (const { input, hour, minutes } of cases) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.reminder).toEqual(expect.objectContaining({
           type: 'time',
           hour,
           minutes
-        });
+        }));
       }
     });
 
     test('should handle missing minutes', async () => {
       const result = await parse('remind me at 3pm');
-      expect(result.value).toEqual({
+      expect(result.reminder).toEqual(expect.objectContaining({
         type: 'time',
         hour: 15,
         minutes: 0
-      });
+      }));
     });
 
     test('should handle plural and singular units', async () => {
@@ -139,7 +151,7 @@ describe('Reminders Parser', () => {
 
       for (const { input, minutes } of cases) {
         const result = await parse(input);
-        expect(result.value.minutes).toBe(minutes);
+        expect(result.reminder.minutes).toBe(minutes);
       }
     });
   });

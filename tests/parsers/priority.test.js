@@ -2,49 +2,60 @@ import { name, parse } from '../../src/services/parser/parsers/priority.js';
 
 describe('Priority Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with priority key', async () => {
       const result = await parse('#high');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('priority');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
     });
+
+    test('should include all required properties', async () => {
+      const result = await parse('#high');
+      expect(result.priority).toEqual(expect.objectContaining({
+        level: expect.any(String),
+        score: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
+    });
   });
 
   describe('Pattern Matching', () => {
     test('should detect priority hashtags', async () => {
       const result = await parse('Task #urgent');
-      expect(result.value).toEqual({
+      expect(result.priority).toEqual(expect.objectContaining({
         level: 'urgent',
         score: 4
-      });
+      }));
     });
 
     test('should detect priority keywords', async () => {
       const result = await parse('High priority task');
-      expect(result.value).toEqual({
+      expect(result.priority).toEqual(expect.objectContaining({
         level: 'high',
         score: 3
-      });
+      }));
     });
 
     test('should detect implicit priority', async () => {
       const result = await parse('This is high priority');
-      expect(result.value).toEqual({
+      expect(result.priority).toEqual(expect.objectContaining({
         level: 'high',
         score: 3
-      });
+      }));
     });
 
     test('should detect multiple priority indicators', async () => {
       const result = await parse('#urgent High priority task');
-      expect(result.value).toEqual({
+      expect(result.priority).toEqual(expect.objectContaining({
         level: 'urgent',
         score: 4,
         indicators: ['urgent', 'high']
-      });
+      }));
     });
   });
 
@@ -60,8 +71,8 @@ describe('Priority Parser', () => {
 
       for (const { input, level, score } of levels) {
         const result = await parse(input);
-        expect(result.value.level).toBe(level);
-        expect(result.value.score).toBe(score);
+        expect(result.priority.level).toBe(level);
+        expect(result.priority.score).toBe(score);
       }
     });
 
@@ -75,7 +86,7 @@ describe('Priority Parser', () => {
 
       for (const { input, level } of aliases) {
         const result = await parse(input);
-        expect(result.value.level).toBe(level);
+        expect(result.priority.level).toBe(level);
       }
     });
   });

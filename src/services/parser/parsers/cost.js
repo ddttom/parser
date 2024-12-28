@@ -30,9 +30,10 @@ export async function parse(text) {
                     const formatMatch = rawValue.trim().match(/^(?:([$£€])?)?(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i);
                     if (!formatMatch) {
                         return {
-                            type: 'error',
-                            error: 'PARSER_ERROR',
-                            message: 'Invalid cost format'
+                            cost: {
+                                error: 'PARSER_ERROR',
+                                message: 'Invalid cost format'
+                            }
                         };
                     }
 
@@ -46,18 +47,20 @@ export async function parse(text) {
                     // Validate numeric value
                     if (value < 0) {
                         return {
-                            type: 'error',
-                            error: 'PARSER_ERROR',
-                            message: 'Negative values not allowed'
+                            cost: {
+                                error: 'PARSER_ERROR',
+                                message: 'Negative values not allowed'
+                            }
                         };
                     }
 
                     // Validate decimal places
                     if (numericPart.includes('.') && !/\.\d{2}$/.test(numericPart)) {
                         return {
-                            type: 'error',
-                            error: 'PARSER_ERROR',
-                            message: 'Invalid decimal format'
+                            cost: {
+                                error: 'PARSER_ERROR',
+                                message: 'Invalid decimal format'
+                            }
                         };
                     }
 
@@ -67,12 +70,9 @@ export async function parse(text) {
                                    matchCurrencySymbol === '£' ? 'GBP' :
                                    matchCurrencySymbol === '€' ? 'EUR' : 'USD';
                     return {
-                        type: 'cost',
-                        value: {
+                        cost: {
                             amount: value,
-                            currency
-                        },
-                        metadata: {
+                            currency,
                             confidence: type === 'currency' ? Confidence.HIGH : Confidence.MEDIUM,
                             pattern: type,
                             originalMatch: match[0]
@@ -80,9 +80,10 @@ export async function parse(text) {
                     };
                 } catch (error) {
                     return {
-                        type: 'error',
-                        error: 'PARSER_ERROR',
-                        message: error.message
+                        cost: {
+                            error: 'PARSER_ERROR',
+                            message: error.message
+                        }
                     };
                 }
             }
@@ -96,9 +97,10 @@ export async function parse(text) {
             input: text
         });
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            cost: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

@@ -112,9 +112,8 @@ export async function parse(text) {
                 if (shouldUpdate) {
                     highestConfidence = confidence;
                     bestMatch = {
-                        type: 'milestone',
-                        value,
-                        metadata: {
+                        milestone: {
+                            ...value,
                             confidence,
                             pattern,
                             originalMatch: match[0]
@@ -128,9 +127,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in milestone parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            milestone: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

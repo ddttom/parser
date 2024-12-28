@@ -43,12 +43,9 @@ export async function parse(text) {
                     const confidence = calculateConfidence(type);
 
                     return {
-                        type: 'recurring',
-                        value: {
+                        recurring: {
                             ...value,
-                            end: endCondition
-                        },
-                        metadata: {
+                            end: endCondition,
                             pattern: type,
                             confidence,
                             originalMatch: matches[0],
@@ -63,9 +60,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in recurring parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            recurring: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

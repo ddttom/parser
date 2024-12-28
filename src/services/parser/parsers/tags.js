@@ -28,9 +28,8 @@ export async function parse(text) {
             if (tags.length === 0) return null;
 
             return {
-                type: 'tag',
-                value: tags,
-                metadata: {
+                tag: {
+                    tags,
                     pattern: 'hashtag',
                     confidence: Confidence.MEDIUM,
                     originalMatch: hashtagMatches.join(' ')
@@ -42,9 +41,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in tags parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            tag: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

@@ -2,14 +2,24 @@ import { name, parse } from '../../src/services/parser/parsers/task.js';
 
 describe('Task Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with task key', async () => {
       const result = await parse('task 123');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('task');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('task 123');
+      expect(result.task).toEqual(expect.objectContaining({
+        taskId: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
     });
   });
 
@@ -23,17 +33,17 @@ describe('Task Parser', () => {
 
       for (const { input, match } of formats) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.task).toEqual(expect.objectContaining({
           taskId: 123
-        });
+        }));
       }
     });
 
     test('should handle optional hash symbol', async () => {
       const withHash = await parse('task #123');
       const withoutHash = await parse('task 123');
-      expect(withHash.value.taskId).toBe(123);
-      expect(withoutHash.value.taskId).toBe(123);
+      expect(withHash.task.taskId).toBe(123);
+      expect(withoutHash.task.taskId).toBe(123);
     });
 
     test('should detect task references in context', async () => {
@@ -47,7 +57,7 @@ describe('Task Parser', () => {
 
       for (const input of references) {
         const result = await parse(input);
-        expect(result.value.taskId).toBe(123);
+        expect(result.task.taskId).toBe(123);
       }
     });
   });
@@ -60,15 +70,15 @@ describe('Task Parser', () => {
 
     test('should parse task IDs as integers', async () => {
       const result = await parse('task 123');
-      expect(typeof result.value.taskId).toBe('number');
-      expect(result.value.taskId).toBe(123);
+      expect(typeof result.task.taskId).toBe('number');
+      expect(result.task.taskId).toBe(123);
     });
 
     test('should handle task ID ranges', async () => {
       const validIds = [1, 100, 999999];
       for (const id of validIds) {
         const result = await parse(`task ${id}`);
-        expect(result.value.taskId).toBe(id);
+        expect(result.task.taskId).toBe(id);
       }
     });
   });
@@ -116,9 +126,10 @@ describe('Task Parser', () => {
       try {
         const result = await parse('task 123');
         expect(result).toEqual({
-          type: 'error',
-          error: 'PARSER_ERROR',
-          message: 'Validation error'
+          task: {
+            error: 'PARSER_ERROR',
+            message: 'Validation error'
+          }
         });
       } finally {
         // Restore original function

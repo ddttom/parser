@@ -136,30 +136,26 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
    ```javascript
    // Success (single match)
    {
-       type: 'parsertype',
-       value: {
-           // Parser-specific structure
+       [parserName]: {           // e.g., 'date', 'action'
+           // Common fields
+           confidence: number,    // Confidence level
+           pattern: string,       // Pattern type that matched
+           originalMatch: string, // Original matched text
+           
+           // Parser-specific fields
+           ...parserFields       // Fields specific to each parser type
        }
    }
-
-   // Success (multiple matches)
-   [
-       {
-           type: 'parsertype',
-           value: {
-               // Parser-specific structure
-           }
-       }
-   ]
 
    // No match
    null
 
    // Error
    {
-       type: 'error',
-       error: 'INVALID_INPUT',
-       message: 'Input must be a non-empty string'
+       [parserName]: {
+           error: string,        // Error code
+           message: string       // Error description
+       }
    }
    ```
 
@@ -200,10 +196,32 @@ const result = await parser.parse("Meeting tomorrow", {
     result: {
         raw: "Meeting with John tomorrow at 2pm #important",
         parsed: {
-            date: "2024-01-20",
-            time: "14:00",
-            participants: ["John"],
-            tags: ["important"]
+            date: {
+                value: "2024-01-20",
+                format: "relative",
+                confidence: 0.95,
+                pattern: "relative_date",
+                originalMatch: "tomorrow"
+            },
+            time: {
+                value: "14:00",
+                format: "12h",
+                confidence: 0.95,
+                pattern: "time_12h",
+                originalMatch: "2pm"
+            },
+            participants: {
+                value: ["John"],
+                confidence: 0.9,
+                pattern: "name",
+                originalMatch: "John"
+            },
+            tags: {
+                value: ["important"],
+                confidence: 0.95,
+                pattern: "hashtag",
+                originalMatch: "#important"
+            }
         },
         performance: {
             // Parser execution times

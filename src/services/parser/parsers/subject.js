@@ -105,9 +105,10 @@ export async function parse(text) {
     // Check for invalid characters
     if (/[\0\x08\x0B\x0C\x0E-\x1F]/.test(text)) {
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: 'Text contains invalid characters'
+            subject: {
+                error: 'PARSER_ERROR',
+                message: 'Text contains invalid characters'
+            }
         };
     }
 
@@ -120,12 +121,9 @@ export async function parse(text) {
         const hasActionVerb = keyTerms.some(term => ACTION_VERBS.has(term));
 
         return {
-            type: 'subject',
-            value: {
+            subject: {
                 text: cleanText,
-                keyTerms
-            },
-            metadata: {
+                keyTerms,
                 confidence: Confidence.MEDIUM,
                 pattern: 'inferred',
                 originalMatch: text,
@@ -136,9 +134,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in subject parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            subject: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

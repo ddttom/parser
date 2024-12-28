@@ -2,14 +2,27 @@ import { name, parse } from '../../src/services/parser/parsers/timeOfDay.js';
 
 describe('TimeOfDay Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with timeofday key', async () => {
       const result = await parse('2:30 PM');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('timeofday');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('2:30 PM');
+      expect(result.timeofday).toEqual(expect.objectContaining({
+        hour: expect.any(Number),
+        minute: expect.any(Number),
+        format: expect.any(String),
+        period: expect.any(String),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      }));
     });
   });
 
@@ -24,12 +37,12 @@ describe('TimeOfDay Parser', () => {
 
       for (const { input, hour, minute, period } of times) {
         const result = await parse(`Meeting at ${input}`);
-        expect(result.value).toEqual({
+        expect(result.timeofday).toEqual(expect.objectContaining({
           hour,
           minute,
           format: '12h',
           period
-        });
+        }));
       }
     });
 
@@ -43,10 +56,10 @@ describe('TimeOfDay Parser', () => {
 
       for (const { input, period } of expressions) {
         const result = await parse(`Meeting in the ${input}`);
-        expect(result.value).toEqual({
+        expect(result.timeofday).toEqual(expect.objectContaining({
           period,
           approximate: true
-        });
+        }));
       }
     });
   });
@@ -62,7 +75,7 @@ describe('TimeOfDay Parser', () => {
 
       for (const { input, normalized } of variations) {
         const result = await parse(`Meeting at 2:30 ${input}`);
-        expect(result.value.period).toBe(normalized);
+        expect(result.timeofday.period).toBe(normalized);
       }
     });
 
@@ -76,7 +89,7 @@ describe('TimeOfDay Parser', () => {
 
       for (const { input, period } of variations) {
         const result = await parse(input);
-        expect(result.value.period).toBe(period);
+        expect(result.timeofday.period).toBe(period);
       }
     });
   });

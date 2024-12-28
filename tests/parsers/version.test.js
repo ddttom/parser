@@ -2,14 +2,27 @@ import { name, parse } from '../../src/services/parser/parsers/version.js';
 
 describe('Version Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with version key', async () => {
       const result = await parse('version 1.0.0');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('version');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('version 1.0.0');
+      const expectedProps = {
+        major: expect.any(Number),
+        minor: expect.any(Number),
+        patch: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.version).toMatchObject(expectedProps);
     });
   });
 
@@ -22,7 +35,7 @@ describe('Version Parser', () => {
 
       for (const { input, match } of formats) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.version).toMatchObject({
           major: 1,
           minor: 0,
           patch: 0
@@ -55,7 +68,7 @@ describe('Version Parser', () => {
 
       for (const { input, major, minor, patch } of versions) {
         const result = await parse(input);
-        expect(result.value).toEqual({ major, minor, patch });
+        expect(result.version).toMatchObject({ major, minor, patch });
       }
     });
 
@@ -67,7 +80,7 @@ describe('Version Parser', () => {
 
       for (const { input, match } of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.version).toMatchObject({
           major: 1,
           minor: 0,
           patch: 0
@@ -115,9 +128,10 @@ describe('Version Parser', () => {
       try {
         const result = await parse('version 1.0.0');
         expect(result).toEqual({
-          type: 'error',
-          error: 'PARSER_ERROR',
-          message: 'Validation error'
+          version: {
+            error: 'PARSER_ERROR',
+            message: 'Validation error'
+          }
         });
       } finally {
         // Restore original function

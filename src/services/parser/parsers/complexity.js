@@ -87,9 +87,8 @@ export async function parse(text) {
             if (shouldUpdate) {
                 highestConfidence = confidence;
                 bestMatch = {
-                    type: 'complexity',
-                    value,
-                    metadata: {
+                    complexity: {
+                        ...value,
                         confidence,
                         pattern,
                         originalMatch: match[0]

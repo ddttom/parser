@@ -133,9 +133,8 @@ export async function parse(text) {
         if (shouldUpdate) {
           highestConfidence = confidence;
           bestMatch = {
-            type: 'project',
-            value,
-            metadata: {
+            project: {
+              ...value,
               confidence,
               pattern,
               originalMatch: match[0],
@@ -150,9 +149,10 @@ export async function parse(text) {
   } catch (error) {
     logger.error('Error in project parser:', error);
     return {
-      type: 'error',
-      error: 'PARSER_ERROR',
-      message: error.message
+      project: {
+        error: 'PARSER_ERROR',
+        message: error.message
+      }
     };
   }
 }

@@ -2,14 +2,27 @@ import { name, parse } from '../../src/services/parser/parsers/recurring.js';
 
 describe('Recurring Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with recurring key', async () => {
       const result = await parse('every day');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('recurring');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('every day');
+      expect(result.recurring).toEqual(expect.objectContaining({
+        type: expect.any(String),
+        interval: expect.any(Number),
+        end: null,
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String),
+        includesEndCondition: expect.any(Boolean)
+      }));
     });
   });
 
@@ -24,12 +37,12 @@ describe('Recurring Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.recurring).toEqual(expect.objectContaining({
           type: 'business',
           interval: 1,
           excludeWeekends: true,
           end: null
-        });
+        }));
       }
     });
 
@@ -46,13 +59,13 @@ describe('Recurring Parser', () => {
 
       for (const { input, day, index } of weekdays) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.recurring).toEqual(expect.objectContaining({
           type: 'specific',
           day,
           dayIndex: index,
           interval: 1,
           end: null
-        });
+        }));
       }
     });
 
@@ -66,11 +79,11 @@ describe('Recurring Parser', () => {
 
       for (const { input, type } of intervals) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.recurring).toEqual(expect.objectContaining({
           type,
           interval: 1,
           end: null
-        });
+        }));
       }
     });
 
@@ -84,11 +97,11 @@ describe('Recurring Parser', () => {
 
       for (const { input, type, interval } of intervals) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.recurring).toEqual(expect.objectContaining({
           type,
           interval,
           end: null
-        });
+        }));
       }
     });
   });
@@ -104,7 +117,7 @@ describe('Recurring Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.end).toEqual({
+        expect(result.recurring.end).toEqual({
           type: 'count',
           value: parseInt(input.match(/(\d+)\s+times/)[1], 10)
         });
@@ -121,7 +134,7 @@ describe('Recurring Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.end).toEqual({
+        expect(result.recurring.end).toEqual({
           type: 'until',
           value: input.split('until ')[1]
         });
@@ -131,7 +144,7 @@ describe('Recurring Parser', () => {
     test('should prioritize count over date when both present', async () => {
       const input = 'every month for 3 times until December 31';
       const result = await parse(input);
-      expect(result.value.end).toEqual({
+      expect(result.recurring.end).toEqual({
         type: 'count',
         value: 3
       });
@@ -149,9 +162,10 @@ describe('Recurring Parser', () => {
       for (const interval of invalidIntervals) {
         const result = await parse(interval);
         expect(result).toEqual({
-          type: 'error',
-          error: 'PARSER_ERROR',
-          message: 'Invalid interval value'
+          recurring: {
+            error: 'PARSER_ERROR',
+            message: 'Invalid interval value'
+          }
         });
       }
     });
@@ -165,7 +179,7 @@ describe('Recurring Parser', () => {
 
       for (const count of invalidCounts) {
         const result = await parse(count);
-        expect(result.value.end).toBeNull();
+        expect(result.recurring.end).toBeNull();
       }
     });
 

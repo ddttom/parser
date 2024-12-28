@@ -76,13 +76,10 @@ export async function parse(text) {
 
       // Valid markdown link
       return {
-        type: name,
-        value: {
+        links: {
           url: markdownMatch[2],
           text: markdownMatch[1],
-          type: 'markdown'
-        },
-        metadata: {
+          type: 'markdown',
           confidence: Confidence.HIGH,
           pattern: 'markdown_link',
           originalMatch: markdownMatch[0]
@@ -96,12 +93,9 @@ export async function parse(text) {
       const url = urlMatch[1];
       if (isValidUrl(url)) {
         return {
-          type: name,
-          value: {
+          links: {
             url,
-            type: 'url'
-          },
-          metadata: {
+            type: 'url',
             confidence: Confidence.HIGH,
             pattern: 'url',
             originalMatch: urlMatch[0]
@@ -123,12 +117,9 @@ export async function parse(text) {
         const domain = inferredMatch[1];
         if (isValidInferredUrl(domain)) {
           return {
-            type: name,
-            value: {
+            links: {
               url: `https://${domain}`,
-              type: 'url'
-            },
-            metadata: {
+              type: 'url',
               confidence: Confidence.LOW,
               pattern: 'inferred_url',
               originalMatch: inferredMatch[0]
@@ -142,9 +133,10 @@ export async function parse(text) {
   } catch (error) {
     logger.error('Error in links parser:', error);
     return {
-      type: 'error',
-      error: 'PARSER_ERROR',
-      message: error.message
+      links: {
+        error: 'PARSER_ERROR',
+        message: error.message
+      }
     };
   }
 }

@@ -41,9 +41,8 @@ export async function parse(text) {
                 if (value) {
                     const confidence = calculateConfidence(type);
                     return {
-                        type: 'reminder',
-                        value,
-                        metadata: {
+                        reminder: {
+                            ...value,
                             pattern: type,
                             confidence,
                             originalMatch: matches[0],
@@ -58,9 +57,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in reminders parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            reminder: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

@@ -106,9 +106,8 @@ export async function parse(text) {
       
       if (shouldUpdate) {
         bestMatch = {
-          type: name,
-          value,
-          metadata: {
+          duration: {
+            ...value,
             confidence,
             pattern,
             originalMatch: pattern === 'natural' ? match[1] : match[0]

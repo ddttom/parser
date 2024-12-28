@@ -70,13 +70,28 @@ export async function parse(text) {
             }
         }
 
-        return bestMatch;
+        // Return null if no match found
+        if (!bestMatch) {
+            return null;
+        }
+
+        // Return standardized format with parser name as key
+        return {
+            date: {
+                value: bestMatch.value.date,
+                format: bestMatch.value.format,
+                confidence: bestMatch.metadata.confidence,
+                pattern: bestMatch.metadata.pattern,
+                originalMatch: bestMatch.metadata.originalMatch
+            }
+        };
     } catch (error) {
         logger.error('Error in date parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            date: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

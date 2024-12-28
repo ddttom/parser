@@ -2,21 +2,33 @@ import { name, parse, validateRole } from '../../src/services/parser/parsers/rol
 
 describe('Role Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with role key', async () => {
       const result = await parse('acting as developer');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('role');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
     });
+
+    test('should include all required properties', async () => {
+      const result = await parse('acting as developer');
+      const expectedProps = {
+        role: expect.any(String),
+        originalName: expect.any(String),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.role).toMatchObject(expectedProps);
+    });
   });
 
   describe('Pattern Matching', () => {
     test('should detect inferred roles', async () => {
       const result = await parse('acting as developer');
-      expect(result.value).toEqual({
+      expect(result.role).toMatchObject({
         role: 'developer',
         originalName: 'developer'
       });
@@ -33,7 +45,7 @@ describe('Role Parser', () => {
 
       for (const input of patterns) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.role).toMatchObject({
           role: 'developer',
           originalName: 'developer'
         });
@@ -50,7 +62,7 @@ describe('Role Parser', () => {
 
       for (const input of contexts) {
         const result = await parse(input);
-        expect(result.value.role).toBe('developer');
+        expect(result.role.role).toBe('developer');
       }
     });
   });
@@ -71,7 +83,7 @@ describe('Role Parser', () => {
 
       for (const role of validRoles) {
         const result = await parse(`acting as ${role}`);
-        expect(result.value.role).toBe(role);
+        expect(result.role.role).toBe(role);
       }
     });
 
@@ -84,7 +96,7 @@ describe('Role Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.role).toBe('developer');
+        expect(result.role.role).toBe('developer');
       }
     });
   });
@@ -131,9 +143,10 @@ describe('Role Parser', () => {
       try {
         const result = await parse('acting as developer');
         expect(result).toEqual({
-          type: 'error',
-          error: 'PARSER_ERROR',
-          message: 'Validation error'
+          role: {
+            error: 'PARSER_ERROR',
+            message: 'Validation error'
+          }
         });
       } finally {
         // Restore original function

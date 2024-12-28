@@ -2,14 +2,26 @@ import { name, parse } from '../../src/services/parser/parsers/urgency.js';
 
 describe('Urgency Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with urgency key', async () => {
       const result = await parse('URGENT: Complete report');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('urgency');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('URGENT: Complete report');
+      const expectedProps = {
+        level: expect.any(String),
+        score: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.urgency).toMatchObject(expectedProps);
     });
   });
 
@@ -25,7 +37,7 @@ describe('Urgency Parser', () => {
 
       for (const { input, match } of expressions) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.urgency).toMatchObject({
           level: 'high',
           score: 3,
           timeBased: true
@@ -45,7 +57,7 @@ describe('Urgency Parser', () => {
 
       for (const { input, level, keyword } of keywords) {
         const result = await parse(input);
-        expect(result.value).toEqual({
+        expect(result.urgency).toMatchObject({
           level,
           score: level === 'high' ? 3 : level === 'medium' ? 2 : 1,
           keyword
@@ -64,8 +76,8 @@ describe('Urgency Parser', () => {
 
       for (const { input, level, score } of levels) {
         const result = await parse(input);
-        expect(result.value.level).toBe(level);
-        expect(result.value.score).toBe(score);
+        expect(result.urgency.level).toBe(level);
+        expect(result.urgency.score).toBe(score);
       }
     });
 
@@ -80,7 +92,7 @@ describe('Urgency Parser', () => {
 
       for (const { input, expected } of variations) {
         const result = await parse(input);
-        expect(result.value.level).toBe(expected);
+        expect(result.urgency.level).toBe(expected);
       }
     });
   });

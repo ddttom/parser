@@ -101,9 +101,8 @@ export async function parse(text) {
             if (confidence > highestConfidence) {
                 highestConfidence = confidence;
                 bestMatch = {
-                    type: 'attendees',
-                    value,
-                    metadata: {
+                    attendees: {
+                        ...value,
                         confidence,
                         pattern,
                         originalMatch: match[0]

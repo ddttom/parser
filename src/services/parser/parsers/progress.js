@@ -47,9 +47,8 @@ export async function parse(text) {
       if (shouldUpdate) {
         highestConfidence = confidence;
         bestMatch = {
-          type: 'progress',
-          value,
-          metadata: {
+          progress: {
+            ...value,
             confidence,
             pattern,
             originalMatch: match[0]

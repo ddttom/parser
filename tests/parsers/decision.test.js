@@ -2,14 +2,27 @@ import { parse } from '../../src/services/parser/parsers/decision.js';
 
 describe('Decision Parser', () => {
     describe('Return Format', () => {
-        test('should return correct type property', async () => {
+        test('should return object with decision key', async () => {
             const result = await parse('decided to use React');
-            expect(result.type).toBe('decision');
+            expect(result).toHaveProperty('decision');
         });
 
         test('should return null for no matches', async () => {
             const result = await parse('   ');
             expect(result).toBeNull();
+        });
+
+        test('should include all required properties', async () => {
+            const result = await parse('decided to use React');
+            const expectedProps = {
+                decision: expect.any(String),
+                type: expect.any(String),
+                isExplicit: expect.any(Boolean),
+                confidence: expect.any(Number),
+                pattern: expect.any(String),
+                originalMatch: expect.any(String)
+            };
+            expect(result.decision).toMatchObject(expectedProps);
         });
     });
 
@@ -23,9 +36,9 @@ describe('Decision Parser', () => {
 
             for (const input of variations) {
                 const result = await parse(input);
-                expect(result.value.type).toBe('technical');
-                expect(result.value.rationale).toBeTruthy();
-                expect(result.value.isExplicit).toBe(true);
+                expect(result.decision.type).toBe('technical');
+                expect(result.decision.rationale).toBeTruthy();
+                expect(result.decision.isExplicit).toBe(true);
             }
         });
 
@@ -38,8 +51,8 @@ describe('Decision Parser', () => {
 
             for (const input of variations) {
                 const result = await parse(input);
-                expect(result.value.rationale).toBeTruthy();
-                expect(result.value.isExplicit).toBe(true);
+                expect(result.decision.rationale).toBeTruthy();
+                expect(result.decision.isExplicit).toBe(true);
             }
         });
 
@@ -52,9 +65,9 @@ describe('Decision Parser', () => {
 
             for (const input of variations) {
                 const result = await parse(input);
-                expect(result.value.alternative).toBeTruthy();
-                expect(result.value.rationale).toBeTruthy();
-                expect(result.value.isExplicit).toBe(true);
+                expect(result.decision.alternative).toBeTruthy();
+                expect(result.decision.rationale).toBeTruthy();
+                expect(result.decision.isExplicit).toBe(true);
             }
         });
 
@@ -67,8 +80,8 @@ describe('Decision Parser', () => {
 
             for (const input of variations) {
                 const result = await parse(input);
-                expect(result.value.rationale).toBeTruthy();
-                expect(result.value.isExplicit).toBe(false);
+                expect(result.decision.rationale).toBeTruthy();
+                expect(result.decision.isExplicit).toBe(false);
             }
         });
     });
@@ -84,7 +97,7 @@ describe('Decision Parser', () => {
 
             for (const input of technical) {
                 const result = await parse(input);
-                expect(result.value.type).toBe('technical');
+                expect(result.decision.type).toBe('technical');
             }
         });
 
@@ -98,7 +111,7 @@ describe('Decision Parser', () => {
 
             for (const input of process) {
                 const result = await parse(input);
-                expect(result.value.type).toBe('process');
+                expect(result.decision.type).toBe('process');
             }
         });
 
@@ -112,7 +125,7 @@ describe('Decision Parser', () => {
 
             for (const input of resource) {
                 const result = await parse(input);
-                expect(result.value.type).toBe('resource');
+                expect(result.decision.type).toBe('resource');
             }
         });
 
@@ -126,7 +139,7 @@ describe('Decision Parser', () => {
 
             for (const input of business) {
                 const result = await parse(input);
-                expect(result.value.type).toBe('business');
+                expect(result.decision.type).toBe('business');
             }
         });
     });
@@ -143,7 +156,7 @@ describe('Decision Parser', () => {
             for (const input of contextual) {
                 const result = await parse(input);
                 expect(result).not.toBeNull();
-                expect(result.value.decision).toBeTruthy();
+                expect(result.decision.decision).toBeTruthy();
             }
         });
     });

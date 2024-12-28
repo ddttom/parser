@@ -167,13 +167,10 @@ export async function parse(text) {
     matches.sort((a, b) => a.index - b.index);
     
     return {
-      type: 'priority',
-      value: {
+      priority: {
         level: bestIndicator.level,
         score: getPriorityScore(bestIndicator.level),
-        indicators: matches.map(m => normalizePriority(m[1]))
-      },
-      metadata: {
+        indicators: matches.map(m => normalizePriority(m[1])),
         confidence: Confidence.HIGH,
         pattern: 'multiple_indicators',
         originalMatch: matches.map(m => m[0]).join(' ')
@@ -183,12 +180,9 @@ export async function parse(text) {
 
   // For single indicator, return direct result
   return {
-    type: 'priority',
-    value: {
+    priority: {
       level: bestIndicator.level,
-      score: getPriorityScore(bestIndicator.level)
-    },
-    metadata: {
+      score: getPriorityScore(bestIndicator.level),
       confidence: bestIndicator.confidence,
       pattern: bestIndicator.pattern,
       originalMatch: bestIndicator.match

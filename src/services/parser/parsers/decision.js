@@ -142,15 +142,12 @@ export async function parse(text) {
                 
                 if (shouldUpdate) {
                     bestMatch = {
-                        type: 'decision',
-                        value: {
+                        decision: {
                             decision,
                             type,
                             rationale: rationale || null,
                             ...(alternative && { alternative }),
-                            isExplicit: pattern !== 'going'
-                        },
-                        metadata: {
+                            isExplicit: pattern !== 'going',
                             confidence,
                             pattern,
                             originalMatch: match[0]
@@ -164,9 +161,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in decision parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            decision: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

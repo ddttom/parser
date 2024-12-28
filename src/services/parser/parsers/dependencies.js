@@ -103,9 +103,8 @@ export async function parse(text) {
       
       if (shouldUpdate) {
         bestMatch = {
-          type: name,
-          value,
-          metadata: {
+          dependencies: {
+            ...value,
             confidence,
             pattern,
             originalMatch: match[0]

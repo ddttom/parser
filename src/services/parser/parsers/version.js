@@ -33,9 +33,8 @@ export async function parse(text) {
             if (!isValid) return null;
 
             return {
-                type: 'version',
-                value: parseVersion(version),
-                metadata: {
+                version: {
+                    ...parseVersion(version),
                     pattern: 'version',
                     confidence: Confidence.HIGH,
                     originalMatch: versionMatch[0]
@@ -47,9 +46,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in version parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            version: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

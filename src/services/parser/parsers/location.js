@@ -132,9 +132,8 @@ export async function parse(text) {
       if (shouldUpdate) {
         highestConfidence = confidence;
         bestMatch = {
-          type: 'location',
-          value,
-          metadata: {
+          location: {
+            ...value,
             confidence,
             pattern,
             originalMatch

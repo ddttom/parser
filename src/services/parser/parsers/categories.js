@@ -55,9 +55,8 @@ export async function parse(text) {
             }
             if (categories.length >= 2) {
                 return {
-                    type: name,
-                    value: { categories },
-                    metadata: {
+                    categories: {
+                        categories,
                         confidence: Confidence.HIGH,
                         pattern: 'hashtag_categories',
                         originalMatch: multipleMatch[0]
@@ -74,9 +73,8 @@ export async function parse(text) {
                 .filter(c => isValidCategoryName(c));
             if (categories.length > 0) {
                 return {
-                    type: name,
-                    value: { categories },
-                    metadata: {
+                    categories: {
+                        categories,
                         confidence: Confidence.HIGH,
                         pattern: 'category_list',
                         originalMatch: listMatch[0]
@@ -91,12 +89,9 @@ export async function parse(text) {
             const parts = nestedMatch[1].split('/').map(p => p.trim()).filter(Boolean);
             if (parts.length >= 2 && parts.every(isValidCategoryName)) {
                 return {
-                    type: name,
-                    value: {
+                    categories: {
                         category: parts[0],
-                        subcategories: parts.slice(1)
-                    },
-                    metadata: {
+                        subcategories: parts.slice(1),
                         confidence: Confidence.HIGH,
                         pattern: 'nested_category',
                         originalMatch: nestedMatch[0]
@@ -111,12 +106,9 @@ export async function parse(text) {
             const category = hashtagMatch[1];
             if (isValidCategoryName(category)) {
                 return {
-                    type: name,
-                    value: {
+                    categories: {
                         category,
-                        subcategories: []
-                    },
-                    metadata: {
+                        subcategories: [],
                         confidence: Confidence.MEDIUM,
                         pattern: 'single_hashtag',
                         originalMatch: hashtagMatch[0]

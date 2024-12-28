@@ -117,9 +117,8 @@ export async function parse(text) {
                 
                 if (shouldUpdate) {
                     bestMatch = {
-                        type: 'sprint',
-                        value,
-                        metadata: {
+                        sprint: {
+                            ...value,
                             confidence,
                             pattern,
                             originalMatch: match[0]
@@ -133,9 +132,10 @@ export async function parse(text) {
     } catch (error) {
         logger.error('Error in sprint parser:', error);
         return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
+            sprint: {
+                error: 'PARSER_ERROR',
+                message: error.message
+            }
         };
     }
 }

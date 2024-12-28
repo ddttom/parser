@@ -2,14 +2,26 @@ import { name, parse } from '../../src/services/parser/parsers/location.js';
 
 describe('Location Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with location key', async () => {
       const result = await parse('in Room 123');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('location');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
+    });
+
+    test('should include all required properties', async () => {
+      const result = await parse('in Room 123');
+      const expectedProps = {
+        name: expect.any(String),
+        type: expect.any(String),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.location).toMatchObject(expectedProps);
     });
   });
 
@@ -24,7 +36,7 @@ describe('Location Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.type).toBe('room');
+        expect(result.location.type).toBe('room');
       }
     });
 
@@ -37,7 +49,7 @@ describe('Location Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.type).toBe('office');
+        expect(result.location.type).toBe('office');
       }
     });
 
@@ -50,7 +62,7 @@ describe('Location Parser', () => {
 
       for (const input of variations) {
         const result = await parse(input);
-        expect(result.value.type).toBe('building');
+        expect(result.location.type).toBe('building');
       }
     });
 
@@ -63,7 +75,7 @@ describe('Location Parser', () => {
 
       for (const { input, floor } of variations) {
         const result = await parse(input);
-        expect(result.value.parameters).toEqual({ floor });
+        expect(result.location.parameters).toEqual({ floor });
       }
     });
 
@@ -90,7 +102,7 @@ describe('Location Parser', () => {
 
       for (const input of roomLocations) {
         const result = await parse(input);
-        expect(result.value.type).toBe('room');
+        expect(result.location.type).toBe('room');
       }
     });
 
@@ -103,7 +115,7 @@ describe('Location Parser', () => {
 
       for (const input of officeLocations) {
         const result = await parse(input);
-        expect(result.value.type).toBe('office');
+        expect(result.location.type).toBe('office');
       }
     });
 
@@ -116,7 +128,7 @@ describe('Location Parser', () => {
 
       for (const input of buildingLocations) {
         const result = await parse(input);
-        expect(result.value.type).toBe('building');
+        expect(result.location.type).toBe('building');
       }
     });
 
@@ -129,7 +141,7 @@ describe('Location Parser', () => {
 
       for (const input of unknownLocations) {
         const result = await parse(input);
-        expect(result.value.type).toBe('unknown');
+        expect(result.location.type).toBe('unknown');
       }
     });
   });
@@ -157,7 +169,7 @@ describe('Location Parser', () => {
 
       for (const input of invalid) {
         const result = await parse(input);
-        expect(result.value.parameters).toBeUndefined();
+        expect(result.location.parameters).toBeUndefined();
       }
     });
   });

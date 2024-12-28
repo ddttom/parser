@@ -2,21 +2,32 @@ import { name, parse } from '../../src/services/parser/parsers/progress.js';
 
 describe('Progress Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
+    test('should return object with progress key', async () => {
       const result = await parse('Task is 75% complete');
-      expect(result.type).toBe(name);
+      expect(result).toHaveProperty('progress');
     });
 
     test('should return null for no matches', async () => {
       const result = await parse('   ');
       expect(result).toBeNull();
     });
+
+    test('should include all required properties', async () => {
+      const result = await parse('Task is 75% complete');
+      const expectedProps = {
+        percentage: expect.any(Number),
+        confidence: expect.any(Number),
+        pattern: expect.any(String),
+        originalMatch: expect.any(String)
+      };
+      expect(result.progress).toMatchObject(expectedProps);
+    });
   });
 
   describe('Pattern Matching', () => {
     test('should detect percentage patterns', async () => {
       const result = await parse('Task is 50% complete');
-      expect(result.value).toEqual({
+      expect(result.progress).toMatchObject({
         percentage: 50
       });
     });
@@ -30,7 +41,7 @@ describe('Progress Parser', () => {
 
       for (const { input, percentage } of terms) {
         const result = await parse(input);
-        expect(result.value).toEqual({ percentage });
+        expect(result.progress).toMatchObject({ percentage });
       }
     });
 
@@ -44,7 +55,7 @@ describe('Progress Parser', () => {
 
       for (const input of contexts) {
         const result = await parse(input);
-        expect(result.value.percentage).toBeGreaterThan(0);
+        expect(result.progress.percentage).toBeGreaterThan(0);
       }
     });
   });
@@ -61,7 +72,7 @@ describe('Progress Parser', () => {
 
       for (const { input, percentage } of percentages) {
         const result = await parse(input);
-        expect(result.value.percentage).toBe(percentage);
+        expect(result.progress.percentage).toBe(percentage);
       }
     });
 

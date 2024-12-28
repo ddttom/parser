@@ -3,38 +3,42 @@ import { validateParserInput } from '../../src/services/parser/utils/validation.
 describe('Parser Input Validation', () => {
   describe('Invalid Inputs', () => {
     test('should handle null input', () => {
-      const result = validateParserInput(null);
+      const result = validateParserInput(null, 'TestParser');
       expect(result).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
+        test: {
+          error: 'INVALID_INPUT',
+          message: 'TestParser: Input cannot be null'
+        }
       });
     });
 
     test('should handle undefined input', () => {
-      const result = validateParserInput(undefined);
+      const result = validateParserInput(undefined, 'TestParser');
       expect(result).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
+        test: {
+          error: 'INVALID_INPUT',
+          message: 'TestParser: Input cannot be undefined'
+        }
       });
     });
 
     test('should handle empty string', () => {
-      const result = validateParserInput('');
+      const result = validateParserInput('', 'TestParser');
       expect(result).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
+        test: {
+          error: 'INVALID_INPUT',
+          message: 'TestParser: Input cannot be empty'
+        }
       });
     });
 
     test('should handle whitespace-only string', () => {
-      const result = validateParserInput('   ');
+      const result = validateParserInput('   ', 'TestParser');
       expect(result).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
+        test: {
+          error: 'INVALID_INPUT',
+          message: 'TestParser: Input cannot be empty'
+        }
       });
     });
 
@@ -54,11 +58,12 @@ describe('Parser Input Validation', () => {
       ];
 
       for (const input of inputs) {
-        const result = validateParserInput(input);
+        const result = validateParserInput(input, 'TestParser');
         expect(result).toEqual({
-          type: 'error',
-          error: 'INVALID_INPUT',
-          message: 'Input must be a non-empty string'
+          test: {
+            error: 'INVALID_INPUT',
+            message: `TestParser: Input must be a string, got ${typeof input}`
+          }
         });
       }
     });
@@ -76,7 +81,7 @@ describe('Parser Input Validation', () => {
       ];
 
       for (const input of inputs) {
-        const result = validateParserInput(input);
+        const result = validateParserInput(input, 'TestParser');
         expect(result).toBeNull();
       }
     });
@@ -92,7 +97,7 @@ describe('Parser Input Validation', () => {
       ];
 
       for (const input of inputs) {
-        const result = validateParserInput(input);
+        const result = validateParserInput(input, 'TestParser');
         expect(result).toBeNull();
       }
     });
