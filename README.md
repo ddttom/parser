@@ -84,7 +84,16 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
    - Standardized error handling via error objects
    - Pattern-based matching with confidence levels
    - Rich metadata enrichment
-   - Input validation
+   - Centralized input validation:
+     - Common validation utility (validateParserInput) in utils/validation.js
+     - Standardized validation for all parsers with consistent error messages
+     - Handles:
+       - Null input: `{ type: 'error', error: 'INVALID_INPUT', message: 'ParserName: Input cannot be null' }`
+       - Undefined input: `{ type: 'error', error: 'INVALID_INPUT', message: 'ParserName: Input cannot be undefined' }`
+       - Non-string input: `{ type: 'error', error: 'INVALID_INPUT', message: 'ParserName: Input must be a string, got typeof' }`
+       - Empty strings: `{ type: 'error', error: 'INVALID_INPUT', message: 'ParserName: Input cannot be empty' }`
+     - Parser-specific context in error messages
+     - Full test coverage in tests/utils/validation.test.js
    - Best match selection
    - Test coverage (see [TESTING.md](../TESTING.md) for testing standards)
 

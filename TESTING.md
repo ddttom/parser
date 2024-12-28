@@ -8,10 +8,144 @@ Each parser test file should follow this standardized structure:
 
 ### 1. Input Validation
 
-- Test handling of null input
-- Test handling of empty string
-- Test handling of undefined input
-- Test handling of non-string inputs (numbers, objects, arrays)
+The project uses a centralized input validation system through the `validateParserInput` utility in `src/services/parser/utils/validation.js`. This utility ensures consistent input validation across all parsers.
+
+#### Validation Utility
+
+```javascript
+import { validateParserInput } from '../utils/validation.js';
+
+// In each parser's parse function:
+export async function parse(text) {
+    const validationError = validateParserInput(text, 'ParserName');
+    if (validationError) {
+        return validationError;
+    }
+    // ... parser-specific logic
+}
+```
+
+#### Error Responses
+
+The utility returns standardized error objects for invalid inputs:
+
+```javascript
+// Null input
+{
+    type: 'error',
+    error: 'INVALID_INPUT',
+    message: 'ParserName: Input cannot be null'
+}
+
+// Undefined input
+{
+    type: 'error',
+    error: 'INVALID_INPUT',
+    message: 'ParserName: Input cannot be undefined'
+}
+
+// Non-string input
+{
+    type: 'error',
+    error: 'INVALID_INPUT',
+    message: 'ParserName: Input must be a string, got typeof'
+}
+
+// Empty string
+{
+    type: 'error',
+    error: 'INVALID_INPUT',
+    message: 'ParserName: Input cannot be empty'
+}
+```
+
+#### Testing Requirements
+
+1. Validation Utility Tests (`tests/utils/validation.test.js`):
+   - Test all invalid input cases
+   - Verify error message formats
+   - Check parser name inclusion
+   - Ensure null return for valid input
+
+2. Parser Integration Tests:
+   - Verify parser uses validateParserInput
+   - Confirm error objects are returned unmodified
+   - Check no additional validation is performed
+   - Test parser-specific error contexts
+
+Example test structure:
+```javascript
+import { validateParserInput } from '../../src/services/parser/utils/validation.js';
+
+describe('Input Validation', () => {
+    describe('Validation Utility', () => {
+        test('should return null for valid string input', () => {
+            const result = validateParserInput('valid input', 'TestParser');
+            expect(result).toBeNull();
+        });
+
+        test('should handle null input', () => {
+            const result = validateParserInput(null, 'TestParser');
+            expect(result).toEqual({
+                type: 'error',
+                error: 'INVALID_INPUT',
+                message: 'TestParser: Input cannot be null'
+            });
+        });
+
+        test('should handle undefined input', () => {
+            const result = validateParserInput(undefined, 'TestParser');
+            expect(result).toEqual({
+                type: 'error',
+                error: 'INVALID_INPUT',
+                message: 'TestParser: Input cannot be undefined'
+            });
+        });
+
+        test('should handle non-string input', () => {
+            const result = validateParserInput(123, 'TestParser');
+            expect(result).toEqual({
+                type: 'error',
+                error: 'INVALID_INPUT',
+                message: 'TestParser: Input must be a string, got number'
+            });
+        });
+
+        test('should handle empty string input', () => {
+            const result = validateParserInput('', 'TestParser');
+            expect(result).toEqual({
+                type: 'error',
+                error: 'INVALID_INPUT',
+                message: 'TestParser: Input cannot be empty'
+            });
+        });
+    });
+
+    describe('Parser Integration', () => {
+        test('should use validation utility', async () => {
+            const result = await parse(null);
+            expect(result).toEqual({
+                type: 'error',
+                error: 'INVALID_INPUT',
+                message: expect.stringContaining('Input cannot be null')
+            });
+        });
+
+        test('should not perform additional validation', async () => {
+            const result = await parse('valid input');
+            // Verify parser proceeds to actual parsing logic
+            expect(result).not.toHaveProperty('error');
+        });
+    });
+});
+```
+
+#### Implementation Notes
+
+- All parsers must use validateParserInput at the start of their parse function
+- Error messages should include the parser name for context
+- No parser should implement its own basic input validation
+- The validation utility is the single source of truth for input validation
 
 ### 2. Return Format
 
@@ -119,19 +253,24 @@ import { name, parse } from '../../src/services/parser/parsers/example.js';
 import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Example Parser', () => {
-  describe('Input Validation', () => {
-    test('should handle null input', async () => {
-      // Test code
-    });
-    // More input validation tests...
-  });
-
   describe('Pattern Matching', () => {
     test('should detect explicit patterns', async () => {
       const result = await parse('[example:test]');
       expect(result.metadata.confidence).toBe(Confidence.HIGH);
     });
-    // More pattern matching tests...
+
+    test('should handle multiple formats', async () => {
+      const result = await parse('[example:test(param=value)]');
+      expect(result.value).toEqual({
+        test: 'test',
+        param: 'value'
+      });
+    });
+
+    test('should handle edge cases', async () => {
+      const result = await parse('[example:test-with-hyphens]');
+      expect(result).not.toBeNull();
+    });
   });
 
   describe('Confidence Levels', () => {
@@ -151,9 +290,25 @@ describe('Example Parser', () => {
     });
   });
 
-  // More test groups...
+  describe('Return Format', () => {
+    test('should return null for no matches', async () => {
+      const result = await parse('no pattern here');
+      expect(result).toBeNull();
+    });
+
+    test('should include required metadata', async () => {
+      const result = await parse('[example:test]');
+      expect(result.metadata).toEqual({
+        confidence: Confidence.HIGH,
+        pattern: 'explicit',
+        originalMatch: '[example:test]'
+      });
+    });
+  });
 });
 ```
+
+Note: Input validation tests are now handled by the validation utility in `tests/utils/validation.test.js`. Individual parsers should not implement or test basic input validation.
 
 ## Running Tests
 

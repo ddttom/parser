@@ -2,58 +2,6 @@ import { name, parse } from '../../src/services/parser/parsers/cost.js';
 import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Cost Parser', () => {
-  describe('Input Validation', () => {
-    test('should handle null input', async () => {
-      const result = await parse(null);
-      expect(result).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
-      });
-    });
-
-    test('should handle empty string', async () => {
-      const result = await parse('');
-      expect(result).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
-      });
-    });
-
-    test('should handle undefined input', async () => {
-      const result = await parse(undefined);
-      expect(result).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
-      });
-    });
-
-    test('should handle non-string input', async () => {
-      const numberResult = await parse(123);
-      expect(numberResult).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
-      });
-
-      const objectResult = await parse({});
-      expect(objectResult).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
-      });
-
-      const arrayResult = await parse([]);
-      expect(arrayResult).toEqual({
-        type: 'error',
-        error: 'INVALID_INPUT',
-        message: 'Input must be a non-empty string'
-      });
-    });
-  });
-
   describe('Return Format', () => {
     test('should return correct type property', async () => {
       const result = await parse('[cost:$100]');

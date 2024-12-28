@@ -1,5 +1,6 @@
 import { createLogger } from '../../../utils/logger.js';
 import { Confidence } from '../utils/confidence.js';
+import { validateParserInput } from '../utils/validation.js';
 
 const logger = createLogger('RemindersParser');
 
@@ -28,12 +29,9 @@ const MINUTES_IN = {
 export const name = 'reminders';
 
 export async function parse(text) {
-    if (!text || typeof text !== 'string') {
-        return {
-            type: 'error',
-            error: 'INVALID_INPUT',
-            message: 'Input must be a non-empty string'
-        };
+    const validationError = validateParserInput(text, 'RemindersParser');
+    if (validationError) {
+        return validationError;
     }
 
     try {

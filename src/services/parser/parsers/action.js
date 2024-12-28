@@ -1,4 +1,6 @@
 import { createLogger } from '../../../utils/logger.js';
+import { validateParserInput } from '../utils/validation.js';
+
 const logger = createLogger('ActionParser');
 
 export const name = 'action';
@@ -35,13 +37,9 @@ const BOUNDARIES = [
 ].join('|');
 
 export async function parse(text) {
-  // Input validation with error object return
-  if (!text || typeof text !== 'string') {
-    return {
-      type: 'error',
-      error: 'INVALID_INPUT',
-      message: 'Input must be a non-empty string'
-    };
+  const validationError = validateParserInput(text, 'ActionParser');
+  if (validationError) {
+    return validationError;
   }
 
   const patterns = {
