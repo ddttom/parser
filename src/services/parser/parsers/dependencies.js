@@ -101,7 +101,7 @@ export async function parse(text) {
       if (confidence > highestConfidence) {
         highestConfidence = confidence;
         bestMatch = {
-          type: 'dependency',
+          type: name,
           value,
           metadata: {
             confidence,

@@ -32,7 +32,7 @@ export async function parse(text) {
                     type: inferContextType(context)
                 },
                 metadata: {
-                    confidence: calculateConfidence('explicit', context),
+                    confidence: calculateConfidence('explicit', context, explicitMatch),
                     pattern: 'explicit',
                     originalMatch: explicitMatch[0]
                 }
@@ -68,7 +68,7 @@ export async function parse(text) {
                             type: inferContextType(context)
                         },
                         metadata: {
-                            confidence: calculateConfidence(type, context),
+                            confidence: calculateConfidence(type, context, match),
                             pattern: type,
                             originalMatch: match[0]
                         }
@@ -109,16 +109,21 @@ function inferContextType(context) {
     return 'general';
 }
 
-function calculateConfidence(type, context) {
+function calculateConfidence(type, context, match) {
     // Base confidence
-    let confidence = type === 'explicit' ? 0.95 : 0.75;
+    let confidence = type === 'explicit' ? 0.9 : 0.75;
     
     // Boost confidence for well-known context types
     if (inferContextType(context) !== 'general') {
-        // For explicit patterns, can go above 0.9
+        // For explicit patterns, stay at or below 0.95
         // For inferred patterns, stay at or below 0.8
-        const maxConfidence = type === 'explicit' ? 1.0 : 0.8;
+        const maxConfidence = type === 'explicit' ? 0.95 : 0.8;
         confidence = Math.min(confidence + 0.05, maxConfidence);
+    }
+
+    // Apply position bonus for matches at start of text
+    if (match.index === 0) {
+        confidence = Math.min(confidence + 0.05, 0.95);
     }
     
     return confidence;

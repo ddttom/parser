@@ -78,7 +78,7 @@ describe('Dependencies Parser', () => {
     test('should detect explicit dependencies', async () => {
       const result = await parse('Task depends on [task:123]');
       expect(result).toEqual({
-        type: 'dependency',
+        type: name,
         value: {
           type: 'task',
           id: '123',
@@ -95,7 +95,7 @@ describe('Dependencies Parser', () => {
     test('should detect multiple dependencies', async () => {
       const result = await parse('After [task:123] and [task:456]');
       expect(result).toEqual({
-        type: 'dependency',
+        type: name,
         value: {
           dependencies: [
             { type: 'task', id: '123', relationship: 'after' },
@@ -113,7 +113,7 @@ describe('Dependencies Parser', () => {
     test('should detect dependency relationships', async () => {
       const result = await parse('Blocks [task:789]');
       expect(result).toEqual({
-        type: 'dependency',
+        type: name,
         value: {
           type: 'task',
           id: '789',

@@ -20,6 +20,7 @@ export async function parse(text) {
   const patterns = {
     explicit_duration: /\[duration:(\d+)h(?:\s*(\d+)m)?\]/i,
     short_duration: /(\d+(?:\.\d+)?)(h)/i,
+    minutes_only: /(\d+)m\b/i,
     natural: /(?:takes\s+(?:about\s+))?(\d+\s*(?:hours?\s*(?:and\s*(\d+)\s*minutes?)?|minutes?))/i
   };
 
@@ -68,6 +69,24 @@ export async function parse(text) {
           break;
         }
 
+        case 'minutes_only': {
+          const totalMinutes = parseInt(match[1], 10);
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+
+          if (!isValidDuration(hours, minutes)) {
+            continue;
+          }
+
+          confidence = 0.9;
+          value = {
+            hours,
+            minutes,
+            totalMinutes
+          };
+          break;
+        }
+
         case 'natural': {
           let hours = 0;
           let minutes = 0;
@@ -100,10 +119,15 @@ export async function parse(text) {
         }
       }
 
+      // Apply position bonus only for explicit and short patterns
+      if (match.index === 0 && (pattern === 'explicit_duration' || pattern === 'short_duration' || pattern === 'minutes_only')) {
+        confidence = Math.min(confidence + 0.05, 0.95);
+      }
+
       if (confidence > highestConfidence) {
         highestConfidence = confidence;
         bestMatch = {
-          type: 'duration',
+          type: name,
           value,
           metadata: {
             confidence,

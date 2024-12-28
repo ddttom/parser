@@ -74,10 +74,10 @@ export async function parse(text) {
             }
             if (categories.length >= 2) {
                 return {
-                    type: 'category',
+                    type: name,
                     value: { categories },
                     metadata: {
-                        confidence: 0.9,
+                        confidence: multipleMatch.index === 0 ? 0.95 : 0.9,
                         pattern: 'multiple_categories',
                         originalMatch: multipleMatch[0]
                     }
@@ -93,13 +93,13 @@ export async function parse(text) {
                 return null;
             }
             return {
-                type: 'category',
+                type: name,
                 value: {
                     category: parts[0],
                     subcategories: parts.slice(1)
                 },
                 metadata: {
-                    confidence: 0.95,
+                    confidence: 0.95, // Nested categories always have high confidence
                     pattern: 'nested_category',
                     originalMatch: nestedMatch[0]
                 }
@@ -111,13 +111,13 @@ export async function parse(text) {
         if (explicitMatch) {
             const category = explicitMatch[1].trim();
             return {
-                type: 'category',
+                type: name,
                 value: {
                     category,
                     subcategories: []
                 },
                 metadata: {
-                    confidence: 0.9,
+                    confidence: explicitMatch.index === 0 ? 0.95 : 0.9,
                     pattern: 'explicit_category',
                     originalMatch: explicitMatch[0]
                 }
@@ -132,13 +132,13 @@ export async function parse(text) {
                 return null;
             }
             return {
-                type: 'category',
+                type: name,
                 value: {
                     category,
                     subcategories: []
                 },
                 metadata: {
-                    confidence: 0.8,
+                    confidence: 0.8, // Inferred categories always have low confidence
                     pattern: 'inferred_category',
                     originalMatch: inferredMatch[0]
                 }

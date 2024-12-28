@@ -120,7 +120,7 @@ export async function parse(text) {
       const path = fileMatch[1].trim();
       if (isValidFilePath(path)) {
         return {
-          type: 'link',
+          type: name,
           value: {
             path,
             type: 'file'
@@ -150,7 +150,7 @@ export async function parse(text) {
 
       // Valid markdown link
       return {
-        type: 'link',
+        type: name,
         value: {
           url: markdownMatch[2],
           text: markdownMatch[1],
@@ -170,7 +170,7 @@ export async function parse(text) {
       const url = urlMatch[1];
       if (isValidUrl(url)) {
         return {
-          type: 'link',
+          type: name,
           value: {
             url,
             type: 'url'
@@ -197,7 +197,7 @@ export async function parse(text) {
         const domain = inferredMatch[1];
         if (isValidInferredUrl(domain)) {
           return {
-            type: 'link',
+            type: name,
             value: {
               url: `https://${domain}`,
               type: 'url'

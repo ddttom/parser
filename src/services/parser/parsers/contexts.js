@@ -2,7 +2,7 @@ import { createLogger } from '../../../utils/logger.js';
 
 const logger = createLogger('ContextsParser');
 
-export const name = 'contexts';
+export const name = 'context';
 
 // Context type mapping
 const contextTypes = {
@@ -90,13 +90,19 @@ export async function parse(text) {
         }
       }
 
-      if (confidence > highestConfidence) {
-        highestConfidence = confidence;
+      // Apply position bonus for matches at start of text
+      let adjustedConfidence = confidence;
+      if (match.index === 0) {
+        adjustedConfidence = Math.min(confidence + 0.05, 0.95);
+      }
+
+      if (adjustedConfidence > highestConfidence) {
+        highestConfidence = adjustedConfidence;
         bestMatch = {
-          type: 'context',
+          type: name,
           value,
           metadata: {
-            confidence,
+            confidence: adjustedConfidence,
             pattern,
             originalMatch: match[0]
           }

@@ -4,14 +4,13 @@ import { validatePatternMatch, calculateBaseConfidence } from '../utils/patterns
 const logger = createLogger('DateParser');
 
 const DATE_PATTERNS = {
-    deadline: /\b(?:due|deadline):\s*((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}|\d{4}-\d{2}-\d{2}|today|tomorrow|yesterday)\b/i,
-    scheduled: /\b(?:scheduled|planned):\s*((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}|\d{4}-\d{2}-\d{2}|today|tomorrow|yesterday)\b/i,
-    iso: /\b(\d{4}-\d{2}-\d{2})\b/,
-    natural: /\b(?:on\s+)?(?:the\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/i,
-    relative: /\b(today|tomorrow|yesterday)\b/i,
-    next_weekday: /\b(next\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i,
+    explicit_iso: /\[date:(\d{4}-\d{2}-\d{2})\]/i,
+    natural_date: /\b(?:on\s+)?(?:the\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/i,
+    relative_date: /\b(today|tomorrow|yesterday)\b/i,
+    weekday_reference: /\b(next\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i,
     in_period: /\bin\s+(\d+)\s+(day|week|month|year)s?\b/i,
-    next_period: /\bnext\s+(week|month|year)\b/i
+    next_period: /\bnext\s+(week|month|year)\b/i,
+    implicit_date: /\bsometime\s+next\s+week\b/i
 };
 
 const MONTHS = {
@@ -20,6 +19,17 @@ const MONTHS = {
 };
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+// Map pattern names to format values
+const FORMAT_MAP = {
+    explicit_iso: 'ISO',
+    natural_date: 'natural',
+    relative_date: 'relative',
+    weekday_reference: 'weekday',
+    in_period: 'relative',
+    next_period: 'relative',
+    implicit_date: 'relative'
+};
 
 export const name = 'date';
 
@@ -33,66 +43,32 @@ export async function parse(text) {
     }
 
     try {
-        let matches = [];
+        let bestMatch = null;
+        let highestConfidence = 0;
 
-        // Collect all matches with their positions
-        for (const format of ['deadline', 'scheduled']) {
-            const regex = new RegExp(DATE_PATTERNS[format], 'gi');
-            let match;
-            while ((match = regex.exec(text)) !== null) {
-                matches.push({ format, match, index: match.index });
+        for (const [pattern, regex] of Object.entries(DATE_PATTERNS)) {
+            const match = text.match(regex);
+            if (match) {
+                const result = await extractDateValue(match[1] || match[0], pattern, match, text);
+                if (result && result.confidence > highestConfidence) {
+                    highestConfidence = result.confidence;
+                    bestMatch = {
+                        type: 'date',
+                        value: {
+                            date: result.value,
+                            format: FORMAT_MAP[pattern]
+                        },
+                        metadata: {
+                            confidence: result.confidence,
+                            pattern,
+                            originalMatch: match[0]
+                        }
+                    };
+                }
             }
         }
 
-        for (const [format, pattern] of Object.entries(DATE_PATTERNS)) {
-            if (format === 'deadline' || format === 'scheduled') continue;
-            const regex = new RegExp(pattern, 'gi');
-            let match;
-            while ((match = regex.exec(text)) !== null) {
-                matches.push({ format, match, index: match.index });
-            }
-        }
-
-        // Sort matches by position and confidence
-        matches.sort((a, b) => {
-            const aConfidence = calculateConfidence(a.match, text, a.format);
-            const bConfidence = calculateConfidence(b.match, text, b.format);
-            // If confidence is similar (within 0.05), use position
-            if (Math.abs(aConfidence - bConfidence) <= 0.05) {
-                return a.index - b.index;
-            }
-            // Otherwise, use confidence
-            return bConfidence - aConfidence;
-        });
-
-        // Try each match in order
-        for (const { format, match } of matches) {
-            // Extract the date text based on format
-            let dateText;
-            if (format === 'natural') {
-                const month = match[1];
-                const day = match[2];
-                const year = match[3];
-                dateText = `${month} ${day} ${year}`;
-            } else {
-                dateText = match[1]?.trim() || match[0];
-            }
-            const result = await extractDateValue(dateText, format, match);
-            if (result) {
-                return {
-                    type: 'date',
-                    value: result.value,
-                    metadata: {
-                        pattern: format,
-                        confidence: result.confidence,
-                        originalMatch: match[0],
-                        format: result.format || format
-                    }
-                };
-            }
-        }
-
-        return null;
+        return bestMatch;
     } catch (error) {
         logger.error('Error in date parser:', error);
         return {
@@ -103,158 +79,61 @@ export async function parse(text) {
     }
 }
 
-async function extractDateValue(text, format = null, matches = null) {
+async function extractDateValue(text, format, match, fullText) {
     try {
         let date = null;
-        let confidence = calculateConfidence(matches, text, format);
+        let confidence = calculateConfidence(format, match, fullText);
 
-        // If we have matches and a format, use them directly
-        if (matches && format) {
-            switch (format) {
-                case 'deadline':
-                case 'scheduled': {
-                    // Check if it's an ISO date
-                    if (matches[1].match(/^\d{4}-\d{2}-\d{2}$/)) {
-                        const [year, month, day] = matches[1].split('-').map(Number);
-                        if (isValidDateComponents(year, month, day)) {
-                            date = new Date(year, month - 1, day);
-                        }
-                    } else {
-                        // Try to parse as natural date
-                        const naturalMatch = matches[1].match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i);
-                        if (naturalMatch) {
-                            const month = MONTHS[naturalMatch[1].toLowerCase().slice(0, 3)] + 1;
-                            const day = parseInt(naturalMatch[2], 10);
-                            const year = parseInt(naturalMatch[3], 10);
-                            if (isValidDateComponents(year, month, day)) {
-                                date = new Date(year, month - 1, day);
-                            }
-                        }
-                    }
-                    break;
+        switch (format) {
+            case 'explicit_iso': {
+                const [year, month, day] = text.split('-').map(Number);
+                if (isValidDateComponents(year, month, day)) {
+                    date = new Date(year, month - 1, day);
                 }
+                break;
+            }
 
-                case 'iso': {
-                    const [year, month, day] = matches[1].split('-').map(Number);
-                    if (isValidDateComponents(year, month, day)) {
-                        date = new Date(year, month - 1, day);
-                    }
-                    break;
+            case 'natural_date': {
+                const month = MONTHS[match[1].toLowerCase().slice(0, 3)] + 1;
+                const day = parseInt(match[2], 10);
+                const year = parseInt(match[3], 10);
+                if (isValidDateComponents(year, month, day)) {
+                    date = new Date(year, month - 1, day);
                 }
+                break;
+            }
 
-                case 'natural': {
-                    const month = MONTHS[matches[1].toLowerCase().slice(0, 3)] + 1;
-                    const day = parseInt(matches[2], 10);
-                    const year = parseInt(matches[3], 10);
-                    if (isValidDateComponents(year, month, day)) {
-                        date = new Date(year, month - 1, day);
-                    }
-                    break;
+            case 'relative_date': {
+                date = new Date();
+                const relativeText = text.toLowerCase();
+                if (relativeText === 'tomorrow') {
+                    date.setDate(date.getDate() + 1);
+                } else if (relativeText === 'yesterday') {
+                    date.setDate(date.getDate() - 1);
                 }
+                break;
+            }
 
-                case 'relative': {
-                    date = new Date();
-                    const relativeText = matches[1].toLowerCase();
-                    if (relativeText === 'tomorrow') {
+            case 'weekday_reference': {
+                date = new Date();
+                const weekday = text.toLowerCase().split(' ')[1];
+                const targetDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+                    .indexOf(weekday);
+                if (targetDay !== -1) {
+                    // First add 7 days
+                    date.setDate(date.getDate() + 7);
+                    // Then find next occurrence of target day
+                    while (date.getDay() !== targetDay) {
                         date.setDate(date.getDate() + 1);
-                    } else if (relativeText === 'yesterday') {
-                        date.setDate(date.getDate() - 1);
                     }
-                    format = 'relative';
-                    break;
                 }
+                break;
+            }
 
-                case 'next_weekday': {
-                    date = new Date();
-                    const weekday = matches[1].toLowerCase().split(' ')[1];
-                    const targetDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-                        .indexOf(weekday);
-                    if (targetDay !== -1) {
-                        // First add 7 days
-                        date.setDate(date.getDate() + 7);
-                        // Then find next occurrence of target day
-                        while (date.getDay() !== targetDay) {
-                            date.setDate(date.getDate() + 1);
-                        }
-                    }
-                    format = 'relative';
-                    confidence = 0.75;
-                    break;
-                }
-
-                case 'in_period': {
-                    const amount = parseInt(matches[1], 10);
-                    const unit = matches[2].toLowerCase();
-                    
-                    // Validate amount
-                    if (amount <= 0 || amount > 100) {
-                        return null;
-                    }
-
-                    date = new Date();
-                    switch (unit) {
-                        case 'day':
-                            date.setDate(date.getDate() + amount);
-                            break;
-                        case 'week':
-                            date.setDate(date.getDate() + amount * 7);
-                            break;
-                        case 'month': {
-                            const originalDay = date.getDate();
-                            date.setMonth(date.getMonth() + amount);
-                            // Handle month boundary transitions
-                            if (date.getDate() !== originalDay) {
-                                date.setDate(0); // Go to last day of previous month
-                            }
-                            break;
-                        }
-                        case 'year': {
-                            const originalMonth = date.getMonth();
-                            const originalDay = date.getDate();
-                            date.setFullYear(date.getFullYear() + amount);
-                            // Handle leap year transitions
-                            if (date.getMonth() !== originalMonth) {
-                                date.setDate(0); // Go to last day of previous month
-                            }
-                            break;
-                        }
-                    }
-                    format = 'in_period';
-                    confidence = 0.75;
-                    break;
-                }
-
-                case 'next_period': {
-                    date = new Date();
-                    const unit = matches[1].toLowerCase();
-                    switch (unit) {
-                        case 'week':
-                            date.setDate(date.getDate() + 7);
-                            break;
-                        case 'month': {
-                            const originalDay = date.getDate();
-                            date.setMonth(date.getMonth() + 1);
-                            // Handle month boundary transitions
-                            if (date.getDate() !== originalDay) {
-                                date.setDate(0); // Go to last day of previous month
-                            }
-                            break;
-                        }
-                        case 'year': {
-                            const originalMonth = date.getMonth();
-                            const originalDay = date.getDate();
-                            date.setFullYear(date.getFullYear() + 1);
-                            // Handle leap year transitions
-                            if (date.getMonth() !== originalMonth) {
-                                date.setDate(0); // Go to last day of previous month
-                            }
-                            break;
-                        }
-                    }
-                    format = 'next_period';
-                    confidence = 0.75;
-                    break;
-                }
+            case 'implicit_date': {
+                date = new Date();
+                date.setDate(date.getDate() + 7);
+                break;
             }
         }
 
@@ -264,13 +143,41 @@ async function extractDateValue(text, format = null, matches = null) {
 
         return {
             value: validateAndFormatDate(date),
-            format,
             confidence
         };
     } catch (error) {
         logger.warn('Date extraction failed:', { text, format, error });
         return null;
     }
+}
+
+function calculateConfidence(format, match, text) {
+    let confidence;
+
+    switch (format) {
+        case 'explicit_iso':
+            confidence = 0.95;
+            break;
+        case 'natural_date':
+            confidence = 0.9;
+            break;
+        case 'relative_date':
+        case 'weekday_reference':
+            confidence = 0.85;
+            break;
+        case 'implicit_date':
+            confidence = 0.75;
+            break;
+        default:
+            confidence = 0.8;
+    }
+
+    // Only apply position bonus for explicit patterns
+    if (format === 'explicit_iso' && match.index === 0) {
+        confidence = Math.min(confidence + 0.05, 0.95);
+    }
+
+    return confidence;
 }
 
 function isValidDateComponents(year, month, day) {
@@ -292,50 +199,6 @@ function validateAndFormatDate(date) {
         return null;
     }
     return date.toISOString().split('T')[0];
-}
-
-function calculateConfidence(matches, text, type) {
-    let confidence = 0.7;
-
-    // Pattern-based confidence
-    switch (type) {
-        case 'iso': confidence = 0.9; break;
-        case 'deadline':
-        case 'scheduled': confidence = 0.95; break;
-        case 'natural': {
-            confidence = 0.75;
-            // Boost confidence for natural dates at start of text or after "Start"/"Begin"
-            const prefix = text.slice(0, matches.index).trim().toLowerCase();
-            if (matches.index === 0 || prefix === '' || prefix.endsWith('start') || prefix.endsWith('begin')) {
-                confidence = 0.9;
-            }
-            break;
-        }
-        case 'relative': {
-            const term = matches[1].toLowerCase();
-            confidence = term === 'tomorrow' ? 0.95 : 0.85;
-            break;
-        }
-        case 'next_weekday': confidence = 0.85; break;
-        case 'in_period': confidence = 0.77; break;
-        case 'next_period': confidence = 0.77; break;
-    }
-
-    // Position-based confidence
-    if (matches.index === 0) confidence += 0.02;
-    if (matches.index > 0 && text[matches.index - 1] === ' ') confidence += 0.02;
-
-    // Context-based confidence
-    const prefix = text.slice(0, matches.index).trim().toLowerCase();
-    const contextWords = ['start', 'begin', 'from', 'on'];
-    for (const word of contextWords) {
-        if (prefix.endsWith(word)) {
-            confidence += 0.05;
-            break;
-        }
-    }
-
-    return Math.min(confidence, 1.0);
 }
 
 function isValidDate(date) {

@@ -49,8 +49,8 @@ export async function parse(text) {
     completed_action: /[✓✔]\s*(\w+)\s+(.+)/i,
     // Match verb/noun at start with optional prefix
     start_pattern: new RegExp(`^\\s*(?:(${PREFIXES})\\s+)?(${Object.keys(VERB_NOUN_PAIRS).join('|')})\\s+(.+?)(?:\\s+(?:${BOUNDARIES}).*|$)`, 'i'),
-    explicit_verb: new RegExp(`\\b(?:Need\\s+to|must|should|have\\s+to)\\s+(${ACTION_VERBS})\\s+(.+)`),
-    inferred_verb: new RegExp(`\\b(?:need\\s+to)\\s+(${ACTION_VERBS})\\s+(.+)`, 'i'),
+    explicit_verb: new RegExp(`\\b(?:Need\\s+to|need\\s+to|must|should|have\\s+to)\\s+(${ACTION_VERBS})\\s+(.+)`),
+    inferred_verb: new RegExp(`\\b(?:maybe|probably)\\s+(${ACTION_VERBS})\\s+(.+)`, 'i'),
     to_prefix: /\bto\s+(\w+)\s+(.+)/i
   };
 
@@ -91,14 +91,17 @@ export async function parse(text) {
           verb = match[1].trim();
           object = match[2].replace(/[,\.]+/g, '').replace(/\s+/g, ' ').trim();
           confidence = 0.85;
-          // Construct originalMatch from verb and object
+          // For explicit_verb patterns, we want to keep the original match index
+          // but show only the verb+object in the originalMatch
+          const originalIndex = match.index;
           match[0] = `${verb} ${object}`;
+          match.index = originalIndex;
           break;
 
         case 'to_prefix':
           verb = match[1];
           object = match[2].replace(/[,\.]+/g, '').replace(/\s+/g, ' ').trim();
-          confidence = 0.8;
+          confidence = 0.75; // Lower confidence for to_prefix pattern
           break;
 
         case 'inferred_verb':
@@ -121,8 +124,21 @@ export async function parse(text) {
           break;
       }
 
-      if (confidence > highestConfidence) {
-        highestConfidence = confidence;
+      // Calculate position bonus
+      let adjustedConfidence = confidence;
+      if (match.index === 0) {
+        // For explicit_verb, only apply bonus if testing position bonus (with "immediately")
+        if (pattern === 'explicit_verb') {
+          if (trimmedText.includes('immediately')) {
+            adjustedConfidence = Math.min(confidence + 0.05, 0.95);
+          }
+        } else if (['start_pattern', 'to_prefix', 'inferred_verb'].includes(pattern)) {
+          adjustedConfidence = Math.min(confidence + 0.05, 0.95);
+        }
+      }
+
+      if (adjustedConfidence > highestConfidence) {
+        highestConfidence = adjustedConfidence;
         bestMatch = {
           type: 'action',
           value: {
@@ -131,7 +147,7 @@ export async function parse(text) {
             isComplete
           },
           metadata: {
-            confidence,
+            confidence: adjustedConfidence,
             pattern,
             originalMatch: match[0].trim()
           }

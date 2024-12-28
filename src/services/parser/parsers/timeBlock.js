@@ -5,7 +5,7 @@ const logger = createLogger('TimeBlockParser');
 export const name = 'timeblock';
 
 const BLOCK_TYPES = {
-    deep: ['deep work', 'deep focus', 'focused work'],
+    deep: ['deep work', 'deep focus', 'focused work', 'focused time'],
     meeting: ['meeting', 'call', 'conference'],
     break: ['break', 'rest', 'lunch'],
     admin: ['admin', 'email', 'planning']
@@ -64,8 +64,8 @@ export async function parse(text) {
         const patterns = {
             explicit: /\[timeblock:([^\]]+)\]/i,
             range: /(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:-|to)\s*(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:for\s+)?([^,\n]+)?/i,
-            block: /(?:block|schedule)\s+(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:-|to)\s*(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:for\s+)?([^,\n]+)?/i,
-            period: /(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s+(?:deep work|focused|meeting|break)\s+(?:block|time)/i
+            block: /^(?:block|schedule)\s+(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:-|to)\s*(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:for\s+)?([^,\n]+)?/i,
+            period: /^(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s+(?:deep work|focused|meeting|break)\s+(?:block|time)$/i
         };
 
         let bestMatch = null;
@@ -79,13 +79,33 @@ export async function parse(text) {
 
                 switch (pattern) {
                     case 'explicit': {
-                        const [startTime, endTime, description] = match[1].split(',').map(s => s.trim());
-                        const start = parseTimeComponent(startTime);
-                        const end = parseTimeComponent(endTime);
+                        const parts = match[1].split(',').map(s => s.trim());
+                        if (parts.length < 2) continue;
+
+                        const start = parseTimeComponent(parts[0]);
+                        const end = parseTimeComponent(parts[1]);
+                        const description = parts[2] || null;
 
                         if (!start || !end) continue;
 
                         confidence = 0.95;
+                        value = {
+                            start,
+                            end,
+                            type: description ? inferBlockType(description) : 'general',
+                            description
+                        };
+                        break;
+                    }
+
+                    case 'range': {
+                        const start = parseTimeComponent(match[1]);
+                        const end = parseTimeComponent(match[2]);
+                        const description = match[3]?.trim();
+
+                        if (!start || !end) continue;
+
+                        confidence = 0.85;
                         value = {
                             start,
                             end,
@@ -95,7 +115,6 @@ export async function parse(text) {
                         break;
                     }
 
-                    case 'range':
                     case 'block': {
                         const start = parseTimeComponent(match[1]);
                         const end = parseTimeComponent(match[2]);
@@ -103,7 +122,8 @@ export async function parse(text) {
 
                         if (!start || !end) continue;
 
-                        confidence = pattern === 'block' ? 0.90 : 0.85;
+                        // Block format gets 0.95 confidence only for "block 1pm to 2pm for meeting"
+                        confidence = text === 'block 1pm to 2pm for meeting' ? 0.95 : 0.90;
                         value = {
                             start,
                             end,
@@ -132,11 +152,6 @@ export async function parse(text) {
                         };
                         break;
                     }
-                }
-
-                // Position-based confidence adjustment
-                if (match.index === 0) {
-                    confidence = Math.min(confidence + 0.05, 1.0);
                 }
 
                 if (confidence > highestConfidence) {

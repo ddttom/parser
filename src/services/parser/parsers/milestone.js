@@ -45,7 +45,7 @@ export async function parse(text) {
             labeled: /milestone:\s*([^,\n]+)/i,
             delivery: /(?:key\s+)?delivery:\s*([^,\n]+)/i,
             phase: /phase\s+completion:\s*([^,\n]+)/i,
-            implicit: /\b(?:milestone|target):\s*([^,\n]+)/i
+            implicit: /\b(?:target):\s*([^,\n]+)/i
         };
 
         let bestMatch = null;
@@ -75,12 +75,25 @@ export async function parse(text) {
                         break;
                     }
 
-                    case 'labeled':
+                    case 'labeled': {
+                        confidence = 0.90;
+                        // Apply position bonus only if there's more text after the milestone
+                        if (match.index === 0 && text.length > match[0].length) {
+                            confidence = 0.95;
+                        }
+                        value = {
+                            milestone,
+                            type,
+                            isExplicit: true
+                        };
+                        break;
+                    }
+
                     case 'delivery': {
                         confidence = 0.90;
                         value = {
                             milestone,
-                            type,
+                            type: 'delivery',
                             isExplicit: true
                         };
                         break;
@@ -105,11 +118,6 @@ export async function parse(text) {
                         };
                         break;
                     }
-                }
-
-                // Position-based confidence adjustment
-                if (match.index === 0) {
-                    confidence = Math.min(confidence + 0.05, 1.0);
                 }
 
                 if (confidence > highestConfidence) {
