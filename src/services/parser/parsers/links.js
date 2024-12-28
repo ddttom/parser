@@ -37,58 +37,6 @@ function isValidMarkdownText(text) {
          !text.includes(']');
 }
 
-function isValidFilePath(path) {
-  if (!path || typeof path !== 'string') return false;
-  
-  const trimmedPath = path.trim();
-  if (!trimmedPath) return false;
-
-  // Check for invalid characters in entire path
-  if (/[<>"|?*]/.test(trimmedPath)) return false;
-
-  // Handle Windows paths (C:\path\to\file)
-  if (/^[A-Za-z]:[/\\]/.test(trimmedPath)) {
-    const segments = trimmedPath.slice(3).split(/[/\\]/);
-    return isValidPathSegments(segments);
-  }
-
-  // Handle Unix absolute paths (/path/to/file)
-  if (trimmedPath.startsWith('/')) {
-    const segments = trimmedPath.slice(1).split(/[/\\]/);
-    return isValidPathSegments(segments);
-  }
-
-  // Handle relative paths (./path or ../path)
-  if (trimmedPath.startsWith('./') || trimmedPath.startsWith('../')) {
-    const segments = trimmedPath.split(/[/\\]/);
-    return isValidPathSegments(segments.slice(1));
-  }
-
-  // Handle simple paths (path/to/file)
-  const segments = trimmedPath.split(/[/\\]/);
-  return isValidPathSegments(segments);
-}
-
-function isValidPathSegments(segments) {
-  if (!segments.length) return false;
-
-  // Check for reserved names (Windows)
-  const reservedNames = /^(con|prn|aux|nul|com\d|lpt\d)$/i;
-  
-  return segments.every(segment => {
-    // Allow empty segments for consecutive slashes
-    if (!segment) return true;
-    
-    // Check for reserved names
-    if (reservedNames.test(segment)) return false;
-    
-    // Must contain at least one valid character
-    if (!/[a-z0-9._-]/i.test(segment)) return false;
-    
-    return true;
-  });
-}
-
 function isValidInferredUrl(domain) {
   // Must start with alphanumeric
   if (!/^[a-z0-9]/i.test(domain)) return false;
@@ -113,28 +61,7 @@ export async function parse(text) {
   }
 
   try {
-    // Try file links first to avoid URL pattern conflicts
-    const fileMatch = text.match(/\[file:([^\]]+)\]/i);
-    if (fileMatch) {
-      const path = fileMatch[1].trim();
-      if (isValidFilePath(path)) {
-        return {
-          type: name,
-          value: {
-            path,
-            type: 'file'
-          },
-          metadata: {
-            confidence: Confidence.HIGH,
-            pattern: 'file_link',
-            originalMatch: fileMatch[0]
-          }
-        };
-      }
-      return null;
-    }
-
-    // Try markdown pattern next
+    // Try markdown pattern first
     const markdownMatch = text.match(/\[([^\]]*)\](?:\(([^)]*)\))?/i);
     if (markdownMatch) {
       // If it looks like markdown but is invalid, return null

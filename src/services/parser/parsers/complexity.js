@@ -13,8 +13,8 @@ export async function parse(text) {
     }
 
     const patterns = {
-        numeric_complexity: /\[complexity:(\d+)\]/i,
-        explicit_complexity: /\[complexity:(high|medium|low)\]/i,
+        level_complexity: /\b(?:complexity|difficulty)(?:\s+(?:is|level))?\s*(?::|-)?\s*(high|medium|low)\b/i,
+        numeric_level: /\b(?:complexity|difficulty)(?:\s+(?:is|level))?\s*(?::|-)?\s*(\d+)\b/i,
         keyword_complexity: /\b(complex|complicated|simple|easy|difficult|hard|challenging)\b/i
     };
 
@@ -44,7 +44,17 @@ export async function parse(text) {
             let value;
 
             switch (pattern) {
-                case 'numeric_complexity': {
+                case 'level_complexity': {
+                    confidence = Confidence.HIGH;
+                    const level = match[1].toLowerCase();
+                    value = {
+                        level,
+                        score: complexityLevels[level]
+                    };
+                    break;
+                }
+
+                case 'numeric_level': {
                     const score = parseInt(match[1], 10);
                     // Validate numeric value
                     if (score < 1 || score > 3) {
@@ -54,16 +64,6 @@ export async function parse(text) {
                     value = {
                         level: score >= 3 ? 'high' : score >= 2 ? 'medium' : 'low',
                         score
-                    };
-                    break;
-                }
-
-                case 'explicit_complexity': {
-                    confidence = Confidence.HIGH;
-                    const level = match[1].toLowerCase();
-                    value = {
-                        level,
-                        score: complexityLevels[level]
                     };
                     break;
                 }

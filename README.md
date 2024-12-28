@@ -18,7 +18,7 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
 ## Features
 
 - **Comprehensive Text Analysis**: Extract multiple data points from natural text including:
-  - Dates and times (supports ISO, natural language, and relative formats)
+  - Dates and times (supports natural language and relative formats)
   - Tasks and actions
   - Priorities and urgency levels
   - Categories and tags
@@ -35,16 +35,15 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
 1. **Standardized Parser Architecture**
    - Common base parser template
    - Simplified confidence level system:
-     - HIGH: Explicit patterns with clear intent (e.g., [tag:important])
-     - MEDIUM: Standard patterns with good context (e.g., #important)
-     - LOW: Inferred patterns with less certainty
+     - HIGH: Strong natural language patterns with clear intent (e.g., "high priority", "costs $100")
+     - MEDIUM: Standard patterns with good context (e.g., "#important", "@team")
+     - LOW: Inferred patterns with less certainty (e.g., "sometime next week")
    - Pattern-based matching with priority
    - Rich metadata generation
    - Best match selection based on confidence levels
 
 2. **Core Parsers:**
    - Date:
-     - ISO format (YYYY-MM-DD)
      - Natural language (January 1st, 2024)
      - Relative dates:
        - Simple (today, tomorrow, yesterday)
@@ -58,13 +57,13 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
          - Add 7 days: Jan 8th (Monday)
          - Add days until Wednesday: Jan 10th
    - Time (12/24h, periods)
-   - Project (explicit, references)
-   - Status (explicit, progress)
+   - Project (references, contexts)
+   - Status (progress, state)
    - Tags (hashtags, categories)
-   - Subject (cleanup, key terms)
+   - Subject (key terms)
    - Recurring (intervals, patterns)
    - Reminders (time-based, relative)
-   - Priority (explicit, contextual)
+   - Priority (natural language, hashtags)
    - Additional parsers:
      - Action (verbs, completion)
      - Attendees (lists, roles)
@@ -72,9 +71,9 @@ The project uses ES Modules (ESM) with explicit `.js` extensions for all imports
      - Complexity (levels, scoring)
      - Contact (email, phone)
      - Context (preposition-based: at, in, during, using)
-   - Contexts (@ notation, multiple contexts)
+     - Contexts (@ notation, multiple contexts)
      - Dependencies (tasks)
-     - Duration (explicit, natural)
+     - Duration (natural language)
      - Links (URLs, files)
      - Location (rooms, addresses)
      - Participants (lists, roles)
@@ -109,9 +108,9 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
 
 - **Confidence Level Compliance**:
   - All parsers use standardized confidence enum:
-    - HIGH: For explicit, unambiguous patterns (e.g., [tag:important])
-    - MEDIUM: For standard, well-structured patterns (e.g., #important)
-    - LOW: For inferred or ambiguous patterns
+    - HIGH: Strong natural language patterns with clear intent
+    - MEDIUM: Standard patterns with good context
+    - LOW: Inferred patterns with less certainty
   - Consistent confidence levels across all parsers
   - No dynamic confidence adjustments
 
@@ -123,7 +122,7 @@ All parsers in `src/services/parser/parsers/` have been verified for compliance 
 - **Testing Standards**:
   - All parsers have comprehensive test coverage following standardized structure:
     - Return format (type, metadata, null cases)
-    - Pattern matching (explicit, parameters, variations)
+    - Pattern matching (natural language, hashtags, variations)
     - Error handling (invalid formats, malformed input)
   - Integration tests for complex scenarios and parser interactions
   - Edge case coverage for each parser
@@ -294,7 +293,7 @@ src/
 └── utils/               # Global utilities
 ```
 
-## Testing 2
+## Testing
 
 The project includes comprehensive test coverage for all parsers and utilities. Input validation is handled by a centralized validation utility (tests/utils/validation.test.js) that ensures consistent validation across all parsers.
 
@@ -322,8 +321,8 @@ Note: Confidence levels are determined by the parser implementation and should n
    - Null return cases
 
 2. Pattern Matching
-   - Explicit patterns
-   - Parameter handling
+   - Natural language patterns
+   - Hashtag patterns
    - Multiple formats
    - Edge cases
 

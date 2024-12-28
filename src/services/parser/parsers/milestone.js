@@ -40,7 +40,6 @@ export async function parse(text) {
 
     try {
         const patterns = {
-            explicit: /\[milestone:([^\]]+)\]/i,
             labeled: /milestone:\s*([^,\n]+)/i,
             delivery: /(?:key\s+)?delivery:\s*([^,\n]+)/i,
             phase: /phase\s+completion:\s*([^,\n]+)/i,
@@ -64,16 +63,6 @@ export async function parse(text) {
                 const type = inferMilestoneType(milestone);
 
                 switch (pattern) {
-                    case 'explicit': {
-                        confidence = Confidence.HIGH;
-                        value = {
-                            milestone,
-                            type,
-                            isExplicit: true
-                        };
-                        break;
-                    }
-
                     case 'labeled': {
                         confidence = Confidence.HIGH;
                         value = {

@@ -18,28 +18,7 @@ export async function parse(text) {
     }
 
     try {
-        // Check for explicit task format
-        const explicitMatch = text.match(/\[task:(\d+)\]/i);
-        if (explicitMatch) {
-            const taskId = explicitMatch[1];
-            // Call validateTaskId directly to allow error propagation
-            const isValid = parse.validateTaskId(taskId);
-            if (!isValid) return null;
-
-            return {
-                type: 'task',
-                value: {
-                    taskId: parseInt(taskId, 10)
-                },
-                metadata: {
-                    pattern: 'explicit',
-                    confidence: Confidence.HIGH,
-                    originalMatch: explicitMatch[0]
-                }
-            };
-        }
-
-        // Check for inferred task references
+        // Check for task references
         const inferredMatch = text.match(/\b(?:task|ticket|issue)\s+#?(\d+)\b/i);
         if (inferredMatch) {
             const taskId = inferredMatch[1];

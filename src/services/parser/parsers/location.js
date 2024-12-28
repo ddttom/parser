@@ -40,89 +40,12 @@ export async function parse(text) {
     return validationError;
   }
 
-  // Check for malformed parameters in location syntax
-  if (/\[location:[^(]*\(\s*\)/.test(text) || /\[location:[^(]*\([^)]*\([^)]*\)[^)]*\)/.test(text)) {
-    return null;
-  }
-
-  // Check for any location syntax - if found, only allow explicit or parameterized patterns
-  if (text.includes('[location:')) {
-    // Try parameterized first
-    const paramMatch = text.match(/\[location:([^(]+)\(([^)]+)\)\]/i);
-    if (paramMatch) {
-      const name = paramMatch[1].trim();
-      const paramStr = paramMatch[2].trim();
-      
-      if (!name) return null;
-      
-      // Special case for "floor 3" format
-      if (paramStr.match(/^floor\s+\d+$/i)) {
-        return {
-          type: 'location',
-          value: {
-            name,
-            type: inferLocationType(name),
-            parameters: {
-              floor: paramStr.split(/\s+/)[1]
-            }
-          },
-          metadata: {
-            confidence: Confidence.HIGH,
-            pattern: 'parameterized_location',
-            originalMatch: paramMatch[0]
-          }
-        };
-      }
-      
-      const params = parseParameters(paramStr);
-      if (!params) return null;
-
-      return {
-        type: 'location',
-        value: {
-          name,
-          type: inferLocationType(name),
-          parameters: params
-        },
-        metadata: {
-          confidence: Confidence.HIGH,
-          pattern: 'parameterized_location',
-          originalMatch: paramMatch[0]
-        }
-      };
-    }
-
-    // Try explicit if no parameterized match
-    const explicitMatch = text.match(/\[location:([^()\]]+)\]/i);
-    if (explicitMatch) {
-      const name = explicitMatch[1].trim();
-      if (!name) return null;
-
-      const confidence = Confidence.HIGH;
-      return {
-        type: 'location',
-        value: {
-          name,
-          type: inferLocationType(name)
-        },
-        metadata: {
-          confidence,
-          pattern: 'explicit_location',
-          originalMatch: explicitMatch[0]
-        }
-      };
-    }
-
-    // If we got here, the location syntax is invalid
-    return null;
-  }
-
-  // If no location syntax, try other patterns
+  // Try location patterns
   const patterns = {
-    room_location: /(?:(?:in|at)\s+(?:the\s+)?)?(?:room|conference room|meeting room)\s+([A-Za-z0-9-]+)\b/i,
-    office_location: /(?:(?:in|at)\s+(?:the\s+)?)?(?:office)\s+([A-Za-z0-9-]+)\b/i,
-    building_location: /(?:(?:in|at)\s+(?:the\s+)?)?(?:building)\s+([A-Za-z0-9-]+)\b/i,
-    inferred_location: /\b(?:in|at)\s+(?:the\s+)?([^,.]+?)(?:[,.]|\s|$)/i
+    room_location: /(?:(?:in|at)\s+(?:the\s+)?)?(?:room|conference room|meeting room)\s+([A-Za-z0-9-]+)(?:\s*(?:floor|level)\s+(\d+))?\b/i,
+    office_location: /(?:(?:in|at)\s+(?:the\s+)?)?(?:office)\s+([A-Za-z0-9-]+)(?:\s*(?:floor|level)\s+(\d+))?\b/i,
+    building_location: /(?:(?:in|at)\s+(?:the\s+)?)?(?:building)\s+([A-Za-z0-9-]+)(?:\s*(?:floor|level)\s+(\d+))?\b/i,
+    inferred_location: /\b(?:in|at)\s+(?:the\s+)?([^,.]+?)(?:\s*(?:floor|level)\s+(\d+))?\b(?:[,.]|\s|$)/i
   };
 
   let bestMatch = null;
@@ -141,11 +64,14 @@ export async function parse(text) {
           if (!roomNumber) continue;
 
           confidence = Confidence.MEDIUM;
-          originalMatch = `Room ${roomNumber}`;
+          originalMatch = match[0].trim();
           value = {
-            name: originalMatch,
+            name: `Room ${roomNumber}`,
             type: 'room'
           };
+          if (match[2]) {
+            value.parameters = { floor: match[2] };
+          }
           break;
         }
 
@@ -154,11 +80,14 @@ export async function parse(text) {
           if (!officeNumber) continue;
 
           confidence = Confidence.MEDIUM;
-          originalMatch = `Office ${officeNumber}`;
+          originalMatch = match[0].trim();
           value = {
-            name: originalMatch,
+            name: `Office ${officeNumber}`,
             type: 'office'
           };
+          if (match[2]) {
+            value.parameters = { floor: match[2] };
+          }
           break;
         }
 
@@ -167,11 +96,14 @@ export async function parse(text) {
           if (!buildingId) continue;
 
           confidence = Confidence.MEDIUM;
-          originalMatch = `Building ${buildingId}`;
+          originalMatch = match[0].trim();
           value = {
-            name: originalMatch,
+            name: `Building ${buildingId}`,
             type: 'building'
           };
+          if (match[2]) {
+            value.parameters = { floor: match[2] };
+          }
           break;
         }
 
@@ -180,11 +112,14 @@ export async function parse(text) {
           if (!name) continue;
 
           confidence = Confidence.LOW;
-          originalMatch = match[0];
+          originalMatch = match[0].trim();
           value = {
             name,
             type: inferLocationType(name)
           };
+          if (match[2]) {
+            value.parameters = { floor: match[2] };
+          }
           break;
         }
       }

@@ -13,9 +13,9 @@ export async function parse(text) {
     }
 
     const patterns = {
-        explicit: /\[cost:([^[\]]+)\]/i,
         natural: /(?:costs?|price|budget|estimated)(?:\s*:\s*|\s+)(?:to\s+be\s+)?(?:[$£€])?(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i,
-        currency: /^(?:[$£€])(\d+(?:\.\d+)?k?)\b/i
+        currency: /^(?:[$£€])(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i,
+        amount: /\b(?:amount|total|sum)(?:\s*:\s*|\s+)(?:of\s+)?(?:[$£€])?(\d+(?:,\d{3})*(?:\.\d+)?k?)\b/i
     };
 
     try {
@@ -73,9 +73,7 @@ export async function parse(text) {
                             currency
                         },
                         metadata: {
-                            confidence: type === 'explicit' ? Confidence.HIGH : 
-                                      type === 'natural' ? Confidence.MEDIUM : 
-                                      type === 'currency' ? Confidence.HIGH : Confidence.MEDIUM,
+                            confidence: type === 'currency' ? Confidence.HIGH : Confidence.MEDIUM,
                             pattern: type,
                             originalMatch: match[0]
                         }

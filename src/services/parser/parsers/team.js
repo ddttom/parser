@@ -31,27 +31,6 @@ export async function parse(text) {
     }
 
     try {
-        // Check for explicit team format
-        const explicitMatch = text.match(/\[team:([^\]]+)\]/i);
-        if (explicitMatch) {
-            const team = explicitMatch[1].trim();
-            // Call validateTeam directly to allow error propagation
-            const isValid = parse.validateTeam(team);
-            if (!isValid) return null;
-
-            return {
-                type: 'team',
-                value: {
-                    team: team.toLowerCase()
-                },
-                metadata: {
-                    pattern: 'explicit',
-                    confidence: Confidence.HIGH,
-                    originalMatch: explicitMatch[0]
-                }
-            };
-        }
-
         // Check for @mentions
         const mentionPattern = /@([a-z0-9_-]+)/gi;
         const mentions = [...text.matchAll(mentionPattern)].map(m => m[1]);

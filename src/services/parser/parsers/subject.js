@@ -96,14 +96,6 @@ function validateSubject(text) {
     return !INVALID_START_WORDS.has(firstWord);
 }
 
-function isValidExplicitSubject(text) {
-    const match = text.match(/^\[subject:([^\]]+)\]$/i);
-    if (!match) return false;
-    
-    const subject = match[1].trim();
-    return validateSubject(subject);
-}
-
 export async function parse(text) {
     const validationError = validateParserInput(text, 'SubjectParser');
     if (validationError) {
@@ -120,40 +112,6 @@ export async function parse(text) {
     }
 
     try {
-        // Check for explicit subject pattern
-        if (text.includes('[subject:')) {
-            // Must be a complete, well-formed explicit subject
-            if (!text.match(/^\[subject:[^\]]+\]$/i)) {
-                return null;
-            }
-
-            const match = text.match(/^\[subject:([^\]]+)\]$/i);
-            const subjectText = match[1].trim();
-            if (!validateSubject(subjectText)) {
-                return null;
-            }
-
-            const keyTerms = extractKeyTerms(subjectText);
-            return {
-                type: 'subject',
-                value: {
-                    text: subjectText,
-                    keyTerms
-                },
-                metadata: {
-                    confidence: Confidence.HIGH,
-                    pattern: 'explicit',
-                    originalMatch: text,
-                    hasActionVerb: keyTerms.some(term => ACTION_VERBS.has(term))
-                }
-            };
-        }
-
-        // If text contains any subject-like patterns but didn't match explicit format, reject it
-        if (text.includes('subject:') || text.includes('[subject') || text.includes('subject]')) {
-            return null;
-        }
-
         // Clean up text
         const { text: cleanText, removedParts } = cleanupText(text);
         if (!validateSubject(cleanText)) return null;

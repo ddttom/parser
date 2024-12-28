@@ -61,7 +61,6 @@ export async function parse(text) {
 
     try {
         const patterns = {
-            explicit: /\[timeblock:([^\]]+)\]/i,
             range: /(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:-|to)\s*(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:for\s+)?([^,\n]+)?/i,
             block: /^(?:block|schedule)\s+(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:-|to)\s*(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:for\s+)?([^,\n]+)?/i,
             period: /^(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s+(?:deep work|focused|meeting|break)\s+(?:block|time)$/i
@@ -76,26 +75,6 @@ export async function parse(text) {
                 let value;
 
                 switch (pattern) {
-                    case 'explicit': {
-                        const parts = match[1].split(',').map(s => s.trim());
-                        if (parts.length < 2) continue;
-
-                        const start = parseTimeComponent(parts[0]);
-                        const end = parseTimeComponent(parts[1]);
-                        const description = parts[2] || null;
-
-                        if (!start || !end) continue;
-
-                        confidence = Confidence.HIGH;
-                        value = {
-                            start,
-                            end,
-                            type: description ? inferBlockType(description) : 'general',
-                            description
-                        };
-                        break;
-                    }
-
                     case 'range': {
                         const start = parseTimeComponent(match[1]);
                         const end = parseTimeComponent(match[2]);

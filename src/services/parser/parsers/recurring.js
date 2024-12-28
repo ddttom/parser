@@ -6,7 +6,6 @@ const logger = createLogger('RecurringParser');
 
 // Order matters for pattern priority
 const RECURRING_PATTERNS = new Map([
-    ['explicit', /\[recur:(\w+)\]/i],
     ['business', /\b(?:every|each)\s+(?:business|work(?:ing)?)\s+day\b/i],
     ['weekday', /\b(?:every|each)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i],
     ['hourly', /\b(?:every|each)\s+(?:hour|hourly)\b/i],
@@ -73,16 +72,6 @@ export async function parse(text) {
 
 async function extractRecurringValue(matches, type) {
     switch (type) {
-        case 'explicit': {
-            const value = matches[1].toLowerCase();
-            switch (value) {
-                case 'daily': return { type: 'day', interval: 1 };
-                case 'weekly': return { type: 'week', interval: 1 };
-                case 'monthly': return { type: 'month', interval: 1 };
-                default: return null;
-            }
-        }
-
         case 'daily':
             return { type: 'day', interval: 1 };
 
@@ -155,8 +144,6 @@ async function extractEndCondition(text) {
 function calculateConfidence(type) {
     // Return confidence level based on pattern type
     switch (type) {
-        case 'explicit':
-            return Confidence.HIGH;
         case 'weekday':
         case 'business':
             return Confidence.HIGH;

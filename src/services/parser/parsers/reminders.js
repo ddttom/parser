@@ -11,7 +11,6 @@ const TIME_WORDS = {
 };
 
 const REMINDER_PATTERNS = {
-    explicit: /\b(?:remind(?:er)?\s*(?:me|us)?\s*in)\s*(\d+)\s*(minute|hour|day|week)s?\b/i,
     before: /\b(\d+)\s*(minute|hour|day|week)s?\s*before\b/i,
     at: /\bremind(?:er)?\s*(?:me|us)?\s*at\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i,
     on: /\bremind(?:er)?\s*(?:me|us)?\s*on\s*([^,\n]+)\b/i,
@@ -48,7 +47,7 @@ export async function parse(text) {
                             pattern: type,
                             confidence,
                             originalMatch: matches[0],
-                            isRelative: type === 'relative' || type === 'explicit'
+                            isRelative: type === 'relative'
                         }
                     };
                 }
@@ -69,7 +68,6 @@ export async function parse(text) {
 async function extractReminderValue(matches, type) {
     try {
         switch (type) {
-            case 'explicit':
             case 'relative': {
                 const amount = parseInt(matches[1], 10);
                 const unit = matches[2].toLowerCase();
@@ -138,8 +136,6 @@ async function extractReminderValue(matches, type) {
 
 function calculateConfidence(type) {
     switch (type) {
-        case 'explicit':
-            return Confidence.HIGH;
         case 'at':
         case 'before':
             return Confidence.HIGH;

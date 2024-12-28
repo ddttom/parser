@@ -13,46 +13,14 @@ export async function parse(text) {
     }
 
     try {
-        // Check explicit pattern first
-        const explicitMatch = text.match(/\[context:([^\]]*)\]/i);
-        if (explicitMatch) {
-            const context = explicitMatch[1].trim();
-            if (!context) {
-                return {
-                    type: 'error',
-                    error: 'INVALID_FORMAT',
-                    message: 'Empty context value'
-                };
-            }
-            return {
-                type: 'context',
-                value: {
-                    context,
-                    type: inferContextType(context)
-                },
-                metadata: {
-                    confidence: calculateConfidence('explicit', context, explicitMatch),
-                    pattern: 'explicit',
-                    originalMatch: explicitMatch[0]
-                }
-            };
-        }
-
-        // Check for malformed explicit context
-        if (text.includes('[context:') && !text.includes(']')) {
-            return {
-                type: 'error',
-                error: 'INVALID_FORMAT',
-                message: 'Invalid context format'
-            };
-        }
-
         // Check preposition patterns
         const patterns = {
-            at: /\bat\s+([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i,
-            in: /\bin\s+([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i,
-            during: /\bduring\s+([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i,
-            using: /\busing\s+([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i
+            at: /\bat\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i,
+            in: /\bin\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i,
+            during: /\bduring\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i,
+            using: /\busing\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i,
+            while_in: /\bwhile\s+in\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i,
+            while_at: /\bwhile\s+at\s+(?:the\s+)?([^,\s]+(?:\s+[^,\s]+)*?)(?=\s*(?:,|\.|$|\bat\b|\bin\b|\bduring\b|\busing\b))/i
         };
 
         for (const [type, pattern] of Object.entries(patterns)) {
@@ -93,10 +61,10 @@ export async function parse(text) {
 
 function inferContextType(context) {
     const types = {
-        location: /(?:room|office|building|home|work)/i,
-        time: /(?:morning|afternoon|evening|night|day|week)/i,
-        tool: /(?:computer|laptop|phone|device|software|app)/i,
-        activity: /(?:meeting|call|lunch|break|session)/i
+        location: /(?:room|office|building|home|work|desk|space|area)/i,
+        time: /(?:morning|afternoon|evening|night|day|week|month|year)/i,
+        tool: /(?:computer|laptop|phone|device|software|app|system)/i,
+        activity: /(?:meeting|call|lunch|break|session|workshop|training)/i
     };
 
     for (const [type, pattern] of Object.entries(types)) {
@@ -109,13 +77,13 @@ function inferContextType(context) {
 }
 
 function calculateConfidence(type, context) {
-    // Explicit patterns get HIGH confidence
-    if (type === 'explicit') {
+    // Well-known context types get HIGH confidence
+    if (inferContextType(context) !== 'general') {
         return Confidence.HIGH;
     }
     
-    // Well-known context types get MEDIUM confidence
-    if (inferContextType(context) !== 'general') {
+    // Common prepositions get MEDIUM confidence
+    if (['at', 'in', 'during', 'using'].includes(type)) {
         return Confidence.MEDIUM;
     }
     

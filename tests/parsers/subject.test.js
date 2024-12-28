@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/subject.js';
 describe('Subject Parser', () => {
     describe('Return Format', () => {
         test('should return correct type property', async () => {
-            const result = await parse('[subject:Update documentation]');
+            const result = await parse('Update documentation');
             expect(result.type).toBe(name);
         });
 
         test('should return metadata with required fields', async () => {
-            const result = await parse('[subject:Update documentation]');
+            const result = await parse('Update documentation');
             expect(result.metadata).toEqual(expect.objectContaining({
                 confidence: expect.any(String),
                 pattern: expect.any(String),
@@ -95,30 +95,16 @@ describe('Subject Parser', () => {
             }
         });
 
-        test('validates explicit subject format', async () => {
-            const invalidFormats = [
-                '[subject:]',
-                '[subject: ]',
-                '[subject:   ]',
-                '[subject:the task]',
-                '[subject:a report]'
+        test('rejects invalid subjects', async () => {
+            const invalidSubjects = [
+                'the task',
+                'a report',
+                'an update',
+                'to review',
+                'in progress'
             ];
-            for (const format of invalidFormats) {
-                const result = await parse(format);
-                expect(result).toBeNull();
-            }
-        });
-
-        test('handles malformed explicit subjects', async () => {
-            const malformed = [
-                '[subject:task',
-                'subject:task]',
-                '[subjecttask]',
-                '[subject:task]]',
-                '[[subject:task]'
-            ];
-            for (const format of malformed) {
-                const result = await parse(format);
+            for (const subject of invalidSubjects) {
+                const result = await parse(subject);
                 expect(result).toBeNull();
             }
         });

@@ -17,7 +17,6 @@ export async function parse(text) {
   }
 
   const patterns = {
-    explicit: /\[progress:(\d+)%\]/i,
     inferred: /(\d+)%\s*(?:complete|done|finished)/i
   };
 
@@ -35,23 +34,10 @@ export async function parse(text) {
         continue;
       }
 
-      switch (pattern) {
-        case 'explicit': {
-          confidence = Confidence.HIGH;
-          value = {
-            percentage
-          };
-          break;
-        }
-
-        case 'inferred': {
-          confidence = Confidence.MEDIUM;
-          value = {
-            percentage
-          };
-          break;
-        }
-      }
+      confidence = Confidence.HIGH;
+      value = {
+        percentage
+      };
 
       // Update if current confidence is higher or equal priority pattern
       const shouldUpdate = !bestMatch || 

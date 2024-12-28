@@ -165,19 +165,26 @@ describe('Input Validation', () => {
 
 ### 3. Pattern Matching
 
-- Test explicit patterns (e.g., [tag:important])
-- Test parameter handling (e.g., [tag:important(priority=high)])
+- Test natural language patterns (e.g., "high priority", "costs $100")
+- Test hashtag patterns (e.g., "#important", "#project")
+- Test @ mention patterns (e.g., "@john", "@team")
 - Test multiple format variations
 - Test edge cases and boundary conditions
 
 ### Important Note About Confidence Levels
 
-Confidence levels are determined by the parser implementation and should not be tested. They are part of the parser's internal logic for determining match quality. While the metadata should include a confidence field, its specific value (HIGH, MEDIUM, LOW) is an implementation detail that should not be part of the test suite.
+Confidence levels are determined by the parser implementation and should not be tested. They are part of the parser's internal logic for determining match quality:
+
+- HIGH: Strong natural language patterns with clear intent (e.g., "high priority", "costs $100")
+- MEDIUM: Standard patterns with good context (e.g., "#important", "@team")
+- LOW: Inferred patterns with less certainty (e.g., "sometime next week")
+
+While the metadata should include a confidence field, its specific value is an implementation detail that should not be part of the test suite.
 
 ### 4. Error Handling
 
 - Test invalid format handling
-- Test malformed parameter handling
+- Test malformed pattern handling
 - Test invalid value handling
 - Test parser error handling and recovery
 
@@ -229,12 +236,12 @@ import { name, parse } from '../../src/services/parser/parsers/example.js';
 describe('Example Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[example:test]');
+      const result = await parse('high priority task');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[example:test]');
+      const result = await parse('high priority task');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -249,35 +256,34 @@ describe('Example Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should detect explicit patterns', async () => {
-      const result = await parse('[example:test]');
+    test('should detect natural language patterns', async () => {
+      const result = await parse('high priority task');
       expect(result.value).toEqual({
-        test: 'test'
+        priority: 'high'
       });
     });
 
-    test('should handle multiple formats', async () => {
-      const result = await parse('[example:test(param=value)]');
+    test('should handle hashtag patterns', async () => {
+      const result = await parse('#important task');
       expect(result.value).toEqual({
-        test: 'test',
-        param: 'value'
+        priority: 'high'
       });
     });
 
     test('should handle edge cases', async () => {
-      const result = await parse('[example:test-with-hyphens]');
+      const result = await parse('very-high-priority');
       expect(result).not.toBeNull();
     });
   });
 
   describe('Error Handling', () => {
     test('should handle invalid format', async () => {
-      const result = await parse('[example:]');
+      const result = await parse('priority:');
       expect(result).toBeNull();
     });
 
-    test('should handle malformed parameters', async () => {
-      const result = await parse('[example:test(invalid)]');
+    test('should handle malformed patterns', async () => {
+      const result = await parse('priority(invalid)');
       expect(result).toBeNull();
     });
   });

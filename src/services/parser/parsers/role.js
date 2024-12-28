@@ -31,7 +31,6 @@ export async function parse(text) {
 
     try {
         const patterns = {
-            explicit: /\[role:([^\]]+)\]/i,
             inferred: /\b(?:as|acting\s+as)\s+(\w+)\b/i
         };
 
@@ -50,12 +49,8 @@ export async function parse(text) {
                 }
 
                 switch (pattern) {
-                    case 'explicit': {
-                        confidence = Confidence.HIGH;
-                        break;
-                    }
                     case 'inferred': {
-                        confidence = Confidence.MEDIUM;
+                        confidence = Confidence.HIGH;
                         break;
                     }
                 }

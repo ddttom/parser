@@ -18,23 +18,6 @@ export async function parse(text) {
     }
 
     try {
-        // Check for explicit tag format
-        const explicitMatch = text.match(/\[tag:([^\]]+)\]/i);
-        if (explicitMatch) {
-            const tag = explicitMatch[1].trim();
-            if (!validateTag(tag)) return null;
-
-            return {
-                type: 'tag',
-                value: [tag],
-                metadata: {
-                    pattern: 'explicit_tag',
-                    confidence: Confidence.HIGH,
-                    originalMatch: explicitMatch[0]
-                }
-            };
-        }
-
         // Check for hashtags
         const hashtagMatches = text.match(/#([a-z0-9][a-z0-9_-]*)\b/ig);
         if (hashtagMatches) {

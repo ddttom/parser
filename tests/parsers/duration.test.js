@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/duration.js';
 describe('Duration Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[duration:2h30m]');
+      const result = await parse('takes 2 hours and 30 minutes');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[duration:2h30m]');
+      const result = await parse('takes 2 hours and 30 minutes');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -23,78 +23,142 @@ describe('Duration Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should detect explicit duration markers', async () => {
-      const result = await parse('Task takes [duration:2h30m]');
-      expect(result.value).toEqual({
-        hours: 2,
-        minutes: 30,
-        totalMinutes: 150
-      });
-      expect(result.metadata.pattern).toBe('explicit_duration');
-      expect(result.metadata.originalMatch).toBe('[duration:2h30m]');
-    });
-
     test('should detect natural duration expressions', async () => {
-      const result = await parse('Takes about 2 hours and 30 minutes');
-      expect(result.value).toEqual({
-        hours: 2,
-        minutes: 30,
-        totalMinutes: 150
-      });
-      expect(result.metadata.pattern).toBe('natural');
-      expect(result.metadata.originalMatch).toBe('2 hours and 30 minutes');
+      const variations = [
+        'takes about 2 hours and 30 minutes',
+        'duration is 2 hours and 30 minutes',
+        'takes 2 hours 30 minutes'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          hours: 2,
+          minutes: 30,
+          totalMinutes: 150
+        });
+        expect(result.metadata.pattern).toBe('natural');
+      }
     });
 
     test('should detect short duration formats', async () => {
-      const result = await parse('Duration: 2.5h');
-      expect(result.value).toEqual({
-        hours: 2,
-        minutes: 30,
-        totalMinutes: 150
-      });
-      expect(result.metadata.pattern).toBe('short_duration');
-      expect(result.metadata.originalMatch).toBe('2.5h');
+      const variations = [
+        { input: '2.5h', hours: 2, minutes: 30 },
+        { input: '1.75h', hours: 1, minutes: 45 },
+        { input: '0.5h', hours: 0, minutes: 30 }
+      ];
+
+      for (const { input, hours, minutes } of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          hours,
+          minutes,
+          totalMinutes: hours * 60 + minutes
+        });
+        expect(result.metadata.pattern).toBe('short_duration');
+      }
+    });
+
+    test('should detect minutes only format', async () => {
+      const variations = [
+        { input: '90m', hours: 1, minutes: 30 },
+        { input: '45m', hours: 0, minutes: 45 },
+        { input: '120m', hours: 2, minutes: 0 }
+      ];
+
+      for (const { input, hours, minutes } of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          hours,
+          minutes,
+          totalMinutes: hours * 60 + minutes
+        });
+        expect(result.metadata.pattern).toBe('minutes_only');
+      }
     });
   });
 
-  describe('Duration Formats', () => {
-    test('should handle hours and minutes format', async () => {
-      const result = await parse('[duration:2h30m]');
-      expect(result.value).toEqual({
-        hours: 2,
-        minutes: 30,
-        totalMinutes: 150
-      });
+  describe('Natural Language Variations', () => {
+    test('should handle hours only', async () => {
+      const variations = [
+        'takes 2 hours',
+        'duration is 2 hours',
+        'about 2 hours'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          hours: 2,
+          minutes: 0,
+          totalMinutes: 120
+        });
+        expect(result.metadata.pattern).toBe('natural');
+      }
     });
 
-    test('should handle decimal hours format', async () => {
-      const result = await parse('Duration: 2.5h');
-      expect(result.value).toEqual({
-        hours: 2,
-        minutes: 30,
-        totalMinutes: 150
-      });
+    test('should handle minutes only', async () => {
+      const variations = [
+        'takes 45 minutes',
+        'duration is 45 minutes',
+        'about 45 minutes'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          hours: 0,
+          minutes: 45,
+          totalMinutes: 45
+        });
+        expect(result.metadata.pattern).toBe('natural');
+      }
     });
 
-    test('should handle minutes only format', async () => {
-      const result = await parse('takes 90m');
-      expect(result.value).toEqual({
-        hours: 1,
-        minutes: 30,
-        totalMinutes: 90
-      });
+    test('should handle combined hours and minutes', async () => {
+      const variations = [
+        'takes 1 hour and 30 minutes',
+        'duration is 1 hour 30 minutes',
+        'about 1 hour and 30 minutes'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          hours: 1,
+          minutes: 30,
+          totalMinutes: 90
+        });
+        expect(result.metadata.pattern).toBe('natural');
+      }
     });
   });
 
   describe('Error Handling', () => {
-    test('should handle invalid duration format', async () => {
-      const result = await parse('[duration:]');
-      expect(result).toBeNull();
+    test('should handle invalid time values', async () => {
+      const invalid = [
+        'takes 25 hours',
+        'duration is 60 minutes and 2 hours',
+        'about -1 hours'
+      ];
+
+      for (const input of invalid) {
+        const result = await parse(input);
+        expect(result).toBeNull();
+      }
     });
 
-    test('should handle invalid time values', async () => {
-      const result = await parse('[duration:25h]');
-      expect(result).toBeNull();
+    test('should handle malformed expressions', async () => {
+      const malformed = [
+        'takes hours',
+        'duration is minutes',
+        'about and minutes'
+      ];
+
+      for (const input of malformed) {
+        const result = await parse(input);
+        expect(result).toBeNull();
+      }
     });
   });
 });

@@ -46,7 +46,6 @@ export async function parse(text) {
     try {
         // Order matters - more specific patterns first
         const patterns = new Map([
-            ['explicit', /\[sprint:(\d+)(?:,?\s+([^\]]+))?\]/i],
             ['phase', /(?:sprint\s+(?:planning|review|retro(?:spective)?)|(?:planning|review|retro(?:spective)?)\s+for\s+sprint)\s+(\d+)(?:\s|$)/i],
             ['labeled', /^sprint\s+(\d+)(?:\s*([:-])\s*([^,\n]+))?/i],
             ['implicit', /\b(?:in|during|for)\s+sprint\s+(\d+)(?:\s|$)/i]
@@ -66,18 +65,6 @@ export async function parse(text) {
                 }
 
                 switch (pattern) {
-                    case 'explicit': {
-                        confidence = Confidence.HIGH;
-                        const description = match[2]?.trim() || null;
-                        value = {
-                            number: sprintNumber,
-                            phase: description ? inferSprintPhase(description) : 'general',
-                            description,
-                            isExplicit: true
-                        };
-                        break;
-                    }
-
                     case 'phase': {
                         confidence = Confidence.MEDIUM;
                         const phaseText = match[0].toLowerCase();

@@ -52,8 +52,6 @@ function extractRationale(text, pattern) {
 
 function getBaseConfidence(pattern) {
     switch (pattern) {
-        case 'explicit':
-            return Confidence.HIGH;
         case 'decided':
         case 'choice':
             return Confidence.HIGH;
@@ -67,11 +65,6 @@ function getBaseConfidence(pattern) {
 }
 
 function calculateConfidence(pattern, text) {
-    // Explicit patterns always get HIGH confidence
-    if (pattern === 'explicit') {
-        return Confidence.HIGH;
-    }
-
     // Context words can upgrade confidence in some cases
     const contextWords = ['therefore', 'thus', 'hence', 'consequently'];
     const hasContextWord = contextWords.some(word => text.toLowerCase().startsWith(word));
@@ -97,7 +90,6 @@ export async function parse(text) {
     try {
         const contextPattern = '(?:therefore|thus|hence|consequently)\\s*,?\\s*';
         const patterns = {
-            explicit: /\[decision:([^,\]]+?)(?:\s*,\s*(?:because(?:\s+of)?\s+)?([^\]]+))?\]/i,
             decided: /(?:^(?:therefore|thus|hence|consequently)\s*,?\s*)?(?:^|\b)(?:decided\s+to\s+)([^,\.]+?)(?:\s+because(?:\s+of)?\s+([^,\.]+))?(?=[,\.]|$)/i,
             choice: /(?:^(?:therefore|thus|hence|consequently)\s*,?\s*)?(?:^|\b)(?:choice:\s*)([^,\.]+?)(?:\s+because(?:\s+of)?\s+([^,\.]+))?(?=[,\.]|$)/i,
             selected: /(?:^(?:therefore|thus|hence|consequently)\s*,?\s*)?(?:^|\b)(?:selected\s+)([^,\.]+?)\s+over\s+([^,\.]+?)(?:\s+because(?:\s+of)?\s+([^,\.]+))?(?=[,\.]|$)/i,
@@ -156,7 +148,7 @@ export async function parse(text) {
                             type,
                             rationale: rationale || null,
                             ...(alternative && { alternative }),
-                            isExplicit: pattern === 'explicit' || pattern !== 'going'
+                            isExplicit: pattern !== 'going'
                         },
                         metadata: {
                             confidence,

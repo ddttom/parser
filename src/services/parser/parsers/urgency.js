@@ -44,26 +44,6 @@ export async function parse(text) {
     }
 
     try {
-        // Check for explicit urgency format
-        const explicitMatch = text.match(/\[urgency:([^\]]+)\]/i);
-        if (explicitMatch) {
-            const level = explicitMatch[1].toLowerCase().trim();
-            if (!validateUrgencyLevel(level)) return null;
-
-            return {
-                type: 'urgency',
-                value: {
-                    level,
-                    score: URGENCY_LEVELS[level]
-                },
-                metadata: {
-                    pattern: 'explicit_urgency',
-                    confidence: Confidence.HIGH,
-                    originalMatch: explicitMatch[0]
-                }
-            };
-        }
-
         // Check for time-based urgency
         for (const pattern of TIME_URGENCY_PATTERNS) {
             const timeMatch = text.match(pattern);

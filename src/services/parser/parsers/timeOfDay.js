@@ -31,28 +31,6 @@ export async function parse(text) {
     }
 
     try {
-        // Check for explicit time format
-        const explicitMatch = text.match(/\[time:(\d{1,2}):(\d{2})\]/i);
-        if (explicitMatch) {
-            const hour = parseInt(explicitMatch[1], 10);
-            const minute = parseInt(explicitMatch[2], 10);
-            if (!validateTime(hour, minute)) return null;
-
-            return {
-                type: 'timeofday',
-                value: {
-                    hour,
-                    minute,
-                    format: '24h'
-                },
-                metadata: {
-                    pattern: 'explicit_time',
-                    confidence: Confidence.HIGH,
-                    originalMatch: explicitMatch[0]
-                }
-            };
-        }
-
         // Check for 12-hour format
         const twelveHourMatch = text.match(/\b(\d{1,2}):(\d{2})\s*(AM|PM)\b/i);
         if (twelveHourMatch) {

@@ -3,12 +3,12 @@ import { name, parse, validateRole } from '../../src/services/parser/parsers/rol
 describe('Role Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[role:developer]');
+      const result = await parse('acting as developer');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[role:developer]');
+      const result = await parse('acting as developer');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -23,29 +23,6 @@ describe('Role Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should detect explicit role markers', async () => {
-      const result = await parse('[role:developer]');
-      expect(result.value).toEqual({
-        role: 'developer',
-        originalName: 'developer'
-      });
-      expect(result.metadata.pattern).toBe('explicit');
-      expect(result.metadata.originalMatch).toBe('[role:developer]');
-    });
-
-    test('should detect role with parameters', async () => {
-      const result = await parse('[role:developer(team=frontend)]');
-      expect(result.value).toEqual({
-        role: 'developer',
-        originalName: 'developer',
-        parameters: {
-          team: 'frontend'
-        }
-      });
-      expect(result.metadata.pattern).toBe('parameterized');
-      expect(result.metadata.originalMatch).toBe('[role:developer(team=frontend)]');
-    });
-
     test('should detect inferred roles', async () => {
       const result = await parse('acting as developer');
       expect(result.value).toEqual({
@@ -58,17 +35,36 @@ describe('Role Parser', () => {
 
     test('should handle various role patterns', async () => {
       const patterns = [
-        { input: 'as developer', pattern: 'inferred' },
-        { input: 'acting as developer', pattern: 'inferred' },
-        { input: 'in role of developer', pattern: 'inferred' },
-        { input: 'assigned as developer', pattern: 'inferred' }
+        'as developer',
+        'acting as developer',
+        'working as developer',
+        'assigned as developer',
+        'serving as developer'
       ];
 
-      for (const { input, pattern } of patterns) {
+      for (const input of patterns) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          role: 'developer',
+          originalName: 'developer'
+        });
+        expect(result.metadata.pattern).toBe('inferred');
+        expect(result.metadata.originalMatch).toBe(input);
+      }
+    });
+
+    test('should detect roles in context', async () => {
+      const contexts = [
+        'John is acting as developer',
+        'Task assigned as developer',
+        'Project needs someone as developer',
+        'Team member working as developer'
+      ];
+
+      for (const input of contexts) {
         const result = await parse(input);
         expect(result.value.role).toBe('developer');
-        expect(result.metadata.pattern).toBe(pattern);
-        expect(result.metadata.originalMatch).toBe(input);
+        expect(result.metadata.pattern).toBe('inferred');
       }
     });
   });
@@ -88,74 +84,53 @@ describe('Role Parser', () => {
       ];
 
       for (const role of validRoles) {
-        const result = await parse(`[role:${role}]`);
+        const result = await parse(`acting as ${role}`);
         expect(result.value.role).toBe(role);
-        expect(result.metadata.pattern).toBe('explicit');
-        expect(result.metadata.originalMatch).toBe(`[role:${role}]`);
+        expect(result.metadata.pattern).toBe('inferred');
       }
     });
 
     test('should handle case insensitivity', async () => {
-      const result = await parse('[role:DEVELOPER]');
-      expect(result.value.role).toBe('developer');
-      expect(result.value.originalName).toBe('DEVELOPER');
-      expect(result.metadata.pattern).toBe('explicit');
-      expect(result.metadata.originalMatch).toBe('[role:DEVELOPER]');
-    });
-
-    test('should normalize role names', async () => {
       const variations = [
-        ['dev', 'developer'],
-        ['devs', 'developer'],
-        ['developer', 'developer'],
-        ['mgr', 'manager'],
-        ['admin', 'administrator']
+        'acting as DEVELOPER',
+        'acting as Developer',
+        'acting as dEvElOpEr'
       ];
 
-      for (const [input, expected] of variations) {
-        const result = await parse(`[role:${input}]`);
-        expect(result.value.role).toBe(expected);
-        expect(result.metadata.pattern).toBe('explicit');
-        expect(result.metadata.originalMatch).toBe(`[role:${input}]`);
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value.role).toBe('developer');
+        expect(result.metadata.pattern).toBe('inferred');
       }
     });
   });
 
   describe('Error Handling', () => {
-    test('should handle invalid role format', async () => {
-      const result = await parse('[role:]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle empty role value', async () => {
-      const result = await parse('[role: ]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle malformed parameters', async () => {
-      const invalidParams = [
-        '[role:developer()]',
-        '[role:developer(team)]',
-        '[role:developer(team=)]',
-        '[role:developer(=frontend)]'
+    test('should handle invalid role names', async () => {
+      const invalidRoles = [
+        'acting as 123',
+        'acting as @#$',
+        'acting as    ',
+        'acting as invalid'
       ];
 
-      for (const param of invalidParams) {
-        const result = await parse(param);
+      for (const input of invalidRoles) {
+        const result = await parse(input);
         expect(result).toBeNull();
       }
     });
 
-    test('should handle invalid role names', async () => {
-      const invalidRoles = [
-        '[role:123]',
-        '[role:@#$]',
-        '[role:   ]',
-        '[role:invalid]'
+    test('should handle malformed patterns', async () => {
+      const malformed = [
+        'acting developer',
+        'as',
+        'acting as',
+        'as as developer',
+        'acting acting as developer'
       ];
 
-      for (const role of invalidRoles) {
-        const result = await parse(role);
+      for (const input of malformed) {
+        const result = await parse(input);
         expect(result).toBeNull();
       }
     });
@@ -170,7 +145,7 @@ describe('Role Parser', () => {
       };
 
       try {
-        const result = await parse('[role:developer]');
+        const result = await parse('acting as developer');
         expect(result).toEqual({
           type: 'error',
           error: 'PARSER_ERROR',

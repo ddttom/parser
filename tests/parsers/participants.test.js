@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/participants.js';
 describe('Participants Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[participants:John, Sarah]');
+      const result = await parse('Meeting with John and Sarah');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[participants:John, Sarah]');
+      const result = await parse('Meeting with John and Sarah');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -23,111 +23,129 @@ describe('Participants Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should detect explicit participant lists', async () => {
-      const result = await parse('Meeting with [participants:John, Sarah, Mike]');
-      expect(result.value).toEqual({
-        participants: ['John', 'Sarah', 'Mike'],
-        count: 3
-      });
-      expect(result.metadata.pattern).toBe('explicit_list');
-      expect(result.metadata.originalMatch).toBe('[participants:John, Sarah, Mike]');
+    test('should detect natural language participant lists', async () => {
+      const variations = [
+        'Meeting with John, Sarah, and Mike',
+        'Discussion includes John, Sarah, and Mike',
+        'Session has John, Sarah, and Mike'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          participants: ['John', 'Sarah', 'Mike'],
+          count: 3
+        });
+        expect(result.metadata.pattern).toBe('natural_list');
+      }
+    });
+
+    test('should detect simple participant lists', async () => {
+      const variations = [
+        'Meeting with John and Sarah',
+        'Discussion with John and Sarah',
+        'Call with John and Sarah'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          participants: ['John', 'Sarah'],
+          count: 2
+        });
+        expect(result.metadata.pattern).toBe('implicit');
+      }
     });
 
     test('should detect participants with roles', async () => {
-      const result = await parse('Meeting with John (host) and Sarah (presenter)');
-      expect(result.value).toEqual({
-        participants: [
-          { name: 'John', role: 'host' },
-          { name: 'Sarah', role: 'presenter' }
-        ],
-        count: 2
-      });
-      expect(result.metadata.pattern).toBe('role_assignment');
-      expect(result.metadata.originalMatch).toBe('John (host) and Sarah (presenter)');
+      const variations = [
+        { input: 'Meeting with John (host) and Sarah (presenter)', roles: ['host', 'presenter'] },
+        { input: 'Call with Mike (lead) and Emma (developer)', roles: ['lead', 'developer'] },
+        { input: 'Discussion with Alex (moderator) and Lisa (speaker)', roles: ['moderator', 'speaker'] }
+      ];
+
+      for (const { input, roles } of variations) {
+        const result = await parse(input);
+        expect(result.value.participants).toHaveLength(2);
+        expect(result.value.participants[0].role).toBe(roles[0]);
+        expect(result.value.participants[1].role).toBe(roles[1]);
+        expect(result.metadata.pattern).toBe('role_assignment');
+      }
     });
 
     test('should detect participant mentions', async () => {
-      const result = await parse('Discussion with @john and @sarah');
-      expect(result.value).toEqual({
-        participants: ['john', 'sarah'],
-        count: 2
-      });
-      expect(result.metadata.pattern).toBe('mentions');
-      expect(result.metadata.originalMatch).toBe('@john and @sarah');
-    });
+      const variations = [
+        { input: 'Discussion with @john and @sarah', participants: ['john', 'sarah'] },
+        { input: 'Meeting with @mike and @emma', participants: ['mike', 'emma'] },
+        { input: 'Call with @alex and @lisa', participants: ['alex', 'lisa'] }
+      ];
 
-    test('should detect participants with parameters', async () => {
-      const result = await parse('[participants:John(team=dev), Sarah(team=design)]');
-      expect(result.value).toEqual({
-        participants: [
-          { name: 'John', parameters: { team: 'dev' } },
-          { name: 'Sarah', parameters: { team: 'design' } }
-        ],
-        count: 2
-      });
-      expect(result.metadata.pattern).toBe('parameterized_list');
-      expect(result.metadata.originalMatch).toBe('[participants:John(team=dev), Sarah(team=design)]');
-    });
-
-    test('should detect natural language participant lists', async () => {
-      const result = await parse('Meeting with John, Sarah, and Mike');
-      expect(result.value).toEqual({
-        participants: ['John', 'Sarah', 'Mike'],
-        count: 3
-      });
-      expect(result.metadata.pattern).toBe('natural_list');
-      expect(result.metadata.originalMatch).toBe('John, Sarah, and Mike');
+      for (const { input, participants } of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          participants,
+          count: 2
+        });
+        expect(result.metadata.pattern).toBe('mentions');
+      }
     });
   });
 
-  describe('Error Handling', () => {
-    test('should handle invalid participant format', async () => {
-      const result = await parse('[participants:]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle empty participant list', async () => {
-      const result = await parse('[participants: ]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle invalid role format', async () => {
-      const invalidRoles = [
-        'John ()',
-        'John (role=)',
-        'John (=host)',
-        'John (invalid@role)'
+  describe('Name Validation', () => {
+    test('should validate participant names', async () => {
+      const validNames = [
+        'Meeting with John Smith and Sarah Johnson',
+        'Discussion with Mike Brown and Emma Davis',
+        'Call with Alex Wilson and Lisa Clark'
       ];
 
-      for (const role of invalidRoles) {
-        const result = await parse(role);
-        expect(result).toBeNull();
+      for (const input of validNames) {
+        const result = await parse(input);
+        expect(result).not.toBeNull();
+        expect(result.value.participants).toHaveLength(2);
       }
     });
 
-    test('should handle malformed parameters', async () => {
-      const invalidParams = [
-        '[participants:John()]',
-        '[participants:John(team)]',
-        '[participants:John(team=)]',
-        '[participants:John(=dev)]'
-      ];
-
-      for (const param of invalidParams) {
-        const result = await parse(param);
-        expect(result).toBeNull();
-      }
-    });
-
-    test('should handle invalid participant names', async () => {
+    test('should reject invalid names', async () => {
       const invalidNames = [
-        '[participants:123]',
-        '[participants:@#$]',
-        '[participants:   ]'
+        'Meeting with 123 and 456',
+        'Discussion with @#$ and %^&',
+        'Call with    and    '
       ];
 
-      for (const name of invalidNames) {
-        const result = await parse(name);
+      for (const input of invalidNames) {
+        const result = await parse(input);
+        expect(result).toBeNull();
+      }
+    });
+  });
+
+  describe('Role Validation', () => {
+    test('should validate role formats', async () => {
+      const validRoles = [
+        'Meeting with John (host) and Sarah (presenter)',
+        'Call with Mike (lead) and Emma (developer)',
+        'Discussion with Alex (moderator) and Lisa (speaker)'
+      ];
+
+      for (const input of validRoles) {
+        const result = await parse(input);
+        expect(result).not.toBeNull();
+        expect(result.value.participants).toHaveLength(2);
+        expect(result.value.participants[0].role).toBeTruthy();
+        expect(result.value.participants[1].role).toBeTruthy();
+      }
+    });
+
+    test('should reject invalid role formats', async () => {
+      const invalidRoles = [
+        'Meeting with John () and Sarah ()',
+        'Call with Mike (123) and Emma (456)',
+        'Discussion with Alex (@#$) and Lisa (%^&)'
+      ];
+
+      for (const input of invalidRoles) {
+        const result = await parse(input);
         expect(result).toBeNull();
       }
     });

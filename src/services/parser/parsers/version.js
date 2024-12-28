@@ -24,10 +24,10 @@ export async function parse(text) {
     }
 
     try {
-        // Check for explicit version format
-        const explicitMatch = text.match(/\[version:([^\]]+)\]/i);
-        if (explicitMatch) {
-            const version = explicitMatch[1].trim();
+        // Parse version format
+        const versionMatch = text.match(/\b(?:version|v)\s*(\d+\.\d+\.\d+)\b/i);
+        if (versionMatch) {
+            const version = versionMatch[1];
             // Call validateVersion directly to allow error propagation
             const isValid = parse.validateVersion(version);
             if (!isValid) return null;
@@ -36,28 +36,9 @@ export async function parse(text) {
                 type: 'version',
                 value: parseVersion(version),
                 metadata: {
-                    pattern: 'explicit_version',
+                    pattern: 'version',
                     confidence: Confidence.HIGH,
-                    originalMatch: explicitMatch[0]
-                }
-            };
-        }
-
-        // Check for inferred version format
-        const inferredMatch = text.match(/\b(?:version|v)\s*(\d+\.\d+\.\d+)\b/i);
-        if (inferredMatch) {
-            const version = inferredMatch[1];
-            // Call validateVersion directly to allow error propagation
-            const isValid = parse.validateVersion(version);
-            if (!isValid) return null;
-
-            return {
-                type: 'version',
-                value: parseVersion(version),
-                metadata: {
-                    pattern: 'inferred_version',
-                    confidence: Confidence.MEDIUM,
-                    originalMatch: inferredMatch[0]
+                    originalMatch: versionMatch[0]
                 }
             };
         }

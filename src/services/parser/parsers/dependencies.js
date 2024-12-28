@@ -24,10 +24,10 @@ export async function parse(text) {
   }
 
   const patterns = {
-    explicit_dependency: /\b(depends\s+on)\s+\[task:([^\]]+)\]/i,
-    multiple_dependencies: /\b(after)\s+\[task:([^\]]+)\]\s+and\s+\[task:([^\]]+)\]/i,
-    relationship_dependency: /\b(blocks)\s+\[task:([^\]]+)\]/i,
-    implicit_dependency: /\b(after)\s+task\s+([a-zA-Z0-9_-]+)\b/i
+    natural_dependency: /\b(depends\s+on)\s+(?:task\s+)?([a-zA-Z0-9_-]+)\b/i,
+    multiple_dependencies: /\b(after)\s+(?:tasks?\s+)?([a-zA-Z0-9_-]+)\s+and\s+([a-zA-Z0-9_-]+)\b/i,
+    relationship_dependency: /\b(blocks)\s+(?:task\s+)?([a-zA-Z0-9_-]+)\b/i,
+    implicit_dependency: /\b(after)\s+(?:task\s+)?([a-zA-Z0-9_-]+)\b/i
   };
 
   let bestMatch = null;
@@ -46,7 +46,7 @@ export async function parse(text) {
       }
 
       switch (pattern) {
-        case 'explicit_dependency': {
+        case 'natural_dependency': {
           confidence = Confidence.HIGH;
           value = {
             type: 'task',
@@ -86,7 +86,7 @@ export async function parse(text) {
         }
 
         case 'implicit_dependency': {
-          confidence = Confidence.LOW;
+          confidence = Confidence.MEDIUM;
           value = {
             type: 'task',
             id: match[2],

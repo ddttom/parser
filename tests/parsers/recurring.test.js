@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/recurring.js';
 describe('Recurring Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[recur:daily]');
+      const result = await parse('every day');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[recur:daily]');
+      const result = await parse('every day');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -23,55 +23,53 @@ describe('Recurring Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should detect explicit recurring markers', async () => {
-      const result = await parse('[recur:daily]');
-      expect(result.value).toEqual({
-        type: 'day',
-        interval: 1,
-        end: null
-      });
-      expect(result.metadata.pattern).toBe('explicit');
-      expect(result.metadata.originalMatch).toBe('[recur:daily]');
-    });
-
-    test('should detect recurring with parameters', async () => {
-      const result = await parse('[recur:daily(skip=weekends)]');
-      expect(result.value).toEqual({
-        type: 'day',
-        interval: 1,
-        excludeWeekends: true,
-        end: null
-      });
-      expect(result.metadata.pattern).toBe('parameterized');
-      expect(result.metadata.originalMatch).toBe('[recur:daily(skip=weekends)]');
-    });
-
     test('should detect business days pattern', async () => {
-      const result = await parse('every business day');
-      expect(result.value).toEqual({
-        type: 'business',
-        interval: 1,
-        excludeWeekends: true,
-        end: null
-      });
-      expect(result.metadata.pattern).toBe('business');
-      expect(result.metadata.originalMatch).toBe('every business day');
+      const variations = [
+        'every business day',
+        'each business day',
+        'every working day',
+        'each work day'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          type: 'business',
+          interval: 1,
+          excludeWeekends: true,
+          end: null
+        });
+        expect(result.metadata.pattern).toBe('business');
+        expect(result.metadata.originalMatch).toBe(input);
+      }
     });
 
     test('should detect weekday pattern', async () => {
-      const result = await parse('every monday');
-      expect(result.value).toEqual({
-        type: 'specific',
-        day: 'monday',
-        dayIndex: 1,
-        interval: 1,
-        end: null
-      });
-      expect(result.metadata.pattern).toBe('weekday');
-      expect(result.metadata.originalMatch).toBe('every monday');
+      const weekdays = [
+        { input: 'every monday', day: 'monday', index: 1 },
+        { input: 'every tuesday', day: 'tuesday', index: 2 },
+        { input: 'every wednesday', day: 'wednesday', index: 3 },
+        { input: 'every thursday', day: 'thursday', index: 4 },
+        { input: 'every friday', day: 'friday', index: 5 },
+        { input: 'every saturday', day: 'saturday', index: 6 },
+        { input: 'every sunday', day: 'sunday', index: 0 }
+      ];
+
+      for (const { input, day, index } of weekdays) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          type: 'specific',
+          day,
+          dayIndex: index,
+          interval: 1,
+          end: null
+        });
+        expect(result.metadata.pattern).toBe('weekday');
+        expect(result.metadata.originalMatch).toBe(input);
+      }
     });
 
-    test('should detect interval patterns', async () => {
+    test('should detect basic intervals', async () => {
       const intervals = [
         { input: 'every hour', type: 'hour' },
         { input: 'every day', type: 'day' },
@@ -81,67 +79,83 @@ describe('Recurring Parser', () => {
 
       for (const { input, type } of intervals) {
         const result = await parse(input);
-        expect(result.value.type).toBe(type);
-        expect(result.value.interval).toBe(1);
-        expect(result.metadata.pattern).toBe('interval');
-        expect(result.metadata.originalMatch).toBe(input);
+        expect(result.value).toEqual({
+          type,
+          interval: 1,
+          end: null
+        });
+        expect(result.metadata.pattern).toBe(type);
       }
     });
 
-    test('should detect multiple interval pattern', async () => {
-      const result = await parse('every 2 weeks');
-      expect(result.value).toEqual({
-        type: 'week',
-        interval: 2,
-        end: null
-      });
-      expect(result.metadata.pattern).toBe('interval');
-      expect(result.metadata.originalMatch).toBe('every 2 weeks');
+    test('should detect custom intervals', async () => {
+      const intervals = [
+        { input: 'every 2 hours', type: 'hour', interval: 2 },
+        { input: 'every 3 days', type: 'day', interval: 3 },
+        { input: 'every 2 weeks', type: 'week', interval: 2 },
+        { input: 'every 6 months', type: 'month', interval: 6 }
+      ];
+
+      for (const { input, type, interval } of intervals) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          type,
+          interval,
+          end: null
+        });
+        expect(result.metadata.pattern).toBe('interval');
+      }
     });
   });
 
   describe('End Conditions', () => {
     test('should extract count end condition', async () => {
-      const result = await parse('every day for 5 times');
-      expect(result.value.end).toEqual({
-        type: 'count',
-        value: 5
-      });
-      expect(result.metadata.includesEndCondition).toBe(true);
-      expect(result.metadata.originalMatch).toBe('every day for 5 times');
+      const variations = [
+        'every day for 5 times',
+        'every week for 3 times',
+        'every month for 12 times',
+        'every business day for 20 times'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value.end).toEqual({
+          type: 'count',
+          value: parseInt(input.match(/(\d+)\s+times/)[1], 10)
+        });
+        expect(result.metadata.includesEndCondition).toBe(true);
+      }
     });
 
     test('should extract date end condition', async () => {
-      const result = await parse('every week until December 31');
-      expect(result.value.end).toEqual({
-        type: 'until',
-        value: 'December 31'
-      });
-      expect(result.metadata.includesEndCondition).toBe(true);
-      expect(result.metadata.originalMatch).toBe('every week until December 31');
+      const variations = [
+        'every day until December 31',
+        'every week until next Friday',
+        'every month until year end',
+        'every business day until project completion'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value.end).toEqual({
+          type: 'until',
+          value: input.split('until ')[1]
+        });
+        expect(result.metadata.includesEndCondition).toBe(true);
+      }
     });
 
     test('should prioritize count over date when both present', async () => {
-      const result = await parse('every month for 3 times until December 31');
+      const input = 'every month for 3 times until December 31';
+      const result = await parse(input);
       expect(result.value.end).toEqual({
         type: 'count',
         value: 3
       });
-      expect(result.metadata.originalMatch).toBe('every month for 3 times until December 31');
     });
   });
 
   describe('Error Handling', () => {
-    test('should handle invalid recurring format', async () => {
-      const result = await parse('[recur:]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle empty recurring value', async () => {
-      const result = await parse('[recur: ]');
-      expect(result).toBeNull();
-    });
-
     test('should handle invalid interval values', async () => {
       const invalidIntervals = [
         'every 0 days',
@@ -172,16 +186,17 @@ describe('Recurring Parser', () => {
       }
     });
 
-    test('should handle malformed parameters', async () => {
-      const invalidParams = [
-        '[recur:daily()]',
-        '[recur:daily(skip)]',
-        '[recur:daily(skip=)]',
-        '[recur:daily(=weekends)]'
+    test('should handle malformed patterns', async () => {
+      const malformed = [
+        'every',
+        'every the day',
+        'each the week',
+        'every 1.5.2 days',
+        'every . days'
       ];
 
-      for (const param of invalidParams) {
-        const result = await parse(param);
+      for (const input of malformed) {
+        const result = await parse(input);
         expect(result).toBeNull();
       }
     });

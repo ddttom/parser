@@ -81,29 +81,25 @@ export async function parse(text) {
   }
 
   const patterns = {
-    parameterized_list: /\[participants:([^\]]+(?:\([^)]+\))[^\]]*)\]/i,
-    explicit_list: /\[participants:([^\]]+)\]/i,
     role_assignment: /(\w+)\s*\((\w+)\)(?:\s*(?:and|,)\s*(\w+)\s*\((\w+)\))?/i,
     mentions: /@(\w+)(?:\s*(?:and|,)\s*@(\w+))?/i
   };
 
   // Try natural list patterns first
-  if (!text.match(/\[participants:/i) && !text.match(/\w+\s*\([^)]+\)/)) {
-    const naturalList = findNaturalList(text);
-    if (naturalList) {
-      return {
-        type: 'participants',
-        value: {
-          participants: naturalList.participants,
-          count: naturalList.participants.length
-        },
-        metadata: {
-          confidence: naturalList.confidence,
-          pattern: naturalList.confidence === Confidence.MEDIUM ? 'natural_list' : 'implicit',
-          originalMatch: naturalList.match
-        }
-      };
-    }
+  const naturalList = findNaturalList(text);
+  if (naturalList) {
+    return {
+      type: 'participants',
+      value: {
+        participants: naturalList.participants,
+        count: naturalList.participants.length
+      },
+      metadata: {
+        confidence: naturalList.confidence,
+        pattern: naturalList.confidence === Confidence.MEDIUM ? 'natural_list' : 'implicit',
+        originalMatch: naturalList.match
+      }
+    };
   }
 
   let bestMatch = null;
@@ -111,8 +107,6 @@ export async function parse(text) {
 
   // Process other patterns in priority order
   const patternOrder = [
-    'parameterized_list',
-    'explicit_list',
     'role_assignment',
     'mentions'
   ];
@@ -125,50 +119,7 @@ export async function parse(text) {
       let value;
 
       switch (pattern) {
-        case 'parameterized_list': {
-          const participantMatches = match[1].match(/(\w+)\(([^)]+)\)/g);
-          if (!participantMatches) continue;
-
-          const participants = [];
-          for (const pMatch of participantMatches) {
-            const [_, name, paramStr] = pMatch.match(/(\w+)\(([^)]+)\)/);
-            if (!validateParticipantName(name)) continue;
-            
-            const parameters = parseParameters(paramStr);
-            if (!parameters) continue;
-
-            participants.push({ name, parameters });
-          }
-
-          if (participants.length === 0) continue;
-
-          confidence = Confidence.HIGH;
-          value = {
-            participants,
-            count: participants.length
-          };
-          break;
-        }
-
-        case 'explicit_list': {
-          // Skip if this looks like a parameterized list
-          if (text.match(/\[participants:.*\([^)]+\)/i)) continue;
-
-          const participants = extractParticipants(match[1]);
-          if (participants.length === 0) continue;
-
-          confidence = Confidence.HIGH;
-          value = {
-            participants,
-            count: participants.length
-          };
-          break;
-        }
-
         case 'role_assignment': {
-          // Skip if this looks like a parameterized list
-          if (text.match(/\[participants:.*\([^)]+\)/i)) continue;
-
           const participants = [];
           
           if (match[1] && match[2] && validateParticipantName(match[1]) && validateRole(match[2])) {
@@ -196,8 +147,8 @@ export async function parse(text) {
         }
 
         case 'mentions': {
-          // Skip if this looks like a parameterized list or role assignment
-          if (text.match(/\[participants:.*\([^)]+\)/i) || text.match(/\w+\s*\([^)]+\)/)) continue;
+          // Skip if this looks like a role assignment
+          if (text.match(/\w+\s*\([^)]+\)/)) continue;
 
           const participants = [match[1]]
             .concat(match[2] ? [match[2]] : [])

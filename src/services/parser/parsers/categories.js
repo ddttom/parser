@@ -26,51 +26,32 @@ function validateCategory(category) {
     return parts.every(isValidCategoryName);
 }
 
-function hasInvalidCategoryPattern(text) {
-    // Check for empty category markers
-    if (/\[category:\s*\]/.test(text)) return true;
-
-    // Check for invalid category names in any category marker
-    const categoryRegex = /\[category:([^\]]+)\]/g;
-    let match;
-    while ((match = categoryRegex.exec(text)) !== null) {
-        const category = match[1].trim();
-        if (!validateCategory(category)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 export async function parse(text) {
     const validationError = validateParserInput(text, 'CategoriesParser');
     if (validationError) {
         return validationError;
     }
 
-    // Check for invalid patterns first
-    if (hasInvalidCategoryPattern(text)) {
-        return null;
-    }
-
     const patterns = {
-        multiple_categories: /(?:\[category:([^\]]+)\][\s,]*){2,}/i,
-        nested_category: /\[category:([^\]\/]+(?:\/[^\]\/]+)+)\]/i,
-        explicit_category: /\[category:([^\]\/]+)\]/i,
-        inferred_category: /#([a-zA-Z]\w*)/i
+        hashtag_categories: /(?:#([a-zA-Z]\w*(?:\/[a-zA-Z]\w*)*)[\s,]*){2,}/i,
+        nested_hashtag: /#([a-zA-Z]\w*(?:\/[a-zA-Z]\w*)+)\b/i,
+        single_hashtag: /#([a-zA-Z]\w*)\b/i,
+        category_list: /(?:categories?|tags?|under|in)(?:\s*:\s*|\s+)((?:[a-zA-Z]\w*(?:\s*,\s*[a-zA-Z]\w*)*))(?:\s|$)/i,
+        nested_category: /(?:under|in|category|subcategory)(?:\s*:\s*|\s+)([a-zA-Z]\w*\/[a-zA-Z]\w*(?:\/[a-zA-Z]\w*)*)\b/i
     };
 
     try {
-        // Try multiple categories first
-        const multipleMatch = text.match(patterns.multiple_categories);
+        // Try multiple hashtag categories first
+        const multipleMatch = text.match(patterns.hashtag_categories);
         if (multipleMatch) {
-            const categoryRegex = /\[category:([^\]]+)\]/g;
+            const hashtagRegex = /#([a-zA-Z]\w*(?:\/[a-zA-Z]\w*)*)\b/g;
             const categories = [];
             let m;
-            while ((m = categoryRegex.exec(text)) !== null) {
+            while ((m = hashtagRegex.exec(text)) !== null) {
                 const category = m[1].trim();
-                categories.push(category);
+                if (validateCategory(category)) {
+                    categories.push(category);
+                }
             }
             if (categories.length >= 2) {
                 return {
@@ -78,71 +59,70 @@ export async function parse(text) {
                     value: { categories },
                     metadata: {
                         confidence: Confidence.HIGH,
-                        pattern: 'multiple_categories',
+                        pattern: 'hashtag_categories',
                         originalMatch: multipleMatch[0]
                     }
                 };
             }
         }
 
-        // Try nested category
-        const nestedMatch = text.match(patterns.nested_category);
+        // Try category list
+        const listMatch = text.match(patterns.category_list);
+        if (listMatch) {
+            const categories = listMatch[1].split(',')
+                .map(c => c.trim())
+                .filter(c => isValidCategoryName(c));
+            if (categories.length > 0) {
+                return {
+                    type: name,
+                    value: { categories },
+                    metadata: {
+                        confidence: Confidence.HIGH,
+                        pattern: 'category_list',
+                        originalMatch: listMatch[0]
+                    }
+                };
+            }
+        }
+
+        // Try nested category patterns
+        const nestedMatch = text.match(patterns.nested_category) || text.match(patterns.nested_hashtag);
         if (nestedMatch) {
             const parts = nestedMatch[1].split('/').map(p => p.trim()).filter(Boolean);
-            if (parts.length < 2) {
-                return null;
+            if (parts.length >= 2 && parts.every(isValidCategoryName)) {
+                return {
+                    type: name,
+                    value: {
+                        category: parts[0],
+                        subcategories: parts.slice(1)
+                    },
+                    metadata: {
+                        confidence: Confidence.HIGH,
+                        pattern: 'nested_category',
+                        originalMatch: nestedMatch[0]
+                    }
+                };
             }
-            return {
-                type: name,
-                value: {
-                    category: parts[0],
-                    subcategories: parts.slice(1)
-                },
-                metadata: {
-                    confidence: Confidence.HIGH, // Nested categories have high confidence
-                    pattern: 'nested_category',
-                    originalMatch: nestedMatch[0]
-                }
-            };
         }
 
-        // Try explicit category
-        const explicitMatch = text.match(patterns.explicit_category);
-        if (explicitMatch) {
-            const category = explicitMatch[1].trim();
-            return {
-                type: name,
-                value: {
-                    category,
-                    subcategories: []
-                },
-                metadata: {
-                    confidence: Confidence.HIGH,
-                    pattern: 'explicit_category',
-                    originalMatch: explicitMatch[0]
-                }
-            };
-        }
-
-        // Try inferred category
-        const inferredMatch = text.match(patterns.inferred_category);
-        if (inferredMatch) {
-            const category = inferredMatch[1];
-            if (!isValidCategoryName(category)) {
-                return null;
+        // Try single hashtag
+        const hashtagMatch = text.match(patterns.single_hashtag);
+        if (hashtagMatch) {
+            const category = hashtagMatch[1];
+            if (isValidCategoryName(category)) {
+                return {
+                    type: name,
+                    value: {
+                        category,
+                        subcategories: []
+                    },
+                    metadata: {
+                        confidence: Confidence.MEDIUM,
+                        pattern: 'single_hashtag',
+                        originalMatch: hashtagMatch[0]
+                    }
+                };
             }
-            return {
-                type: name,
-                value: {
-                    category,
-                    subcategories: []
-                },
-                metadata: {
-                    confidence: Confidence.MEDIUM, // Inferred categories have medium confidence
-                    pattern: 'inferred_category',
-                    originalMatch: inferredMatch[0]
-                }
-            };
         }
 
         return null;

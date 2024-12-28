@@ -6,7 +6,6 @@ import { validateParserInput } from '../utils/validation.js';
 const logger = createLogger('DateParser');
 
 const DATE_PATTERNS = {
-    explicit_iso: /\[date:(\d{4}-\d{2}-\d{2})\]/i,
     natural_date: /\b(?:on\s+)?(?:the\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/i,
     relative_date: /\b(today|tomorrow|yesterday)\b/i,
     weekday_reference: /\b(next\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i,
@@ -24,7 +23,6 @@ const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 // Map pattern names to format values
 const FORMAT_MAP = {
-    explicit_iso: 'ISO',
     natural_date: 'natural',
     relative_date: 'relative',
     weekday_reference: 'weekday',
@@ -89,14 +87,6 @@ async function extractDateValue(text, format, match, fullText) {
         let confidence = calculateConfidence(format, match, fullText);
 
         switch (format) {
-            case 'explicit_iso': {
-                const [year, month, day] = text.split('-').map(Number);
-                if (isValidDateComponents(year, month, day)) {
-                    date = new Date(year, month - 1, day);
-                }
-                break;
-            }
-
             case 'natural_date': {
                 const month = MONTHS[match[1].toLowerCase().slice(0, 3)] + 1;
                 const day = parseInt(match[2], 10);
@@ -157,8 +147,6 @@ async function extractDateValue(text, format, match, fullText) {
 
 function calculateConfidence(format) {
     switch (format) {
-        case 'explicit_iso':
-            return Confidence.HIGH;
         case 'natural_date':
             return Confidence.HIGH;
         case 'relative_date':

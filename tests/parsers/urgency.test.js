@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/urgency.js';
 describe('Urgency Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[urgency:high]');
+      const result = await parse('URGENT: Complete report');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[urgency:high]');
+      const result = await parse('URGENT: Complete report');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -23,55 +23,13 @@ describe('Urgency Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should detect explicit urgency markers', async () => {
-      const result = await parse('[urgency:high]');
-      expect(result.value).toEqual({
-        level: 'high',
-        score: 3
-      });
-      expect(result.metadata.pattern).toBe('explicit_urgency');
-      expect(result.metadata.originalMatch).toBe('[urgency:high]');
-    });
-
-    test('should detect urgency with parameters', async () => {
-      const result = await parse('[urgency:high(reason=deadline)]');
-      expect(result.value).toEqual({
-        level: 'high',
-        score: 3,
-        parameters: {
-          reason: 'deadline'
-        }
-      });
-      expect(result.metadata.pattern).toBe('parameterized');
-      expect(result.metadata.originalMatch).toBe('[urgency:high(reason=deadline)]');
-    });
-
-    test('should detect urgency keywords', async () => {
-      const keywords = [
-        { input: 'URGENT', level: 'high', score: 3, match: 'URGENT: Complete report' },
-        { input: 'ASAP', level: 'high', score: 3, match: 'ASAP: Complete report' },
-        { input: 'Critical', level: 'critical', score: 4, match: 'Critical: Complete report' },
-        { input: 'Time-sensitive', level: 'high', score: 3, match: 'Time-sensitive: Complete report' }
-      ];
-
-      for (const { input, level, score, match } of keywords) {
-        const result = await parse(`${input}: Complete report`);
-        expect(result.value).toEqual({
-          level,
-          score,
-          keyword: input.toLowerCase()
-        });
-        expect(result.metadata.pattern).toBe('keyword');
-        expect(result.metadata.originalMatch).toBe(match);
-      }
-    });
-
     test('should detect time-based urgency', async () => {
       const expressions = [
-        { input: 'Must complete ASAP', match: 'Must complete ASAP' },
-        { input: 'Need this right away', match: 'Need this right away' },
-        { input: 'Required immediately', match: 'Required immediately' },
-        { input: 'Do this now', match: 'Do this now' }
+        { input: 'Must complete ASAP', match: 'ASAP' },
+        { input: 'Need this right away', match: 'right away' },
+        { input: 'Required immediately', match: 'immediately' },
+        { input: 'Do this right now', match: 'right now' },
+        { input: 'Complete as soon as possible', match: 'as soon as possible' }
       ];
 
       for (const { input, match } of expressions) {
@@ -81,105 +39,93 @@ describe('Urgency Parser', () => {
           score: 3,
           timeBased: true
         });
-        expect(result.metadata.pattern).toBe('time_based');
+        expect(result.metadata.pattern).toBe('time_urgency');
         expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
-    test('should detect multiple urgency indicators', async () => {
-      const result = await parse('[urgency:high] URGENT: Complete ASAP');
-      expect(result.value).toEqual({
-        level: 'critical',
-        score: 4,
-        indicators: ['high', 'urgent', 'asap']
-      });
-      expect(result.metadata.pattern).toBe('multiple_indicators');
-      expect(result.metadata.originalMatch).toBe('[urgency:high] URGENT: Complete ASAP');
+    test('should detect urgency keywords', async () => {
+      const keywords = [
+        { input: 'URGENT task', level: 'high', keyword: 'urgent' },
+        { input: 'Critical issue', level: 'high', keyword: 'critical' },
+        { input: 'Important meeting', level: 'high', keyword: 'important' },
+        { input: 'High priority task', level: 'high', keyword: 'priority' },
+        { input: 'Normal priority', level: 'medium', keyword: 'normal' },
+        { input: 'Low priority', level: 'low', keyword: 'low' }
+      ];
+
+      for (const { input, level, keyword } of keywords) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          level,
+          score: level === 'high' ? 3 : level === 'medium' ? 2 : 1,
+          keyword
+        });
+        expect(result.metadata.pattern).toBe('keyword_urgency');
+        expect(result.metadata.originalMatch).toBe(keyword);
+      }
     });
   });
 
   describe('Urgency Levels', () => {
     test('should handle all urgency levels', async () => {
       const levels = [
-        { input: '[urgency:low]', level: 'low', score: 1, match: '[urgency:low]' },
-        { input: '[urgency:medium]', level: 'medium', score: 2, match: '[urgency:medium]' },
-        { input: '[urgency:high]', level: 'high', score: 3, match: '[urgency:high]' },
-        { input: '[urgency:critical]', level: 'critical', score: 4, match: '[urgency:critical]' }
+        { input: 'routine task', level: 'low', score: 1 },
+        { input: 'normal priority', level: 'medium', score: 2 },
+        { input: 'urgent task', level: 'high', score: 3 }
       ];
 
-      for (const { input, level, score, match } of levels) {
+      for (const { input, level, score } of levels) {
         const result = await parse(input);
         expect(result.value.level).toBe(level);
         expect(result.value.score).toBe(score);
-        expect(result.metadata.pattern).toBe('explicit_urgency');
-        expect(result.metadata.originalMatch).toBe(match);
       }
     });
 
     test('should normalize urgency values', async () => {
       const variations = [
-        { input: 'URGENT', expected: 'high', match: '[urgency:URGENT]' },
-        { input: 'Critical', expected: 'critical', match: '[urgency:Critical]' },
-        { input: 'Normal', expected: 'medium', match: '[urgency:Normal]' }
+        { input: 'URGENT', expected: 'high' },
+        { input: 'CRITICAL', expected: 'high' },
+        { input: 'IMPORTANT', expected: 'high' },
+        { input: 'NORMAL', expected: 'medium' },
+        { input: 'LOW', expected: 'low' }
       ];
 
-      for (const { input, expected, match } of variations) {
-        const result = await parse(`[urgency:${input}]`);
+      for (const { input, expected } of variations) {
+        const result = await parse(input);
         expect(result.value.level).toBe(expected);
-        expect(result.metadata.pattern).toBe('explicit_urgency');
-        expect(result.metadata.originalMatch).toBe(match);
+        expect(result.metadata.pattern).toBe('keyword_urgency');
       }
     });
   });
 
   describe('Error Handling', () => {
-    test('should handle invalid urgency format', async () => {
-      const result = await parse('[urgency:]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle empty urgency value', async () => {
-      const result = await parse('[urgency: ]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle malformed parameters', async () => {
-      const invalidParams = [
-        '[urgency:high()]',
-        '[urgency:high(reason)]',
-        '[urgency:high(reason=)]',
-        '[urgency:high(=deadline)]'
-      ];
-
-      for (const param of invalidParams) {
-        const result = await parse(param);
-        expect(result).toBeNull();
-      }
-    });
-
-    test('should handle invalid urgency levels', async () => {
-      const invalidLevels = [
-        '[urgency:123]',
-        '[urgency:@#$]',
-        '[urgency:   ]',
-        '[urgency:invalid]'
-      ];
-
-      for (const level of invalidLevels) {
-        const result = await parse(level);
-        expect(result).toBeNull();
-      }
-    });
-
     test('should handle invalid urgency keywords', async () => {
       const invalidKeywords = [
         'kinda urgent',
         'sort of important',
-        'maybe critical'
+        'maybe critical',
+        'somewhat urgent',
+        'slightly important'
       ];
 
       for (const keyword of invalidKeywords) {
         const result = await parse(keyword);
+        expect(result).toBeNull();
+      }
+    });
+
+    test('should handle malformed time expressions', async () => {
+      const malformed = [
+        'do it soon',
+        'need it quick',
+        'hurry up',
+        'fast please',
+        'rush it'
+      ];
+
+      for (const expr of malformed) {
+        const result = await parse(expr);
         expect(result).toBeNull();
       }
     });

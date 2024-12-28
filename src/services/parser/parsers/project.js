@@ -58,7 +58,6 @@ export async function parse(text) {
     const indicators = detectIndicators(text);
 
     const patterns = {
-      explicit: /(?:\[project:|project:)\s*([^\]\n]+)/i,
       reference: /\bre:\s*(?:project\s+)?([^\s\n]+)/i,
       identifier: /PRJ-(\d+)\b/i,
       shorthand: /\$([A-Za-z][A-Za-z0-9_-]*)/,
@@ -87,15 +86,6 @@ export async function parse(text) {
         }
 
         switch (pattern) {
-          case 'explicit': {
-            confidence = Confidence.HIGH;
-            value = {
-              project: projectName,
-              originalName: projectName
-            };
-            break;
-          }
-
           case 'reference':
           case 'shorthand': {
             confidence = Confidence.HIGH;

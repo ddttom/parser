@@ -12,10 +12,11 @@ export async function parse(text) {
     }
 
     const patterns = {
-        explicit_list: /\[attendees:([^\]]+)\]/i,
         role_mentions: /@(\w+)\s*\(([^)]+)\)(?:\s*(?:and|&|\s*,\s*)\s*@(\w+)\s*\(([^)]+)\))*/gi,
         explicit_mentions: /@(\w+)(?:\s*,\s*@(\w+))*(?:\s*(?:and|&)\s*@(\w+))*/i,
-        implicit_attendees: /(?:with|and)\s+([A-Z][a-z]+(?:\s*,\s*[A-Z][a-z]+)*(?:\s*(?:and|&)\s*[A-Z][a-z]+)?)/i
+        attendee_list: /(?:attendees?|participants?|people)(?:\s*:\s*|\s+)((?:[A-Z][a-z]+(?:\s*,\s*[A-Z][a-z]+)*(?:\s*(?:and|&)\s*[A-Z][a-z]+)?))/i,
+        implicit_attendees: /(?:with|and)\s+([A-Z][a-z]+(?:\s*,\s*[A-Z][a-z]+)*(?:\s*(?:and|&)\s*[A-Z][a-z]+)?)/i,
+        joining: /(?:joining|attending)(?:\s*:\s*|\s+)((?:[A-Z][a-z]+(?:\s*,\s*[A-Z][a-z]+)*(?:\s*(?:and|&)\s*[A-Z][a-z]+)?))/i
     };
 
     let bestMatch = null;
@@ -28,19 +29,6 @@ export async function parse(text) {
             let value;
 
             switch (pattern) {
-                case 'explicit_list': {
-                    confidence = 0.95;
-                    const attendees = match[1]
-                        .split(/\s*,\s*/)
-                        .map(name => name.trim())
-                        .filter(Boolean);
-                    value = {
-                        attendees,
-                        count: attendees.length
-                    };
-                    break;
-                }
-
                 case 'role_mentions': {
                     confidence = 0.95;
                     const attendees = [];
@@ -63,6 +51,32 @@ export async function parse(text) {
                     confidence = 0.9;
                     const mentions = match[0].match(/@\w+/g) || [];
                     const attendees = mentions.map(m => m.substring(1));
+                    value = {
+                        attendees,
+                        count: attendees.length
+                    };
+                    break;
+                }
+
+                case 'attendee_list': {
+                    confidence = 0.9;
+                    const attendees = match[1]
+                        .split(/\s*(?:,|and|&)\s*/)
+                        .map(name => name.trim())
+                        .filter(Boolean);
+                    value = {
+                        attendees,
+                        count: attendees.length
+                    };
+                    break;
+                }
+
+                case 'joining': {
+                    confidence = 0.85;
+                    const attendees = match[1]
+                        .split(/\s*(?:,|and|&)\s*/)
+                        .map(name => name.trim())
+                        .filter(Boolean);
                     value = {
                         attendees,
                         count: attendees.length

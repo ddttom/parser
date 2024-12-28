@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/priority.js';
 describe('Priority Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[priority:high]');
+      const result = await parse('#high');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[priority:high]');
+      const result = await parse('#high');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -23,16 +23,6 @@ describe('Priority Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should detect explicit priority markers', async () => {
-      const result = await parse('[priority:high]');
-      expect(result.value).toEqual({
-        level: 'high',
-        score: 3
-      });
-      expect(result.metadata.pattern).toBe('explicit_priority');
-      expect(result.metadata.originalMatch).toBe('[priority:high]');
-    });
-
     test('should detect priority hashtags', async () => {
       const result = await parse('Task #urgent');
       expect(result.value).toEqual({
@@ -53,33 +43,43 @@ describe('Priority Parser', () => {
       expect(result.metadata.originalMatch).toBe('high priority');
     });
 
+    test('should detect implicit priority', async () => {
+      const result = await parse('This is high priority');
+      expect(result.value).toEqual({
+        level: 'high',
+        score: 3
+      });
+      expect(result.metadata.pattern).toBe('implicit');
+      expect(result.metadata.originalMatch).toBe('high priority');
+    });
+
     test('should detect multiple priority indicators', async () => {
-      const result = await parse('[priority:high] #urgent High priority task');
+      const result = await parse('#urgent High priority task');
       expect(result.value).toEqual({
         level: 'urgent',
         score: 4,
-        indicators: ['high', 'urgent', 'high']
+        indicators: ['urgent', 'high']
       });
       expect(result.metadata.pattern).toBe('multiple_indicators');
-      expect(result.metadata.originalMatch).toBe('[priority:high] #urgent High priority');
+      expect(result.metadata.originalMatch).toBe('#urgent High priority');
     });
   });
 
   describe('Priority Levels', () => {
     test('should handle all priority levels', async () => {
       const levels = [
-        { input: '[priority:critical]', level: 'critical', score: 5 },
-        { input: '[priority:urgent]', level: 'urgent', score: 4 },
-        { input: '[priority:high]', level: 'high', score: 3 },
-        { input: '[priority:medium]', level: 'medium', score: 2 },
-        { input: '[priority:low]', level: 'low', score: 1 }
+        { input: '#critical', level: 'critical', score: 5 },
+        { input: '#urgent', level: 'urgent', score: 4 },
+        { input: '#high', level: 'high', score: 3 },
+        { input: '#medium', level: 'medium', score: 2 },
+        { input: '#low', level: 'low', score: 1 }
       ];
 
       for (const { input, level, score } of levels) {
         const result = await parse(input);
         expect(result.value.level).toBe(level);
         expect(result.value.score).toBe(score);
-        expect(result.metadata.pattern).toBe('explicit_priority');
+        expect(result.metadata.pattern).toBe('hashtag');
       }
     });
 
@@ -100,29 +100,6 @@ describe('Priority Parser', () => {
   });
 
   describe('Error Handling', () => {
-    test('should handle invalid priority format', async () => {
-      const result = await parse('[priority:]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle empty priority value', async () => {
-      const result = await parse('[priority: ]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle invalid priority levels', async () => {
-      const invalidLevels = [
-        '[priority:invalid]',
-        '[priority:123]',
-        '[priority:!@#]'
-      ];
-
-      for (const level of invalidLevels) {
-        const result = await parse(level);
-        expect(result).toBeNull();
-      }
-    });
-
     test('should handle malformed hashtags', async () => {
       const invalidTags = [
         '#',
@@ -133,6 +110,19 @@ describe('Priority Parser', () => {
 
       for (const tag of invalidTags) {
         const result = await parse(tag);
+        expect(result).toBeNull();
+      }
+    });
+
+    test('should handle invalid priority words', async () => {
+      const invalidPriorities = [
+        'invalid priority',
+        '123 priority',
+        '!@# priority'
+      ];
+
+      for (const priority of invalidPriorities) {
+        const result = await parse(priority);
         expect(result).toBeNull();
       }
     });

@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/progress.js';
 describe('Progress Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[progress:75%]');
+      const result = await parse('Task is 75% complete');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[progress:75%]');
+      const result = await parse('Task is 75% complete');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -23,116 +23,117 @@ describe('Progress Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should detect explicit progress markers', async () => {
-      const result = await parse('[progress:75%]');
-      expect(result.value).toEqual({
-        percentage: 75,
-        description: null
-      });
-      expect(result.metadata.pattern).toBe('explicit');
-      expect(result.metadata.originalMatch).toBe('[progress:75%]');
-    });
-
-    test('should detect progress with description', async () => {
-      const result = await parse('[progress:75%, coding phase]');
-      expect(result.value).toEqual({
-        percentage: 75,
-        description: 'coding phase'
-      });
-      expect(result.metadata.pattern).toBe('explicit_with_description');
-      expect(result.metadata.originalMatch).toBe('[progress:75%, coding phase]');
-    });
-
     test('should detect percentage patterns', async () => {
       const result = await parse('Task is 50% complete');
       expect(result.value).toEqual({
-        percentage: 50,
-        description: null
+        percentage: 50
       });
-      expect(result.metadata.pattern).toBe('percentage');
+      expect(result.metadata.pattern).toBe('inferred');
       expect(result.metadata.originalMatch).toBe('50% complete');
     });
 
     test('should handle various completion terms', async () => {
-      const terms = ['complete', 'done', 'finished', 'completed'];
-      for (const term of terms) {
-        const result = await parse(`25% ${term}`);
-        expect(result.value.percentage).toBe(25);
-        expect(result.metadata.pattern).toBe('percentage');
-        expect(result.metadata.originalMatch).toBe(`25% ${term}`);
+      const terms = [
+        { input: '25% complete', percentage: 25 },
+        { input: '50% done', percentage: 50 },
+        { input: '75% finished', percentage: 75 }
+      ];
+
+      for (const { input, percentage } of terms) {
+        const result = await parse(input);
+        expect(result.value).toEqual({ percentage });
+        expect(result.metadata.pattern).toBe('inferred');
+        expect(result.metadata.originalMatch).toBe(input);
       }
     });
 
-    test('should detect fractional progress', async () => {
-      const result = await parse('Task is three-quarters done');
-      expect(result.value).toEqual({
-        percentage: 75,
-        description: null
-      });
-      expect(result.metadata.pattern).toBe('fractional');
-      expect(result.metadata.originalMatch).toBe('three-quarters done');
+    test('should detect progress in context', async () => {
+      const contexts = [
+        'Project is now 30% complete',
+        'Task progress: 45% done',
+        'Development is 60% finished',
+        'Implementation: 75% complete'
+      ];
+
+      for (const input of contexts) {
+        const result = await parse(input);
+        expect(result.value.percentage).toBeGreaterThan(0);
+        expect(result.metadata.pattern).toBe('inferred');
+      }
     });
   });
 
   describe('Percentage Validation', () => {
     test('should handle valid percentage range', async () => {
-      const percentages = [0, 25, 50, 75, 100];
-      for (const percentage of percentages) {
-        const result = await parse(`[progress:${percentage}%]`);
+      const percentages = [
+        { input: '0% complete', percentage: 0 },
+        { input: '25% complete', percentage: 25 },
+        { input: '50% complete', percentage: 50 },
+        { input: '75% complete', percentage: 75 },
+        { input: '100% complete', percentage: 100 }
+      ];
+
+      for (const { input, percentage } of percentages) {
+        const result = await parse(input);
         expect(result.value.percentage).toBe(percentage);
-        expect(result.metadata.pattern).toBe('explicit');
+        expect(result.metadata.pattern).toBe('inferred');
       }
     });
 
-    test('should handle decimal percentages', async () => {
-      const result = await parse('[progress:33.3%]');
-      expect(result.value.percentage).toBe(33.3);
-      expect(result.metadata.pattern).toBe('explicit');
-    });
-
     test('should reject invalid percentages', async () => {
-      const invalidPercentages = [-10, 101, 150, 'abc'];
-      for (const percentage of invalidPercentages) {
-        const result = await parse(`[progress:${percentage}%]`);
+      const invalidPercentages = [
+        '-10% complete',
+        '101% complete',
+        '150% complete',
+        'abc% complete'
+      ];
+
+      for (const input of invalidPercentages) {
+        const result = await parse(input);
         expect(result).toBeNull();
       }
     });
   });
 
   describe('Error Handling', () => {
-    test('should handle invalid progress format', async () => {
-      const result = await parse('[progress:]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle empty progress value', async () => {
-      const result = await parse('[progress: ]');
-      expect(result).toBeNull();
-    });
-
     test('should handle malformed percentages', async () => {
-      const invalidFormats = [
-        '[progress:%]',
-        '[progress:75]',
-        '[progress:75%%]',
-        '[progress:percent]'
+      const malformed = [
+        '% complete',
+        'percent complete',
+        '75 percent complete',
+        '75%% complete'
       ];
 
-      for (const format of invalidFormats) {
-        const result = await parse(format);
+      for (const input of malformed) {
+        const result = await parse(input);
         expect(result).toBeNull();
       }
     });
 
-    test('should handle invalid descriptions', async () => {
-      const invalidDescriptions = [
-        '[progress:75%, ]',
-        '[progress:75%,]',
-        '[progress:75%, @#$]'
+    test('should handle missing completion terms', async () => {
+      const missing = [
+        '75%',
+        '75% of',
+        '75% the',
+        '75% in'
       ];
 
-      for (const desc of invalidDescriptions) {
-        const result = await parse(desc);
+      for (const input of missing) {
+        const result = await parse(input);
+        expect(result).toBeNull();
+      }
+    });
+
+    test('should handle invalid formats', async () => {
+      const invalid = [
+        'complete 75%',
+        'done 75%',
+        'finished 75%',
+        '75 complete%'
+      ];
+
+      for (const input of invalid) {
+        const result = await parse(input);
         expect(result).toBeNull();
       }
     });

@@ -43,8 +43,6 @@ export async function parse(text) {
 
     try {
         const patterns = {
-            explicit: /\b(?:status:\s*|(?:\[status:))([a-z]+)(?:\]|\b)/i,
-            shorthand: /[\[\(]([a-z]+)[\]\)]/i,
             state: /\b(?:is|marked\s+as)\s+([a-z]+)\b/i,
             progress: /\b(\d+)%\s*(?:complete|done|finished)\b/i,
             contextual: /\b(waiting|done|finished|cancelled)\b/i
@@ -74,17 +72,11 @@ export async function parse(text) {
                     value = { status: normalized };
 
                     switch (pattern) {
-                        case 'explicit':
-                            confidence = Confidence.HIGH;
-                            break;
-                        case 'shorthand':
-                            confidence = Confidence.HIGH;
-                            break;
                         case 'state':
-                            confidence = Confidence.MEDIUM;
+                            confidence = Confidence.HIGH;
                             break;
                         case 'contextual':
-                            confidence = Confidence.LOW;
+                            confidence = Confidence.MEDIUM;
                             break;
                     }
                 }

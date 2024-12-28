@@ -17,7 +17,6 @@ export async function parse(text) {
   }
 
   const patterns = {
-    explicit_duration: /\[duration:(\d+)h(?:\s*(\d+)m)?\]/i,
     short_duration: /(\d+(?:\.\d+)?)(h)/i,
     minutes_only: /(\d+)m\b/i,
     natural: /(?:takes\s+(?:about\s+))?(\d+\s*(?:hours?\s*(?:and\s*(\d+)\s*minutes?)?|minutes?))/i
@@ -32,23 +31,6 @@ export async function parse(text) {
       let value;
 
       switch (pattern) {
-        case 'explicit_duration': {
-          const hours = parseInt(match[1], 10);
-          const minutes = match[2] ? parseInt(match[2], 10) : 0;
-
-          if (!isValidDuration(hours, minutes)) {
-            continue;
-          }
-
-          confidence = Confidence.HIGH;
-          value = {
-            hours,
-            minutes,
-            totalMinutes: hours * 60 + minutes
-          };
-          break;
-        }
-
         case 'short_duration': {
           const amount = parseFloat(match[1]);
           const hours = Math.floor(amount);

@@ -29,7 +29,7 @@ describe('Links Parser', () => {
         url: 'http://example.com',
         type: 'url'
       });
-      expect(result.metadata.pattern).toBe('explicit_url');
+      expect(result.metadata.pattern).toBe('url');
       expect(result.metadata.originalMatch).toBe('http://example.com');
     });
 
@@ -39,7 +39,7 @@ describe('Links Parser', () => {
         url: 'https://example.com',
         type: 'url'
       });
-      expect(result.metadata.pattern).toBe('explicit_url');
+      expect(result.metadata.pattern).toBe('url');
       expect(result.metadata.originalMatch).toBe('https://example.com');
     });
 
@@ -53,7 +53,7 @@ describe('Links Parser', () => {
       for (const url of urls) {
         const result = await parse(`Visit ${url}`);
         expect(result.value.url).toBe(url);
-        expect(result.metadata.pattern).toBe('explicit_url');
+        expect(result.metadata.pattern).toBe('url');
         expect(result.metadata.originalMatch).toBe(url);
       }
     });
@@ -68,7 +68,7 @@ describe('Links Parser', () => {
       for (const url of urls) {
         const result = await parse(`Visit ${url}`);
         expect(result.value.url).toBe(url);
-        expect(result.metadata.pattern).toBe('explicit_url');
+        expect(result.metadata.pattern).toBe('url');
         expect(result.metadata.originalMatch).toBe(url);
       }
     });
@@ -99,48 +99,6 @@ describe('Links Parser', () => {
       expect(result.value.url).toBe('https://example.com/search?q=test&page=1#results');
       expect(result.metadata.pattern).toBe('markdown_link');
       expect(result.metadata.originalMatch).toBe('[Search](https://example.com/search?q=test&page=1#results)');
-    });
-  });
-
-  describe('File Link Pattern', () => {
-    test('should detect file links', async () => {
-      const result = await parse('[file:documents/report.pdf]');
-      expect(result.value).toEqual({
-        path: 'documents/report.pdf',
-        type: 'file'
-      });
-      expect(result.metadata.pattern).toBe('file_link');
-      expect(result.metadata.originalMatch).toBe('[file:documents/report.pdf]');
-    });
-
-    test('should handle relative file paths', async () => {
-      const paths = [
-        './document.pdf',
-        '../reports/report.pdf',
-        'folder/subfolder/file.txt'
-      ];
-
-      for (const path of paths) {
-        const result = await parse(`[file:${path}]`);
-        expect(result.value.path).toBe(path);
-        expect(result.metadata.pattern).toBe('file_link');
-        expect(result.metadata.originalMatch).toBe(`[file:${path}]`);
-      }
-    });
-
-    test('should handle absolute file paths', async () => {
-      const paths = [
-        '/home/user/documents/file.pdf',
-        'C:\\Users\\documents\\file.pdf',
-        '/var/www/files/document.txt'
-      ];
-
-      for (const path of paths) {
-        const result = await parse(`[file:${path}]`);
-        expect(result.value.path).toBe(path);
-        expect(result.metadata.pattern).toBe('file_link');
-        expect(result.metadata.originalMatch).toBe(`[file:${path}]`);
-      }
     });
   });
 
@@ -216,20 +174,6 @@ describe('Links Parser', () => {
 
       for (const link of malformedLinks) {
         const result = await parse(link);
-        expect(result).toBeNull();
-      }
-    });
-
-    test('should handle invalid file paths', async () => {
-      const invalidPaths = [
-        '[file:]',  // Empty path
-        '[file: ]',  // Only whitespace
-        '[file:invalid/*/path]',  // Invalid characters
-        '[file:com1]'  // Reserved names
-      ];
-
-      for (const path of invalidPaths) {
-        const result = await parse(path);
         expect(result).toBeNull();
       }
     });

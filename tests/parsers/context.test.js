@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/context.js';
 describe('Context Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[context:office]');
+      const result = await parse('at the office');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[context:office]');
+      const result = await parse('at the office');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -24,120 +24,217 @@ describe('Context Parser', () => {
 
   describe('Context Type Inference', () => {
     test('infers location type', async () => {
-      const locations = ['office', 'room', 'building', 'home', 'work'];
-      for (const location of locations) {
-        const result = await parse(`at ${location}`);
-        expect(result.value.type).toBe('location');
+      const variations = [
+        { input: 'at the office', context: 'office' },
+        { input: 'in the meeting room', context: 'meeting room' },
+        { input: 'while at home', context: 'home' },
+        { input: 'while in the building', context: 'building' }
+      ];
+
+      for (const { input, context } of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          context,
+          type: 'location'
+        });
       }
     });
 
     test('infers time type', async () => {
-      const times = ['morning', 'afternoon', 'evening', 'night', 'day', 'week'];
-      for (const time of times) {
-        const result = await parse(`during ${time}`);
-        expect(result.value.type).toBe('time');
+      const variations = [
+        { input: 'during morning', context: 'morning' },
+        { input: 'in the afternoon', context: 'afternoon' },
+        { input: 'during the evening', context: 'evening' },
+        { input: 'at night', context: 'night' }
+      ];
+
+      for (const { input, context } of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          context,
+          type: 'time'
+        });
       }
     });
 
     test('infers tool type', async () => {
-      const tools = ['computer', 'laptop', 'phone', 'device', 'software', 'app'];
-      for (const tool of tools) {
-        const result = await parse(`using ${tool}`);
-        expect(result.value.type).toBe('tool');
+      const variations = [
+        { input: 'using the computer', context: 'computer' },
+        { input: 'using laptop', context: 'laptop' },
+        { input: 'using the phone', context: 'phone' },
+        { input: 'using the software', context: 'software' }
+      ];
+
+      for (const { input, context } of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          context,
+          type: 'tool'
+        });
       }
     });
 
     test('infers activity type', async () => {
-      const activities = ['meeting', 'call', 'lunch', 'break', 'session'];
-      for (const activity of activities) {
-        const result = await parse(`during ${activity}`);
-        expect(result.value.type).toBe('activity');
+      const variations = [
+        { input: 'during meeting', context: 'meeting' },
+        { input: 'during the call', context: 'call' },
+        { input: 'during lunch', context: 'lunch' },
+        { input: 'during workshop', context: 'workshop' }
+      ];
+
+      for (const { input, context } of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          context,
+          type: 'activity'
+        });
       }
     });
 
     test('defaults to general type for unknown contexts', async () => {
-      const result = await parse('at somewhere');
-      expect(result.value.type).toBe('general');
+      const variations = [
+        'at somewhere',
+        'in someplace',
+        'during something',
+        'using something'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value.type).toBe('general');
+      }
     });
   });
 
   describe('Preposition Patterns', () => {
     test('matches "at" pattern', async () => {
-      const result = await parse('at work');
-      expect(result.metadata.pattern).toBe('at');
-      expect(result.value.context).toBe('work');
+      const variations = [
+        'at work',
+        'at the office',
+        'at home',
+        'at the desk'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.metadata.pattern).toBe('at');
+      }
     });
 
     test('matches "in" pattern', async () => {
-      const result = await parse('in office');
-      expect(result.metadata.pattern).toBe('in');
-      expect(result.value.context).toBe('office');
+      const variations = [
+        'in office',
+        'in the room',
+        'in building',
+        'in the space'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.metadata.pattern).toBe('in');
+      }
     });
 
     test('matches "during" pattern', async () => {
-      const result = await parse('during lunch');
-      expect(result.metadata.pattern).toBe('during');
-      expect(result.value.context).toBe('lunch');
+      const variations = [
+        'during lunch',
+        'during the meeting',
+        'during break',
+        'during session'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.metadata.pattern).toBe('during');
+      }
     });
 
     test('matches "using" pattern', async () => {
-      const result = await parse('using computer');
-      expect(result.metadata.pattern).toBe('using');
-      expect(result.value.context).toBe('computer');
+      const variations = [
+        'using computer',
+        'using the laptop',
+        'using phone',
+        'using software'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.metadata.pattern).toBe('using');
+      }
     });
 
-    test('handles multiple prepositions correctly', async () => {
-      const result = await parse('at work during lunch');
-      expect(result.metadata.pattern).toBe('at');
-      expect(result.value.context).toBe('work');
-    });
+    test('matches "while" patterns', async () => {
+      const variations = [
+        { input: 'while in office', pattern: 'while_in' },
+        { input: 'while at home', pattern: 'while_at' },
+        { input: 'while in the meeting', pattern: 'while_in' },
+        { input: 'while at work', pattern: 'while_at' }
+      ];
 
-    test('handles prepositions with punctuation', async () => {
-      const result = await parse('at work, during lunch');
-      expect(result.metadata.pattern).toBe('at');
-      expect(result.value.context).toBe('work');
-    });
-  });
-
-  describe('Explicit Pattern', () => {
-    test('parses explicit context tag', async () => {
-      const result = await parse('[context:meeting room]');
-      expect(result.value.context).toBe('meeting room');
-      expect(result.metadata.pattern).toBe('explicit');
-    });
-
-    test('handles whitespace in explicit context', async () => {
-      const result = await parse('[context:home office]');
-      expect(result.value.context).toBe('home office');
+      for (const { input, pattern } of variations) {
+        const result = await parse(input);
+        expect(result.metadata.pattern).toBe(pattern);
+      }
     });
   });
 
   describe('Error Handling', () => {
-    test('handles malformed explicit context', async () => {
-      const result = await parse('[context:]');
-      expect(result.type).toBe('error');
-    });
-
     test('handles empty context value', async () => {
-      const result = await parse('at ');
-      expect(result).toBeNull();
+      const invalid = [
+        'at ',
+        'in ',
+        'during ',
+        'using '
+      ];
+
+      for (const input of invalid) {
+        const result = await parse(input);
+        expect(result).toBeNull();
+      }
     });
 
-    test('handles invalid context format', async () => {
-      const result = await parse('[context:test');
-      expect(result.type).toBe('error');
+    test('handles malformed expressions', async () => {
+      const malformed = [
+        'at the',
+        'in the',
+        'during the',
+        'using the'
+      ];
+
+      for (const input of malformed) {
+        const result = await parse(input);
+        expect(result).toBeNull();
+      }
     });
   });
 
-  describe('Metadata Validation', () => {
-    test('includes original match in metadata', async () => {
-      const result = await parse('at work');
-      expect(result.metadata.originalMatch).toBe('at work');
+  describe('Confidence Levels', () => {
+    test('assigns HIGH confidence to well-known contexts', async () => {
+      const wellKnown = [
+        'at the office',
+        'during meeting',
+        'using computer',
+        'in the morning'
+      ];
+
+      for (const input of wellKnown) {
+        const result = await parse(input);
+        expect(result.metadata.confidence).toBe('HIGH');
+      }
     });
 
-    test('includes pattern type in metadata', async () => {
-      const result = await parse('[context:office]');
-      expect(result.metadata.pattern).toBe('explicit');
+    test('assigns MEDIUM confidence to common prepositions', async () => {
+      const common = [
+        'at somewhere',
+        'in someplace',
+        'during something',
+        'using something'
+      ];
+
+      for (const input of common) {
+        const result = await parse(input);
+        expect(result.metadata.confidence).toBe('MEDIUM');
+      }
     });
   });
 });

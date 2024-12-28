@@ -4,12 +4,12 @@ import { Confidence } from '../../src/services/parser/utils/confidence.js';
 describe('Contact Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[contact:John Smith]');
+      const result = await parse('contact John Smith');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[contact:John Smith]');
+      const result = await parse('contact John Smith');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -25,88 +25,166 @@ describe('Contact Parser', () => {
 
   describe('Pattern Matching', () => {
     test('should detect email addresses', async () => {
-      const result = await parse('Contact john.doe@example.com');
-      expect(result).toEqual({
-        type: 'contact',
-        value: {
+      const variations = [
+        'contact john.doe@example.com',
+        'email from john.doe@example.com',
+        'send to john.doe@example.com'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
           type: 'email',
           value: 'john.doe@example.com',
           name: 'John Doe'
-        },
-        metadata: {
-          pattern: 'email',
-          confidence: Confidence.HIGH,
-          originalMatch: 'john.doe@example.com'
-        }
-      });
+        });
+        expect(result.metadata.pattern).toBe('email');
+        expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      }
     });
 
     test('should detect phone numbers', async () => {
-      const result = await parse('Call +1-555-123-4567');
-      expect(result).toEqual({
-        type: 'contact',
-        value: {
+      const variations = [
+        'call +1-555-123-4567',
+        'phone +1-555-123-4567',
+        'contact at +1-555-123-4567'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
           type: 'phone',
           value: '+15551234567',
           formatted: '+1-555-123-4567'
-        },
-        metadata: {
-          pattern: 'phone',
-          confidence: Confidence.HIGH,
-          originalMatch: '+1-555-123-4567'
-        }
-      });
+        });
+        expect(result.metadata.pattern).toBe('phone');
+        expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      }
     });
 
-    test('should detect contact references', async () => {
-      const result = await parse('Meeting with [contact:John Doe]');
-      expect(result).toEqual({
-        type: 'contact',
-        value: {
+    test('should detect name references', async () => {
+      const variations = [
+        'contact John Smith',
+        'reaching out to John Smith',
+        'contacting John Smith'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
           type: 'reference',
-          name: 'John Doe',
-          id: expect.any(String)
-        },
-        metadata: {
-          pattern: 'contact_reference',
-          confidence: Confidence.HIGH,
-          originalMatch: '[contact:John Doe]'
-        }
-      });
+          name: 'John Smith',
+          id: 'john_smith'
+        });
+        expect(result.metadata.pattern).toBe('name_reference');
+        expect(result.metadata.confidence).toBe(Confidence.HIGH);
+      }
+    });
+
+    test('should detect inferred contacts', async () => {
+      const variations = [
+        'meet with John Smith',
+        'call John Smith',
+        'email John Smith'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toEqual({
+          type: 'reference',
+          name: 'John Smith',
+          id: 'john_smith'
+        });
+        expect(result.metadata.pattern).toBe('inferred_contact');
+        expect(result.metadata.confidence).toBe(Confidence.MEDIUM);
+      }
     });
   });
 
-  describe('Confidence Levels', () => {
-    test('should have HIGH confidence for email addresses', async () => {
-      const result = await parse('Contact john.doe@example.com');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+  describe('Name Handling', () => {
+    test('should handle single names', async () => {
+      const variations = [
+        'contact John',
+        'meet with Sarah',
+        'call Mike'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value.name).toBeTruthy();
+        expect(result.value.id).toBe(result.value.name.toLowerCase());
+      }
     });
 
-    test('should have HIGH confidence for contact references', async () => {
-      const result = await parse('[contact:John Smith]');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
+    test('should handle full names', async () => {
+      const variations = [
+        'contact John Smith',
+        'meet with Sarah Johnson',
+        'call Mike Brown'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value.name.split(' ')).toHaveLength(2);
+        expect(result.value.id).toBe(result.value.name.toLowerCase().replace(' ', '_'));
+      }
     });
 
-    test('should have HIGH confidence for phone numbers', async () => {
-      const result = await parse('Call +1-555-123-4567');
-      expect(result.metadata.confidence).toBe(Confidence.HIGH);
-    });
+    test('should extract names from email addresses', async () => {
+      const variations = [
+        { email: 'john.doe@example.com', name: 'John Doe' },
+        { email: 'sarah.j.smith@example.com', name: 'Sarah J Smith' },
+        { email: 'mike_brown@example.com', name: 'Mike Brown' }
+      ];
 
-    test('should have LOW confidence for inferred contacts', async () => {
-      const result = await parse('call John');
-      expect(result.metadata.confidence).toBe(Confidence.LOW);
+      for (const { email, name } of variations) {
+        const result = await parse(email);
+        expect(result.value.name).toBe(name);
+      }
     });
   });
 
   describe('Error Handling', () => {
-    test('should handle invalid contact format', async () => {
-      const result = await parse('[contact:]');
-      expect(result).toBeNull();
+    test('should handle invalid email formats', async () => {
+      const invalid = [
+        'invalid.email@',
+        '@invalid.com',
+        'invalid@.com',
+        'invalid@com'
+      ];
+
+      for (const input of invalid) {
+        const result = await parse(input);
+        expect(result).toBeNull();
+      }
     });
 
-    test('should handle invalid email format', async () => {
-      const result = await parse('invalid.email@');
-      expect(result).toBeNull();
+    test('should handle invalid phone formats', async () => {
+      const invalid = [
+        '+1-555-123',
+        '555-123-4567',
+        '+1-5551234567',
+        '+1-555-123-456'
+      ];
+
+      for (const input of invalid) {
+        const result = await parse(input);
+        expect(result).toBeNull();
+      }
+    });
+
+    test('should handle malformed expressions', async () => {
+      const invalid = [
+        'contact',
+        'call',
+        'email',
+        'meet with'
+      ];
+
+      for (const input of invalid) {
+        const result = await parse(input);
+        expect(result).toBeNull();
+      }
     });
   });
 });

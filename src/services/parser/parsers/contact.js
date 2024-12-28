@@ -14,9 +14,9 @@ export async function parse(text) {
 
   const patterns = {
     email: /\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/i,
-    contact_reference: /\[contact:([^\]]+)\]/i,
     phone: /(?:^|\s)(\+\d{1,3}-\d{3}-\d{3}-\d{4})\b/i,
-    inferred_contact: /\b(?:call|contact|email|meet)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/i
+    inferred_contact: /\b(?:call|contact|email|meet|with|from)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/i,
+    name_reference: /\b(?:contact(?:ing)?|reach(?:ing)?(?:\s+out\s+to)?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/i
   };
 
   let bestMatch = null;
@@ -48,21 +48,6 @@ export async function parse(text) {
           break;
         }
 
-        case 'contact_reference': {
-          const name = match[1].trim();
-          // Validate reference format
-          if (!name) {
-            continue;
-          }
-          confidence = Confidence.HIGH;
-          value = {
-            type: 'reference',
-            name,
-            id: name.toLowerCase().replace(/\s+/g, '_')
-          };
-          break;
-        }
-
         case 'phone': {
           const phone = match[1];
           // Validate phone format
@@ -78,9 +63,20 @@ export async function parse(text) {
           break;
         }
 
+        case 'name_reference': {
+          const name = match[1].trim();
+          confidence = Confidence.HIGH;
+          value = {
+            type: 'reference',
+            name,
+            id: name.toLowerCase().replace(/\s+/g, '_')
+          };
+          break;
+        }
+
         case 'inferred_contact': {
           const name = match[1].trim();
-          confidence = Confidence.LOW;
+          confidence = Confidence.MEDIUM;
           value = {
             type: 'reference',
             name,

@@ -61,31 +61,6 @@ export async function parse(text) {
     return false;
   }
 
-  // Explicit priority marker [priority:level]
-  const explicitMatch = text.match(/\[priority:(\w+)\]/i);
-  if (explicitMatch) {
-    const priority = explicitMatch[1];
-    if (validatePriority(priority)) {
-      const normalized = normalizePriority(priority);
-      indicators.push({
-        level: normalized,
-        confidence: Confidence.HIGH,
-        pattern: 'explicit_priority',
-        match: explicitMatch[0],
-        index: explicitMatch.index
-      });
-      matches.push({
-        0: explicitMatch[0],
-        1: priority,
-        index: explicitMatch.index
-      });
-      matchedRanges.add({
-        start: explicitMatch.index,
-        end: explicitMatch.index + explicitMatch[0].length
-      });
-    }
-  }
-
   // Priority hashtags #urgent, #high-priority, etc.
   const priorityTerms = getAllPriorityTerms().join('|');
   const hashtagPattern = new RegExp(`#(${priorityTerms})(?:-priority)?\\b`, 'i');

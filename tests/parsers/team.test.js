@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/team.js';
 describe('Team Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[team:frontend]');
+      const result = await parse('@frontend');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[team:frontend]');
+      const result = await parse('@frontend');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -23,51 +23,34 @@ describe('Team Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should detect explicit team markers', async () => {
-      const result = await parse('[team:frontend]');
-      expect(result.value).toEqual({
-        team: 'frontend'
-      });
-      expect(result.metadata.pattern).toBe('explicit');
-      expect(result.metadata.originalMatch).toBe('[team:frontend]');
+    test('should detect @mentions', async () => {
+      const result = await parse('Task for @frontend and @backend');
+      expect(result.value).toEqual(['frontend', 'backend']);
+      expect(result.metadata.pattern).toBe('mentions');
+      expect(result.metadata.originalMatch).toBe('@frontend, @backend');
     });
 
-    test('should detect team with parameters', async () => {
-      const result = await parse('[team:frontend(lead=john)]');
-      expect(result.value).toEqual({
-        team: 'frontend',
-        parameters: {
-          lead: 'john'
-        }
-      });
-      expect(result.metadata.pattern).toBe('parameterized');
-      expect(result.metadata.originalMatch).toBe('[team:frontend(lead=john)]');
+    test('should detect name lists', async () => {
+      const result = await parse('involving frontend, backend and design');
+      expect(result.value).toEqual(['frontend', 'backend', 'design']);
+      expect(result.metadata.pattern).toBe('name_list');
+      expect(result.metadata.originalMatch).toBe('involving frontend, backend and design');
     });
 
     test('should detect inferred team references', async () => {
       const formats = [
-        { input: 'frontend team', match: 'frontend team' },
-        { input: 'team frontend', match: 'team frontend' },
-        { input: 'frontend squad', match: 'frontend squad' },
-        { input: 'frontend group', match: 'frontend group' }
+        { input: 'frontend team', team: 'frontend' },
+        { input: 'backend team', team: 'backend' },
+        { input: 'design team', team: 'design' },
+        { input: 'qa team', team: 'qa' }
       ];
 
-      for (const { input, match } of formats) {
+      for (const { input, team } of formats) {
         const result = await parse(input);
-        expect(result.value.team).toBe('frontend');
+        expect(result.value).toEqual({ team });
         expect(result.metadata.pattern).toBe('inferred');
-        expect(result.metadata.originalMatch).toBe(match);
+        expect(result.metadata.originalMatch).toBe(input);
       }
-    });
-
-    test('should detect team references with context', async () => {
-      const result = await parse('assigned to frontend team');
-      expect(result.value).toEqual({
-        team: 'frontend',
-        relationship: 'assigned'
-      });
-      expect(result.metadata.pattern).toBe('contextual');
-      expect(result.metadata.originalMatch).toBe('assigned to frontend team');
     });
   });
 
@@ -87,71 +70,68 @@ describe('Team Parser', () => {
       ];
 
       for (const team of validTeams) {
-        const result = await parse(`[team:${team}]`);
-        expect(result.value.team).toBe(team);
-        expect(result.metadata.pattern).toBe('explicit');
-        expect(result.metadata.originalMatch).toBe(`[team:${team}]`);
+        const result = await parse(`${team} team`);
+        expect(result.value).toEqual({ team });
+        expect(result.metadata.pattern).toBe('inferred');
       }
     });
 
     test('should handle case insensitivity', async () => {
-      const result = await parse('[team:FRONTEND]');
-      expect(result.value.team).toBe('frontend');
-      expect(result.metadata.pattern).toBe('explicit');
-      expect(result.metadata.originalMatch).toBe('[team:FRONTEND]');
-    });
-
-    test('should normalize team names', async () => {
       const variations = [
-        { input: 'FRONTEND', expected: 'frontend' },
-        { input: 'Front-End', expected: 'frontend' },
-        { input: 'FrontEnd', expected: 'frontend' }
+        { input: 'FRONTEND team', expected: 'frontend' },
+        { input: 'Frontend Team', expected: 'frontend' },
+        { input: 'FrontEnd team', expected: 'frontend' }
       ];
 
       for (const { input, expected } of variations) {
-        const result = await parse(`[team:${input}]`);
-        expect(result.value.team).toBe(expected);
-        expect(result.metadata.pattern).toBe('explicit');
-        expect(result.metadata.originalMatch).toBe(`[team:${input}]`);
+        const result = await parse(input);
+        expect(result.value).toEqual({ team: expected });
+        expect(result.metadata.pattern).toBe('inferred');
+      }
+    });
+
+    test('should handle name list variations', async () => {
+      const variations = [
+        'involving frontend and backend',
+        'involving frontend, backend',
+        'involving frontend, backend, and design'
+      ];
+
+      for (const input of variations) {
+        const result = await parse(input);
+        expect(result.value).toContain('frontend');
+        expect(result.value).toContain('backend');
+        expect(result.metadata.pattern).toBe('name_list');
       }
     });
   });
 
   describe('Error Handling', () => {
-    test('should handle invalid team format', async () => {
-      const result = await parse('[team:]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle empty team value', async () => {
-      const result = await parse('[team: ]');
-      expect(result).toBeNull();
-    });
-
-    test('should handle malformed parameters', async () => {
-      const invalidParams = [
-        '[team:frontend()]',
-        '[team:frontend(lead)]',
-        '[team:frontend(lead=)]',
-        '[team:frontend(=john)]'
-      ];
-
-      for (const param of invalidParams) {
-        const result = await parse(param);
-        expect(result).toBeNull();
-      }
-    });
-
     test('should handle invalid team names', async () => {
       const invalidTeams = [
-        '[team:123]',
-        '[team:@#$]',
-        '[team:   ]',
-        '[team:invalid]'
+        '123 team',
+        '@#$ team',
+        'invalid team',
+        'unknown team'
       ];
 
       for (const team of invalidTeams) {
         const result = await parse(team);
+        expect(result).toBeNull();
+      }
+    });
+
+    test('should handle malformed name lists', async () => {
+      const malformed = [
+        'involving',
+        'involving and',
+        'involving ,',
+        'involving frontend,',
+        'involving , backend'
+      ];
+
+      for (const input of malformed) {
+        const result = await parse(input);
         expect(result).toBeNull();
       }
     });
@@ -166,7 +146,7 @@ describe('Team Parser', () => {
       };
 
       try {
-        const result = await parse('[team:frontend]');
+        const result = await parse('frontend team');
         expect(result).toEqual({
           type: 'error',
           error: 'PARSER_ERROR',

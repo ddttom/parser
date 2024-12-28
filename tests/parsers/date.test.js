@@ -3,12 +3,12 @@ import { name, parse } from '../../src/services/parser/parsers/date.js';
 describe('Date Parser', () => {
   describe('Return Format', () => {
     test('should return correct type property', async () => {
-      const result = await parse('[date:2024-01-20]');
+      const result = await parse('on January 20th, 2024');
       expect(result.type).toBe(name);
     });
 
     test('should return metadata with required fields', async () => {
-      const result = await parse('[date:2024-01-20]');
+      const result = await parse('on January 20th, 2024');
       expect(result.metadata).toEqual(expect.objectContaining({
         confidence: expect.any(String),
         pattern: expect.any(String),
@@ -23,16 +23,6 @@ describe('Date Parser', () => {
   });
 
   describe('Pattern Matching', () => {
-    test('should parse ISO format dates', async () => {
-      const result = await parse('[date:2024-01-20]');
-      expect(result.value).toEqual({
-        date: '2024-01-20',
-        format: 'ISO'
-      });
-      expect(result.metadata.pattern).toBe('explicit_iso');
-      expect(result.metadata.originalMatch).toBe('[date:2024-01-20]');
-    });
-
     test('should parse natural language dates', async () => {
       const result = await parse('on January 20th, 2024');
       expect(result.value).toEqual({
@@ -58,27 +48,52 @@ describe('Date Parser', () => {
       expect(result.metadata.pattern).toBe('weekday_reference');
       expect(result.metadata.originalMatch).toBe('next Wednesday');
     });
+
+    test('should parse period references', async () => {
+      const result = await parse('in 2 weeks');
+      expect(result.value.format).toBe('relative');
+      expect(result.value.date).toBeDefined();
+      expect(result.metadata.pattern).toBe('in_period');
+      expect(result.metadata.originalMatch).toBe('in 2 weeks');
+    });
+
+    test('should parse next period references', async () => {
+      const result = await parse('next month');
+      expect(result.value.format).toBe('relative');
+      expect(result.value.date).toBeDefined();
+      expect(result.metadata.pattern).toBe('next_period');
+      expect(result.metadata.originalMatch).toBe('next month');
+    });
   });
 
   describe('Error Handling', () => {
-    test('should handle invalid date format', async () => {
-      const result = await parse('[date:invalid]');
+    test('should handle invalid month names', async () => {
+      const result = await parse('on Jannuary 20th, 2024');
       expect(result).toBeNull();
     });
 
-    test('should handle invalid month', async () => {
-      const result = await parse('[date:2024-13-01]');
+    test('should handle invalid day numbers', async () => {
+      const result = await parse('on January 32nd, 2024');
       expect(result).toBeNull();
     });
 
-    test('should handle invalid day', async () => {
-      const result = await parse('[date:2024-01-32]');
+    test('should handle invalid year formats', async () => {
+      const result = await parse('on January 20th, 202');
       expect(result).toBeNull();
     });
 
-    test('should handle malformed date strings', async () => {
-      const result = await parse('[date:2024/01/01]');
-      expect(result).toBeNull();
+    test('should handle malformed natural date strings', async () => {
+      const invalidDates = [
+        'on the January',
+        'January 2024',
+        '20th January',
+        'January 20th two thousand twenty four'
+      ];
+
+      for (const date of invalidDates) {
+        const result = await parse(date);
+        expect(result).toBeNull();
+      }
     });
   });
 
@@ -98,22 +113,30 @@ describe('Date Parser', () => {
       tomorrow.setDate(tomorrow.getDate() + 1);
       expect(result.value.date).toBe(tomorrow.toISOString().split('T')[0]);
     });
+
+    test('should handle period calculations', async () => {
+      const result = await parse('in 2 weeks');
+      expect(result.value.date).toBeDefined();
+      const twoWeeks = new Date();
+      twoWeeks.setDate(twoWeeks.getDate() + 14);
+      expect(result.value.date).toBe(twoWeeks.toISOString().split('T')[0]);
+    });
   });
 
   describe('Metadata Validation', () => {
     test('includes original match in metadata', async () => {
-      const result = await parse('[date:2024-01-20]');
-      expect(result.metadata.originalMatch).toBe('[date:2024-01-20]');
+      const result = await parse('on January 20th, 2024');
+      expect(result.metadata.originalMatch).toBe('on January 20th, 2024');
     });
 
     test('includes pattern type in metadata', async () => {
-      const result = await parse('[date:2024-01-20]');
-      expect(result.metadata.pattern).toBe('explicit_iso');
-    });
-
-    test('natural pattern is correctly identified', async () => {
       const result = await parse('on January 20th, 2024');
       expect(result.metadata.pattern).toBe('natural_date');
+    });
+
+    test('relative pattern is correctly identified', async () => {
+      const result = await parse('tomorrow');
+      expect(result.metadata.pattern).toBe('relative_date');
     });
   });
 });

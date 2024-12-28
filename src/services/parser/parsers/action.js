@@ -43,7 +43,6 @@ export async function parse(text) {
   }
 
   const patterns = {
-    explicit_action: /\[action:([^\]]+)\]/i,
     completed_action: /[✓✔]\s*(\w+)\s+(.+)/i,
     // Match verb/noun at start with optional prefix
     start_pattern: new RegExp(`^\\s*(?:(${PREFIXES})\\s+)?(${Object.keys(VERB_NOUN_PAIRS).join('|')})\\s+(.+?)(?:\\s+(?:${BOUNDARIES}).*|$)`, 'i'),
@@ -75,14 +74,6 @@ export async function parse(text) {
           confidence = !prefix ? 0.95 : // No prefix = highest confidence
                       prefix.toLowerCase() === 'urgent' ? 0.9 : // Urgent = high confidence
                       0.85; // Other prefixes = lower confidence
-          break;
-
-        case 'explicit_action':
-          // [action:call John] -> verb: call, object: John
-          const parts = match[1].trim().split(/\s+/);
-          verb = parts[0];
-          object = parts.slice(1).join(' ').replace(/[,\.]+/g, '').replace(/\s+/g, ' ').trim();
-          confidence = 0.95;
           break;
 
         case 'explicit_verb':
