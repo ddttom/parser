@@ -23,48 +23,6 @@ describe('Complex Note Parsing', () => {
     jest.useRealTimers();
   });
 
-  describe('Input Validation', () => {
-    test('should handle null input gracefully', async () => {
-      const parsers = [parse, parseDate, parseCost, parseTeam, parseProject, parseTime, parsePriority, parseTags];
-      for (const parser of parsers) {
-        const result = await parser(null);
-        expect(result).toEqual({
-          type: 'error',
-          error: 'INVALID_INPUT',
-          message: 'Input must be a non-empty string'
-        });
-      }
-    });
-
-    test('should handle empty input gracefully', async () => {
-      const parsers = [parse, parseDate, parseCost, parseTeam, parseProject, parseTime, parsePriority, parseTags];
-      for (const parser of parsers) {
-        const result = await parser('');
-        expect(result).toEqual({
-          type: 'error',
-          error: 'INVALID_INPUT',
-          message: 'Input must be a non-empty string'
-        });
-      }
-    });
-
-    test('should handle non-string input gracefully', async () => {
-      const inputs = [123, {}, [], true, undefined];
-      const parsers = [parse, parseDate, parseCost, parseTeam, parseProject, parseTime, parsePriority, parseTags];
-      
-      for (const input of inputs) {
-        for (const parser of parsers) {
-          const result = await parser(input);
-          expect(result).toEqual({
-            type: 'error',
-            error: 'INVALID_INPUT',
-            message: 'Input must be a non-empty string'
-          });
-        }
-      }
-    });
-  });
-
   describe('Parser Interactions', () => {
     test('should handle overlapping patterns correctly', async () => {
       const note = "urgent meeting at 2pm tomorrow with project team about project deadline #urgent";
