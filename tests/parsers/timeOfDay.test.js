@@ -1,65 +1,92 @@
-import { name, parse } from '../../src/services/parser/parsers/timeOfDay.js';
+import { name, perfect } from '../../src/services/parser/parsers/timeOfDay.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('TimeOfDay Parser', () => {
   describe('Return Format', () => {
-    test('should return object with timeofday key', async () => {
-      const result = await parse('2:30 PM');
-      expect(result).toHaveProperty('timeofday');
+    test('should return object with text and corrections', async () => {
+      const result = await perfect('2:30 PM');
+      expect(result).toEqual(expect.objectContaining({
+        text: expect.any(String),
+        corrections: expect.any(Array)
+      }));
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    test('should return original text with empty corrections for no matches', async () => {
+      const text = '   ';
+      const result = await perfect(text);
+      expect(result).toEqual({
+        text,
+        corrections: []
+      });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('2:30 PM');
-      expect(result.timeofday).toEqual(expect.objectContaining({
-        hour: expect.any(Number),
-        minute: expect.any(Number),
-        format: expect.any(String),
-        period: expect.any(String),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
+    test('should include all required correction properties', async () => {
+      const result = await perfect('2:30 PM');
+      expect(result.corrections[0]).toEqual(expect.objectContaining({
+        type: 'timeofday',
+        original: expect.any(String),
+        correction: expect.any(String),
+        position: expect.objectContaining({
+          start: expect.any(Number),
+          end: expect.any(Number)
+        }),
+        confidence: expect.any(String)
       }));
     });
   });
 
   describe('Pattern Matching', () => {
-    test('should detect 12-hour format times', async () => {
-      const times = [
-        { input: '2:30 PM', hour: 14, minute: 30, period: 'PM' },
-        { input: '12:00 AM', hour: 0, minute: 0, period: 'AM' },
-        { input: '12:00 PM', hour: 12, minute: 0, period: 'PM' },
-        { input: '11:59 PM', hour: 23, minute: 59, period: 'PM' }
+    test('should handle 12-hour format times', async () => {
+      const variations = [
+        {
+          input: 'Meeting at 2:30 PM',
+          expected: 'Meeting at 2:30 PM'
+        },
+        {
+          input: 'Meeting at 12:00 AM',
+          expected: 'Meeting at 12:00 AM'
+        },
+        {
+          input: 'Meeting at 12:00 PM',
+          expected: 'Meeting at 12:00 PM'
+        },
+        {
+          input: 'Meeting at 11:59 PM',
+          expected: 'Meeting at 11:59 PM'
+        }
       ];
 
-      for (const { input, hour, minute, period } of times) {
-        const result = await parse(`Meeting at ${input}`);
-        expect(result.timeofday).toEqual(expect.objectContaining({
-          hour,
-          minute,
-          format: '12h',
-          period
-        }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect natural time expressions', async () => {
-      const expressions = [
-        { input: 'morning', period: 'morning' },
-        { input: 'afternoon', period: 'afternoon' },
-        { input: 'evening', period: 'evening' },
-        { input: 'night', period: 'night' }
+    test('should handle natural time expressions', async () => {
+      const variations = [
+        {
+          input: 'Meeting in the morning',
+          expected: 'Meeting in the morning (6:00-11:00)'
+        },
+        {
+          input: 'Meeting in the afternoon',
+          expected: 'Meeting in the afternoon (12:00-17:00)'
+        },
+        {
+          input: 'Meeting in the evening',
+          expected: 'Meeting in the evening (18:00-21:00)'
+        },
+        {
+          input: 'Meeting in the night',
+          expected: 'Meeting in the night (22:00-5:00)'
+        }
       ];
 
-      for (const { input, period } of expressions) {
-        const result = await parse(`Meeting in the ${input}`);
-        expect(result.timeofday).toEqual(expect.objectContaining({
-          period,
-          approximate: true
-        }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
       }
     });
   });
@@ -67,29 +94,55 @@ describe('TimeOfDay Parser', () => {
   describe('Time Format Handling', () => {
     test('should handle period variations', async () => {
       const variations = [
-        { input: 'PM', normalized: 'PM' },
-        { input: 'pm', normalized: 'PM' },
-        { input: 'p.m.', normalized: 'PM' },
-        { input: 'P.M.', normalized: 'PM' }
+        {
+          input: 'Meeting at 2:30 PM',
+          expected: 'Meeting at 2:30 PM'
+        },
+        {
+          input: 'Meeting at 2:30 pm',
+          expected: 'Meeting at 2:30 PM'
+        },
+        {
+          input: 'Meeting at 2:30 p.m.',
+          expected: 'Meeting at 2:30 PM'
+        },
+        {
+          input: 'Meeting at 2:30 P.M.',
+          expected: 'Meeting at 2:30 PM'
+        }
       ];
 
-      for (const { input, normalized } of variations) {
-        const result = await parse(`Meeting at 2:30 ${input}`);
-        expect(result.timeofday.period).toBe(normalized);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
     test('should handle natural period variations', async () => {
       const variations = [
-        { input: 'in the morning', period: 'morning' },
-        { input: 'during the afternoon', period: 'afternoon' },
-        { input: 'in evening', period: 'evening' },
-        { input: 'at night', period: 'night' }
+        {
+          input: 'in the morning',
+          expected: 'in the morning (6:00-11:00)'
+        },
+        {
+          input: 'during the afternoon',
+          expected: 'in the afternoon (12:00-17:00)'
+        },
+        {
+          input: 'in evening',
+          expected: 'in the evening (18:00-21:00)'
+        },
+        {
+          input: 'at night',
+          expected: 'in the night (22:00-5:00)'
+        }
       ];
 
-      for (const { input, period } of variations) {
-        const result = await parse(input);
-        expect(result.timeofday.period).toBe(period);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
       }
     });
   });
@@ -103,9 +156,12 @@ describe('TimeOfDay Parser', () => {
         '24:00 PM'   // Invalid hour
       ];
 
-      for (const time of invalidTimes) {
-        const result = await parse(time);
-        expect(result).toBeNull();
+      for (const input of invalidTimes) {
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -118,9 +174,12 @@ describe('TimeOfDay Parser', () => {
         'at dawn'
       ];
 
-      for (const period of invalidPeriods) {
-        const result = await parse(period);
-        expect(result).toBeNull();
+      for (const input of invalidPeriods) {
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -133,9 +192,12 @@ describe('TimeOfDay Parser', () => {
         '2-30 PM'    // Hyphen instead of colon
       ];
 
-      for (const time of malformed) {
-        const result = await parse(time);
-        expect(result).toBeNull();
+      for (const input of malformed) {
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
   });

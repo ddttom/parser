@@ -1,121 +1,202 @@
-import { name, parse } from '../../src/services/parser/parsers/contexts.js';
+import { name, perfect } from '../../src/services/parser/parsers/contexts.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Contexts Parser', () => {
   describe('Return Format', () => {
-    test('should return correct type property', async () => {
-      const result = await parse('at the office');
-      expect(result.type).toBe(name);
+    test('should return object with text and corrections', async () => {
+      const result = await perfect('at the office');
+      expect(result).toEqual(expect.objectContaining({
+        text: expect.any(String),
+        corrections: expect.any(Array)
+      }));
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    test('should return original text with empty corrections for no matches', async () => {
+      const text = '   ';
+      const result = await perfect(text);
+      expect(result).toEqual({
+        text,
+        corrections: []
+      });
+    });
+
+    test('should include all required correction properties', async () => {
+      const result = await perfect('at the office');
+      expect(result.corrections[0]).toEqual(expect.objectContaining({
+        type: 'context',
+        original: expect.any(String),
+        correction: expect.any(String),
+        position: expect.objectContaining({
+          start: expect.any(Number),
+          end: expect.any(Number)
+        }),
+        confidence: expect.any(String)
+      }));
     });
   });
 
   describe('Pattern Matching', () => {
-    test('should detect @ symbol contexts', async () => {
+    test('should handle @ symbol contexts', async () => {
       const variations = [
-        'Task @home',
-        'Working @office',
-        'Using @computer'
+        {
+          input: 'Task @home',
+          expected: 'Task @home'
+        },
+        {
+          input: 'Working @office',
+          expected: 'Working @office'
+        },
+        {
+          input: 'Using @computer',
+          expected: 'Using @computer'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.value).toEqual({
-          context: expect.any(String),
-          type: expect.any(String)
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect multiple @ contexts', async () => {
+    test('should handle multiple @ contexts', async () => {
       const variations = [
-        'Task @home @computer',
-        '@office @morning @computer',
-        '@home @evening @computer'
+        {
+          input: 'Task @home @computer',
+          expected: 'Task @home @computer'
+        },
+        {
+          input: '@office @morning @computer',
+          expected: '@office @morning @computer'
+        },
+        {
+          input: '@home @evening @computer',
+          expected: '@home @evening @computer'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.value).toHaveProperty('contexts');
-        expect(result.value.contexts.length).toBeGreaterThan(1);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect parameterized contexts', async () => {
+    test('should handle parameterized contexts', async () => {
       const variations = [
-        '@office(desk)',
-        '@home(study)',
-        '@computer(laptop)'
+        {
+          input: '@office(desk)',
+          expected: '@office(desk)'
+        },
+        {
+          input: '@home(study)',
+          expected: '@home(study)'
+        },
+        {
+          input: '@computer(laptop)',
+          expected: '@computer(laptop)'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.value).toEqual({
-          context: expect.any(String),
-          type: expect.any(String),
-          parameter: expect.any(String)
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect natural language contexts', async () => {
+    test('should handle natural language contexts', async () => {
       const variations = [
-        'at the office',
-        'in the morning',
-        'while at home',
-        'during afternoon'
+        {
+          input: 'at the office',
+          expected: '@office'
+        },
+        {
+          input: 'in the morning',
+          expected: '@morning'
+        },
+        {
+          input: 'while at home',
+          expected: '@home'
+        },
+        {
+          input: 'during afternoon',
+          expected: '@afternoon'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.value).toEqual({
-          context: expect.any(String),
-          type: expect.any(String)
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.LOW);
       }
     });
   });
 
   describe('Context Types', () => {
-    test('should identify location contexts', async () => {
-      const locations = [
-        { input: '@home', context: 'home', type: 'location' },
-        { input: '@office', context: 'office', type: 'location' },
-        { input: 'at the office', context: 'office', type: 'location' }
+    test('should handle location contexts', async () => {
+      const variations = [
+        {
+          input: '@home',
+          expected: '@home'
+        },
+        {
+          input: '@office',
+          expected: '@office'
+        },
+        {
+          input: 'at the office',
+          expected: '@office'
+        }
       ];
 
-      for (const { input, context, type } of locations) {
-        const result = await parse(input);
-        expect(result.value).toEqual(expect.objectContaining({ context, type }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
       }
     });
 
-    test('should identify tool contexts', async () => {
-      const tools = [
-        { input: '@computer', context: 'computer', type: 'tool' },
-        { input: 'using computer', context: 'computer', type: 'tool' }
+    test('should handle tool contexts', async () => {
+      const variations = [
+        {
+          input: '@computer',
+          expected: '@computer'
+        },
+        {
+          input: 'using computer',
+          expected: '@computer'
+        }
       ];
 
-      for (const { input, context, type } of tools) {
-        const result = await parse(input);
-        expect(result.value).toEqual(expect.objectContaining({ context, type }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
       }
     });
 
-    test('should identify time contexts', async () => {
-      const times = [
-        { input: '@morning', context: 'morning', type: 'time' },
-        { input: '@afternoon', context: 'afternoon', type: 'time' },
-        { input: '@evening', context: 'evening', type: 'time' },
-        { input: 'in the morning', context: 'morning', type: 'time' }
+    test('should handle time contexts', async () => {
+      const variations = [
+        {
+          input: '@morning',
+          expected: '@morning'
+        },
+        {
+          input: '@afternoon',
+          expected: '@afternoon'
+        },
+        {
+          input: '@evening',
+          expected: '@evening'
+        },
+        {
+          input: 'in the morning',
+          expected: '@morning'
+        }
       ];
 
-      for (const { input, context, type } of times) {
-        const result = await parse(input);
-        expect(result.value).toEqual(expect.objectContaining({ context, type }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
       }
     });
   });
@@ -130,8 +211,11 @@ describe('Contexts Parser', () => {
       ];
 
       for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -143,8 +227,11 @@ describe('Contexts Parser', () => {
       ];
 
       for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -157,8 +244,11 @@ describe('Contexts Parser', () => {
       ];
 
       for (const input of malformed) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
   });

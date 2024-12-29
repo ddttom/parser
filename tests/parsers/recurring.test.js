@@ -1,153 +1,227 @@
-import { name, parse } from '../../src/services/parser/parsers/recurring.js';
+import { name, perfect } from '../../src/services/parser/parsers/recurring.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Recurring Parser', () => {
   describe('Return Format', () => {
-    test('should return object with recurring key', async () => {
-      const result = await parse('every day');
-      expect(result).toHaveProperty('recurring');
+    test('should return object with text and corrections', async () => {
+      const result = await perfect('every day');
+      expect(result).toEqual(expect.objectContaining({
+        text: expect.any(String),
+        corrections: expect.any(Array)
+      }));
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    test('should return original text with empty corrections for no matches', async () => {
+      const text = '   ';
+      const result = await perfect(text);
+      expect(result).toEqual({
+        text,
+        corrections: []
+      });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('every day');
-      expect(result.recurring).toEqual(expect.objectContaining({
-        type: expect.any(String),
-        interval: expect.any(Number),
-        end: null,
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String),
-        includesEndCondition: expect.any(Boolean)
+    test('should include all required correction properties', async () => {
+      const result = await perfect('every day');
+      expect(result.corrections[0]).toEqual(expect.objectContaining({
+        type: 'recurring',
+        original: expect.any(String),
+        correction: expect.any(String),
+        position: expect.objectContaining({
+          start: expect.any(Number),
+          end: expect.any(Number)
+        }),
+        confidence: expect.any(String)
       }));
     });
   });
 
   describe('Pattern Matching', () => {
-    test('should detect business days pattern', async () => {
+    test('should handle business days pattern', async () => {
       const variations = [
-        'every business day',
-        'each business day',
-        'every working day',
-        'each work day'
+        {
+          input: 'every business day',
+          expected: 'every business day'
+        },
+        {
+          input: 'each business day',
+          expected: 'every business day'
+        },
+        {
+          input: 'every working day',
+          expected: 'every business day'
+        },
+        {
+          input: 'each work day',
+          expected: 'every business day'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.recurring).toEqual(expect.objectContaining({
-          type: 'business',
-          interval: 1,
-          excludeWeekends: true,
-          end: null
-        }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect weekday pattern', async () => {
+    test('should handle weekday pattern', async () => {
       const weekdays = [
-        { input: 'every monday', day: 'monday', index: 1 },
-        { input: 'every tuesday', day: 'tuesday', index: 2 },
-        { input: 'every wednesday', day: 'wednesday', index: 3 },
-        { input: 'every thursday', day: 'thursday', index: 4 },
-        { input: 'every friday', day: 'friday', index: 5 },
-        { input: 'every saturday', day: 'saturday', index: 6 },
-        { input: 'every sunday', day: 'sunday', index: 0 }
+        {
+          input: 'every monday',
+          expected: 'every monday'
+        },
+        {
+          input: 'every tuesday',
+          expected: 'every tuesday'
+        },
+        {
+          input: 'every wednesday',
+          expected: 'every wednesday'
+        },
+        {
+          input: 'every thursday',
+          expected: 'every thursday'
+        },
+        {
+          input: 'every friday',
+          expected: 'every friday'
+        },
+        {
+          input: 'every saturday',
+          expected: 'every saturday'
+        },
+        {
+          input: 'every sunday',
+          expected: 'every sunday'
+        }
       ];
 
-      for (const { input, day, index } of weekdays) {
-        const result = await parse(input);
-        expect(result.recurring).toEqual(expect.objectContaining({
-          type: 'specific',
-          day,
-          dayIndex: index,
-          interval: 1,
-          end: null
-        }));
+      for (const { input, expected } of weekdays) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect basic intervals', async () => {
+    test('should handle basic intervals', async () => {
       const intervals = [
-        { input: 'every hour', type: 'hour' },
-        { input: 'every day', type: 'day' },
-        { input: 'every week', type: 'week' },
-        { input: 'every month', type: 'month' }
+        {
+          input: 'every hour',
+          expected: 'every hour'
+        },
+        {
+          input: 'every day',
+          expected: 'every day'
+        },
+        {
+          input: 'every week',
+          expected: 'every week'
+        },
+        {
+          input: 'every month',
+          expected: 'every month'
+        }
       ];
 
-      for (const { input, type } of intervals) {
-        const result = await parse(input);
-        expect(result.recurring).toEqual(expect.objectContaining({
-          type,
-          interval: 1,
-          end: null
-        }));
+      for (const { input, expected } of intervals) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
       }
     });
 
-    test('should detect custom intervals', async () => {
+    test('should handle custom intervals', async () => {
       const intervals = [
-        { input: 'every 2 hours', type: 'hour', interval: 2 },
-        { input: 'every 3 days', type: 'day', interval: 3 },
-        { input: 'every 2 weeks', type: 'week', interval: 2 },
-        { input: 'every 6 months', type: 'month', interval: 6 }
+        {
+          input: 'every 2 hours',
+          expected: 'every 2 hours'
+        },
+        {
+          input: 'every 3 days',
+          expected: 'every 3 days'
+        },
+        {
+          input: 'every 2 weeks',
+          expected: 'every 2 weeks'
+        },
+        {
+          input: 'every 6 months',
+          expected: 'every 6 months'
+        }
       ];
 
-      for (const { input, type, interval } of intervals) {
-        const result = await parse(input);
-        expect(result.recurring).toEqual(expect.objectContaining({
-          type,
-          interval,
-          end: null
-        }));
+      for (const { input, expected } of intervals) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.LOW);
       }
     });
   });
 
   describe('End Conditions', () => {
-    test('should extract count end condition', async () => {
+    test('should handle count end condition', async () => {
       const variations = [
-        'every day for 5 times',
-        'every week for 3 times',
-        'every month for 12 times',
-        'every business day for 20 times'
+        {
+          input: 'every day for 5 times',
+          expected: 'every day for 5 times'
+        },
+        {
+          input: 'every week for 3 times',
+          expected: 'every week for 3 times'
+        },
+        {
+          input: 'every month for 12 times',
+          expected: 'every month for 12 times'
+        },
+        {
+          input: 'every business day for 20 times',
+          expected: 'every business day for 20 times'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.recurring.end).toEqual({
-          type: 'count',
-          value: parseInt(input.match(/(\d+)\s+times/)[1], 10)
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
       }
     });
 
-    test('should extract date end condition', async () => {
+    test('should handle date end condition', async () => {
       const variations = [
-        'every day until December 31',
-        'every week until next Friday',
-        'every month until year end',
-        'every business day until project completion'
+        {
+          input: 'every day until December 31',
+          expected: 'every day until December 31'
+        },
+        {
+          input: 'every week until next Friday',
+          expected: 'every week until next Friday'
+        },
+        {
+          input: 'every month until year end',
+          expected: 'every month until year end'
+        },
+        {
+          input: 'every business day until project completion',
+          expected: 'every business day until project completion'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.recurring.end).toEqual({
-          type: 'until',
-          value: input.split('until ')[1]
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
       }
     });
 
     test('should prioritize count over date when both present', async () => {
-      const input = 'every month for 3 times until December 31';
-      const result = await parse(input);
-      expect(result.recurring.end).toEqual({
-        type: 'count',
-        value: 3
-      });
+      const variations = [
+        {
+          input: 'every month for 3 times until December 31',
+          expected: 'every month for 3 times'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+      }
     });
   });
 
@@ -159,13 +233,11 @@ describe('Recurring Parser', () => {
         'every 1.5 days'
       ];
 
-      for (const interval of invalidIntervals) {
-        const result = await parse(interval);
+      for (const input of invalidIntervals) {
+        const result = await perfect(input);
         expect(result).toEqual({
-          recurring: {
-            error: 'PARSER_ERROR',
-            message: 'Invalid interval value'
-          }
+          text: input,
+          corrections: []
         });
       }
     });
@@ -177,9 +249,12 @@ describe('Recurring Parser', () => {
         'every day for 1.5 times'
       ];
 
-      for (const count of invalidCounts) {
-        const result = await parse(count);
-        expect(result.recurring.end).toBeNull();
+      for (const input of invalidCounts) {
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -193,8 +268,11 @@ describe('Recurring Parser', () => {
       ];
 
       for (const input of malformed) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
   });

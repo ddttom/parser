@@ -1,133 +1,232 @@
-import { name, parse } from '../../src/services/parser/parsers/links.js';
+import { name, perfect } from '../../src/services/parser/parsers/links.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Links Parser', () => {
   describe('Return Format', () => {
-    test('should return object with links key', async () => {
-      const result = await parse('https://example.com');
-      expect(result).toHaveProperty('links');
+    test('should return object with text and corrections', async () => {
+      const result = await perfect('https://example.com');
+      expect(result).toEqual(expect.objectContaining({
+        text: expect.any(String),
+        corrections: expect.any(Array)
+      }));
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    test('should return original text with empty corrections for no matches', async () => {
+      const text = '   ';
+      const result = await perfect(text);
+      expect(result).toEqual({
+        text,
+        corrections: []
+      });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('https://example.com');
-      const expectedProps = {
-        url: expect.any(String),
-        type: expect.any(String),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      };
-      expect(result.links).toMatchObject(expectedProps);
+    test('should include all required correction properties', async () => {
+      const result = await perfect('https://example.com');
+      expect(result.corrections[0]).toEqual(expect.objectContaining({
+        type: 'link',
+        original: expect.any(String),
+        correction: expect.any(String),
+        position: expect.objectContaining({
+          start: expect.any(Number),
+          end: expect.any(Number)
+        }),
+        confidence: expect.any(String)
+      }));
     });
   });
 
   describe('URL Pattern Matching', () => {
-    test('should detect HTTP URLs', async () => {
-      const result = await parse('Visit http://example.com');
-      expect(result.links).toMatchObject({
-        url: 'http://example.com',
-        type: 'url'
-      });
+    test('should handle HTTP URLs', async () => {
+      const variations = [
+        {
+          input: 'Visit http://example.com',
+          expected: 'Visit http://example.com'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+      }
     });
 
-    test('should detect HTTPS URLs', async () => {
-      const result = await parse('Visit https://example.com');
-      expect(result.links).toMatchObject({
-        url: 'https://example.com',
-        type: 'url'
-      });
+    test('should handle HTTPS URLs', async () => {
+      const variations = [
+        {
+          input: 'Visit https://example.com',
+          expected: 'Visit https://example.com'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+      }
     });
 
     test('should handle URLs with paths and query params', async () => {
-      const urls = [
-        'https://example.com/path/to/page',
-        'https://example.com/search?q=test&page=1',
-        'https://example.com/path#section'
+      const variations = [
+        {
+          input: 'Visit https://example.com/path/to/page',
+          expected: 'Visit https://example.com/path/to/page'
+        },
+        {
+          input: 'Visit https://example.com/search?q=test&page=1',
+          expected: 'Visit https://example.com/search?q=test&page=1'
+        },
+        {
+          input: 'Visit https://example.com/path#section',
+          expected: 'Visit https://example.com/path#section'
+        }
       ];
 
-      for (const url of urls) {
-        const result = await parse(`Visit ${url}`);
-        expect(result.links.url).toBe(url);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
     test('should handle URLs with special characters', async () => {
-      const urls = [
-        'https://example.com/path%20with%20spaces',
-        'https://example.com/path+with+plus',
-        'https://example.com/path_with_underscore'
+      const variations = [
+        {
+          input: 'Visit https://example.com/path%20with%20spaces',
+          expected: 'Visit https://example.com/path%20with%20spaces'
+        },
+        {
+          input: 'Visit https://example.com/path+with+plus',
+          expected: 'Visit https://example.com/path+with+plus'
+        },
+        {
+          input: 'Visit https://example.com/path_with_underscore',
+          expected: 'Visit https://example.com/path_with_underscore'
+        }
       ];
 
-      for (const url of urls) {
-        const result = await parse(`Visit ${url}`);
-        expect(result.links.url).toBe(url);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
   });
 
   describe('Markdown Link Pattern', () => {
-    test('should detect markdown links', async () => {
-      const result = await parse('[Example](https://example.com)');
-      expect(result.links).toMatchObject({
-        url: 'https://example.com',
-        text: 'Example',
-        type: 'markdown'
-      });
+    test('should handle markdown links', async () => {
+      const variations = [
+        {
+          input: '[Example](https://example.com)',
+          expected: '[Example](https://example.com)'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+      }
     });
 
-    test('should validate markdown link text', async () => {
+    test('should handle invalid markdown link text', async () => {
       const invalidTexts = ['', ' ', '[nested]'];
       for (const text of invalidTexts) {
-        const result = await parse(`[${text}](https://example.com)`);
-        expect(result).toBeNull();
+        const result = await perfect(`[${text}](https://example.com)`);
+        expect(result).toEqual({
+          text: `[${text}](https://example.com)`,
+          corrections: []
+        });
       }
     });
 
     test('should handle markdown links with complex URLs', async () => {
-      const result = await parse('[Search](https://example.com/search?q=test&page=1#results)');
-      expect(result.links.url).toBe('https://example.com/search?q=test&page=1#results');
+      const variations = [
+        {
+          input: '[Search](https://example.com/search?q=test&page=1#results)',
+          expected: '[Search](https://example.com/search?q=test&page=1#results)'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+      }
     });
   });
 
   describe('Inferred URLs', () => {
-    test('should detect domain-only URLs', async () => {
-      const result = await parse('Visit example.com');
-      expect(result.links).toMatchObject({
-        url: 'https://example.com',
-        type: 'url'
-      });
+    test('should handle domain-only URLs', async () => {
+      const variations = [
+        {
+          input: 'Visit example.com',
+          expected: 'Visit https://example.com'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.LOW);
+      }
     });
 
     test('should handle various TLDs', async () => {
-      const domains = [
-        'example.com',
-        'example.org',
-        'example.net',
-        'example.edu',
-        'example.gov',
-        'example.io'
+      const variations = [
+        {
+          input: 'Visit example.com',
+          expected: 'Visit https://example.com'
+        },
+        {
+          input: 'Visit example.org',
+          expected: 'Visit https://example.org'
+        },
+        {
+          input: 'Visit example.net',
+          expected: 'Visit https://example.net'
+        },
+        {
+          input: 'Visit example.edu',
+          expected: 'Visit https://example.edu'
+        },
+        {
+          input: 'Visit example.gov',
+          expected: 'Visit https://example.gov'
+        },
+        {
+          input: 'Visit example.io',
+          expected: 'Visit https://example.io'
+        }
       ];
 
-      for (const domain of domains) {
-        const result = await parse(`Visit ${domain}`);
-        expect(result.links.url).toBe(`https://${domain}`);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.LOW);
       }
     });
 
     test('should handle subdomains', async () => {
-      const domains = [
-        'blog.example.com',
-        'sub1.sub2.example.com',
-        'api.example.org'
+      const variations = [
+        {
+          input: 'Visit blog.example.com',
+          expected: 'Visit https://blog.example.com'
+        },
+        {
+          input: 'Visit sub1.sub2.example.com',
+          expected: 'Visit https://sub1.sub2.example.com'
+        },
+        {
+          input: 'Visit api.example.org',
+          expected: 'Visit https://api.example.org'
+        }
       ];
 
-      for (const domain of domains) {
-        const result = await parse(`Visit ${domain}`);
-        expect(result.links.url).toBe(`https://${domain}`);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.LOW);
       }
     });
   });
@@ -144,8 +243,11 @@ describe('Links Parser', () => {
       ];
 
       for (const url of invalidUrls) {
-        const result = await parse(`Visit ${url}`);
-        expect(result).toBeNull();
+        const result = await perfect(`Visit ${url}`);
+        expect(result).toEqual({
+          text: `Visit ${url}`,
+          corrections: []
+        });
       }
     });
 
@@ -158,8 +260,11 @@ describe('Links Parser', () => {
       ];
 
       for (const link of malformedLinks) {
-        const result = await parse(link);
-        expect(result).toBeNull();
+        const result = await perfect(link);
+        expect(result).toEqual({
+          text: link,
+          corrections: []
+        });
       }
     });
   });

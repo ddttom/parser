@@ -1,98 +1,130 @@
-import { name, parse } from '../../src/services/parser/parsers/contact.js';
+import { name, perfect } from '../../src/services/parser/parsers/contact.js';
 import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Contact Parser', () => {
   describe('Return Format', () => {
-    test('should return object with contact key', async () => {
-      const result = await parse('contact John Smith');
-      expect(result).toHaveProperty('contact');
+    test('should return object with text and corrections', async () => {
+      const result = await perfect('contact John Smith');
+      expect(result).toEqual(expect.objectContaining({
+        text: expect.any(String),
+        corrections: expect.any(Array)
+      }));
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    test('should return original text with empty corrections for no matches', async () => {
+      const text = '   ';
+      const result = await perfect(text);
+      expect(result).toEqual({
+        text,
+        corrections: []
+      });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('contact John Smith');
-      const expectedProps = {
-        type: expect.any(String),
-        name: expect.any(String),
-        id: expect.any(String),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      };
-      expect(result.contact).toMatchObject(expectedProps);
+    test('should include all required correction properties', async () => {
+      const result = await perfect('contact John Smith');
+      expect(result.corrections[0]).toEqual(expect.objectContaining({
+        type: 'contact',
+        original: expect.any(String),
+        correction: expect.any(String),
+        position: expect.objectContaining({
+          start: expect.any(Number),
+          end: expect.any(Number)
+        }),
+        confidence: expect.any(String)
+      }));
     });
   });
 
   describe('Pattern Matching', () => {
-    test('should detect email addresses', async () => {
+    test('should handle email addresses', async () => {
       const variations = [
-        'contact john.doe@example.com',
-        'email from john.doe@example.com',
-        'send to john.doe@example.com'
+        {
+          input: 'contact john.doe@example.com',
+          expected: 'contact John Doe <john.doe@example.com>'
+        },
+        {
+          input: 'email from john.doe@example.com',
+          expected: 'email from John Doe <john.doe@example.com>'
+        },
+        {
+          input: 'send to john.doe@example.com',
+          expected: 'send to John Doe <john.doe@example.com>'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.contact).toMatchObject({
-          type: 'email',
-          value: 'john.doe@example.com',
-          name: 'John Doe'
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect phone numbers', async () => {
+    test('should handle phone numbers', async () => {
       const variations = [
-        'call +1-555-123-4567',
-        'phone +1-555-123-4567',
-        'contact at +1-555-123-4567'
+        {
+          input: 'call +1-555-123-4567',
+          expected: 'call +1-555-123-4567'
+        },
+        {
+          input: 'phone +1-555-123-4567',
+          expected: 'phone +1-555-123-4567'
+        },
+        {
+          input: 'contact at +1-555-123-4567',
+          expected: 'contact at +1-555-123-4567'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.contact).toMatchObject({
-          type: 'phone',
-          value: '+15551234567',
-          formatted: '+1-555-123-4567'
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect name references', async () => {
+    test('should handle name references', async () => {
       const variations = [
-        'contact John Smith',
-        'reaching out to John Smith',
-        'contacting John Smith'
+        {
+          input: 'contact John Smith',
+          expected: 'John Smith'
+        },
+        {
+          input: 'reaching out to John Smith',
+          expected: 'John Smith'
+        },
+        {
+          input: 'contacting John Smith',
+          expected: 'John Smith'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.contact).toMatchObject({
-          type: 'reference',
-          name: 'John Smith',
-          id: 'john_smith'
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect inferred contacts', async () => {
+    test('should handle inferred contacts', async () => {
       const variations = [
-        'meet with John Smith',
-        'call John Smith',
-        'email John Smith'
+        {
+          input: 'meet with John Smith',
+          expected: 'meet with John Smith'
+        },
+        {
+          input: 'call John Smith',
+          expected: 'call John Smith'
+        },
+        {
+          input: 'email John Smith',
+          expected: 'email John Smith'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.contact).toMatchObject({
-          type: 'reference',
-          name: 'John Smith',
-          id: 'john_smith'
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
       }
     });
   });
@@ -100,42 +132,68 @@ describe('Contact Parser', () => {
   describe('Name Handling', () => {
     test('should handle single names', async () => {
       const variations = [
-        'contact John',
-        'meet with Sarah',
-        'call Mike'
+        {
+          input: 'contact John',
+          expected: 'John'
+        },
+        {
+          input: 'meet with Sarah',
+          expected: 'meet with Sarah'
+        },
+        {
+          input: 'call Mike',
+          expected: 'call Mike'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.contact.name).toBeTruthy();
-        expect(result.contact.id).toBe(result.contact.name.toLowerCase());
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
       }
     });
 
     test('should handle full names', async () => {
       const variations = [
-        'contact John Smith',
-        'meet with Sarah Johnson',
-        'call Mike Brown'
+        {
+          input: 'contact John Smith',
+          expected: 'John Smith'
+        },
+        {
+          input: 'meet with Sarah Johnson',
+          expected: 'meet with Sarah Johnson'
+        },
+        {
+          input: 'call Mike Brown',
+          expected: 'call Mike Brown'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.contact.name.split(' ')).toHaveLength(2);
-        expect(result.contact.id).toBe(result.contact.name.toLowerCase().replace(' ', '_'));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
       }
     });
 
-    test('should extract names from email addresses', async () => {
+    test('should handle email addresses with names', async () => {
       const variations = [
-        { email: 'john.doe@example.com', name: 'John Doe' },
-        { email: 'sarah.j.smith@example.com', name: 'Sarah J Smith' },
-        { email: 'mike_brown@example.com', name: 'Mike Brown' }
+        {
+          input: 'john.doe@example.com',
+          expected: 'John Doe <john.doe@example.com>'
+        },
+        {
+          input: 'sarah.j.smith@example.com',
+          expected: 'Sarah J Smith <sarah.j.smith@example.com>'
+        },
+        {
+          input: 'mike_brown@example.com',
+          expected: 'Mike Brown <mike_brown@example.com>'
+        }
       ];
 
-      for (const { email, name } of variations) {
-        const result = await parse(email);
-        expect(result.contact.name).toBe(name);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
   });
@@ -150,8 +208,11 @@ describe('Contact Parser', () => {
       ];
 
       for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -164,8 +225,11 @@ describe('Contact Parser', () => {
       ];
 
       for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -178,8 +242,11 @@ describe('Contact Parser', () => {
       ];
 
       for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
   });

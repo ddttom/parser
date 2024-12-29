@@ -1,159 +1,228 @@
-import { parse } from '../../src/services/parser/parsers/timeBlock.js';
+import { name, perfect } from '../../src/services/parser/parsers/timeBlock.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Time Block Parser', () => {
     describe('Return Format', () => {
-        test('should return object with timeblock key', async () => {
-            const result = await parse('10:00am to 11:30am for focused work');
-            expect(result).toHaveProperty('timeblock');
+        test('should return object with text and corrections', async () => {
+            const result = await perfect('10:00am to 11:30am for focused work');
+            expect(result).toEqual(expect.objectContaining({
+                text: expect.any(String),
+                corrections: expect.any(Array)
+            }));
         });
 
-        test('should return null for no matches', async () => {
-            const result = await parse('   ');
-            expect(result).toBeNull();
+        test('should return original text with empty corrections for no matches', async () => {
+            const text = '   ';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
 
-        test('should include all required properties', async () => {
-            const result = await parse('10:00am to 11:30am for focused work');
-            const expectedProps = {
-                start: expect.any(Object),
-                end: expect.any(Object),
-                type: expect.any(String),
-                description: expect.any(String),
-                confidence: expect.any(Number),
-                pattern: expect.any(String),
-                originalMatch: expect.any(String)
-            };
-            expect(result.timeblock).toMatchObject(expectedProps);
+        test('should include all required correction properties', async () => {
+            const result = await perfect('10:00am to 11:30am for focused work');
+            expect(result.corrections[0]).toEqual(expect.objectContaining({
+                type: 'timeblock',
+                original: expect.any(String),
+                correction: expect.any(String),
+                position: expect.objectContaining({
+                    start: expect.any(Number),
+                    end: expect.any(Number)
+                }),
+                confidence: expect.any(String)
+            }));
         });
     });
 
     describe('Range Format', () => {
-        test('should parse time range with AM/PM', async () => {
-            const result = await parse('10:00am to 11:30am for focused work');
-            const expected = {
-                start: { hours: 10, minutes: 0 },
-                end: { hours: 11, minutes: 30 },
-                type: 'deep',
-                description: 'focused work'
-            };
-            expect(result.timeblock).toMatchObject(expected);
+        test('should handle time range with AM/PM', async () => {
+            const variations = [
+                {
+                    input: '10:00am to 11:30am for focused work',
+                    expected: '10:00am to 11:30am for deep (focused work)'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+            }
         });
 
-        test('should parse time range with hyphen', async () => {
-            const result = await parse('2pm-3:30pm for planning session');
-            const expected = {
-                start: { hours: 14, minutes: 0 },
-                end: { hours: 15, minutes: 30 },
-                type: 'admin',
-                description: 'planning session'
-            };
-            expect(result.timeblock).toMatchObject(expected);
+        test('should handle time range with hyphen', async () => {
+            const variations = [
+                {
+                    input: '2pm-3:30pm for planning session',
+                    expected: '2:00pm to 3:30pm for admin (planning session)'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+            }
         });
 
-        test('should parse time range without description', async () => {
-            const result = await parse('9am to 10am');
-            const expected = {
-                start: { hours: 9, minutes: 0 },
-                end: { hours: 10, minutes: 0 },
-                type: 'general',
-                description: null
-            };
-            expect(result.timeblock).toMatchObject(expected);
+        test('should handle time range without description', async () => {
+            const variations = [
+                {
+                    input: '9am to 10am',
+                    expected: '9:00am to 10:00am'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+            }
         });
     });
 
     describe('Block Format', () => {
-        test('should parse block schedule format', async () => {
-            const result = await parse('block 1:00pm to 2:30pm for team meeting');
-            const expected = {
-                start: { hours: 13, minutes: 0 },
-                end: { hours: 14, minutes: 30 },
-                type: 'meeting',
-                description: 'team meeting'
-            };
-            expect(result.timeblock).toMatchObject(expected);
+        test('should handle block schedule format', async () => {
+            const variations = [
+                {
+                    input: 'block 1:00pm to 2:30pm for team meeting',
+                    expected: '1:00pm to 2:30pm for meeting (team meeting)'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
         });
 
-        test('should parse schedule format', async () => {
-            const result = await parse('schedule 3pm to 4pm for break');
-            const expected = {
-                start: { hours: 15, minutes: 0 },
-                end: { hours: 16, minutes: 0 },
-                type: 'break',
-                description: 'break'
-            };
-            expect(result.timeblock).toMatchObject(expected);
+        test('should handle schedule format', async () => {
+            const variations = [
+                {
+                    input: 'schedule 3pm to 4pm for break',
+                    expected: '3:00pm to 4:00pm for break (break)'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
         });
 
-        test('should parse block format without description', async () => {
-            const result = await parse('block 2pm to 3pm');
-            const expected = {
-                start: { hours: 14, minutes: 0 },
-                end: { hours: 15, minutes: 0 },
-                type: 'general',
-                description: null
-            };
-            expect(result.timeblock).toMatchObject(expected);
+        test('should handle block format without description', async () => {
+            const variations = [
+                {
+                    input: 'block 2pm to 3pm',
+                    expected: '2:00pm to 3:00pm'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+            }
         });
     });
 
     describe('Period Format', () => {
-        test('should parse period format with default duration', async () => {
-            const result = await parse('9am deep work block');
-            const expected = {
-                start: { hours: 9, minutes: 0 },
-                end: { hours: 10, minutes: 0 },
-                type: 'deep',
-                description: null
-            };
-            expect(result.timeblock).toMatchObject(expected);
-        });
-
-        test('should parse period format with minutes', async () => {
-            const result = await parse('2:30pm focused time');
-            const expected = {
-                start: { hours: 14, minutes: 30 },
-                end: { hours: 15, minutes: 30 },
-                type: 'deep',
-                description: null
-            };
-            expect(result.timeblock).toMatchObject(expected);
-        });
-
-        test('should parse different block types', async () => {
-            const blocks = [
-                { input: '9am deep work block', type: 'deep' },
-                { input: '10am meeting time', type: 'meeting' },
-                { input: '12pm break time', type: 'break' },
-                { input: '2pm admin block', type: 'admin' }
+        test('should handle period format with default duration', async () => {
+            const variations = [
+                {
+                    input: '9am deep work block',
+                    expected: '9:00am to 10:00am for deep'
+                }
             ];
 
-            for (const { input, type } of blocks) {
-                const result = await parse(input);
-                expect(result.timeblock.type).toBe(type);
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+            }
+        });
+
+        test('should handle period format with minutes', async () => {
+            const variations = [
+                {
+                    input: '2:30pm focused time',
+                    expected: '2:30pm to 3:30pm for deep'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+            }
+        });
+
+        test('should handle different block types', async () => {
+            const variations = [
+                {
+                    input: '9am deep work block',
+                    expected: '9:00am to 10:00am for deep'
+                },
+                {
+                    input: '10am meeting time',
+                    expected: '10:00am to 11:00am for meeting'
+                },
+                {
+                    input: '12pm break time',
+                    expected: '12:00pm to 1:00pm for break'
+                },
+                {
+                    input: '2pm admin block',
+                    expected: '2:00pm to 3:00pm for admin'
+                }
+            ];
+
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
             }
         });
     });
 
     describe('Invalid Cases', () => {
-        test('should return null for invalid time format', async () => {
-            const result = await parse('block 25:00 to 26:00');
-            expect(result).toBeNull();
+        test('should handle invalid time format', async () => {
+            const text = 'block 25:00 to 26:00';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
 
-        test('should return null for invalid hour in 12-hour format', async () => {
-            const result = await parse('13am to 2pm');
-            expect(result).toBeNull();
+        test('should handle invalid hour in 12-hour format', async () => {
+            const text = '13am to 2pm';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
 
-        test('should return null for missing time component', async () => {
-            const result = await parse('block to 2pm');
-            expect(result).toBeNull();
+        test('should handle missing time component', async () => {
+            const text = 'block to 2pm';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
 
-        test('should return null for invalid minutes', async () => {
-            const result = await parse('9:60am to 10am');
-            expect(result).toBeNull();
+        test('should handle invalid minutes', async () => {
+            const text = '9:60am to 10am';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
     });
 });

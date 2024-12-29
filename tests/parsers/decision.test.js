@@ -1,167 +1,180 @@
-import { parse } from '../../src/services/parser/parsers/decision.js';
+import { name, perfect } from '../../src/services/parser/parsers/decision.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Decision Parser', () => {
     describe('Return Format', () => {
-        test('should return object with decision key', async () => {
-            const result = await parse('decided to use React');
-            expect(result).toHaveProperty('decision');
+        test('should return object with text and corrections', async () => {
+            const result = await perfect('decided to use React');
+            expect(result).toEqual(expect.objectContaining({
+                text: expect.any(String),
+                corrections: expect.any(Array)
+            }));
         });
 
-        test('should return null for no matches', async () => {
-            const result = await parse('   ');
-            expect(result).toBeNull();
+        test('should return original text with empty corrections for no matches', async () => {
+            const text = '   ';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
 
-        test('should include all required properties', async () => {
-            const result = await parse('decided to use React');
-            const expectedProps = {
-                decision: expect.any(String),
-                type: expect.any(String),
-                isExplicit: expect.any(Boolean),
-                confidence: expect.any(Number),
-                pattern: expect.any(String),
-                originalMatch: expect.any(String)
-            };
-            expect(result.decision).toMatchObject(expectedProps);
+        test('should include all required correction properties', async () => {
+            const result = await perfect('decided to use React');
+            expect(result.corrections[0]).toEqual(expect.objectContaining({
+                type: 'decision',
+                original: expect.any(String),
+                correction: expect.any(String),
+                position: expect.objectContaining({
+                    start: expect.any(Number),
+                    end: expect.any(Number)
+                }),
+                confidence: expect.any(String)
+            }));
         });
     });
 
     describe('Pattern Matching', () => {
-        test('should parse decided format with rationale', async () => {
+        test('should handle decided format with rationale', async () => {
             const variations = [
-                'decided to adopt microservices because of scalability needs',
-                'therefore, decided to use TypeScript because of type safety',
-                'thus, decided to implement CI/CD because of automation needs'
+                {
+                    input: 'decided to adopt microservices because of scalability needs',
+                    expected: 'decided to adopt microservices because of scalability needs'
+                },
+                {
+                    input: 'therefore, decided to use TypeScript because of type safety',
+                    expected: 'therefore, decided to use TypeScript because of type safety'
+                },
+                {
+                    input: 'thus, decided to implement CI/CD because of automation needs',
+                    expected: 'thus, decided to implement CI/CD because of automation needs'
+                }
             ];
 
-            for (const input of variations) {
-                const result = await parse(input);
-                expect(result.decision.type).toBe('technical');
-                expect(result.decision.rationale).toBeTruthy();
-                expect(result.decision.isExplicit).toBe(true);
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
             }
         });
 
-        test('should parse choice format', async () => {
+        test('should handle choice format', async () => {
             const variations = [
-                'choice: implement agile workflow because it fits team better',
-                'choice: use MongoDB because of flexibility',
-                'therefore, choice: adopt Docker because of containerization'
+                {
+                    input: 'choice: implement agile workflow because it fits team better',
+                    expected: 'choice: implement agile workflow because it fits team better'
+                },
+                {
+                    input: 'choice: use MongoDB because of flexibility',
+                    expected: 'choice: use MongoDB because of flexibility'
+                },
+                {
+                    input: 'therefore, choice: adopt Docker because of containerization',
+                    expected: 'therefore, choice: adopt Docker because of containerization'
+                }
             ];
 
-            for (const input of variations) {
-                const result = await parse(input);
-                expect(result.decision.rationale).toBeTruthy();
-                expect(result.decision.isExplicit).toBe(true);
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
             }
         });
 
-        test('should parse selected format with alternative', async () => {
+        test('should handle selected format with alternative', async () => {
             const variations = [
-                'selected React over Angular because of ecosystem',
-                'selected MongoDB over PostgreSQL because of flexibility',
-                'selected TypeScript over JavaScript because of type safety'
+                {
+                    input: 'selected React over Angular because of ecosystem',
+                    expected: 'selected React over Angular because of ecosystem'
+                },
+                {
+                    input: 'selected MongoDB over PostgreSQL because of flexibility',
+                    expected: 'selected MongoDB over PostgreSQL because of flexibility'
+                },
+                {
+                    input: 'selected TypeScript over JavaScript because of type safety',
+                    expected: 'selected TypeScript over JavaScript because of type safety'
+                }
             ];
 
-            for (const input of variations) {
-                const result = await parse(input);
-                expect(result.decision.alternative).toBeTruthy();
-                expect(result.decision.rationale).toBeTruthy();
-                expect(result.decision.isExplicit).toBe(true);
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
             }
         });
 
-        test('should parse going with format', async () => {
+        test('should handle going with format', async () => {
             const variations = [
-                'going with cloud deployment because of cost efficiency',
-                'therefore, going with React because of ecosystem',
-                'thus, going with agile workflow because of flexibility'
+                {
+                    input: 'going with cloud deployment because of cost efficiency',
+                    expected: 'going with cloud deployment because of cost efficiency'
+                },
+                {
+                    input: 'therefore, going with React because of ecosystem',
+                    expected: 'therefore, going with React because of ecosystem'
+                },
+                {
+                    input: 'thus, going with agile workflow because of flexibility',
+                    expected: 'thus, going with agile workflow because of flexibility'
+                }
             ];
 
-            for (const input of variations) {
-                const result = await parse(input);
-                expect(result.decision.rationale).toBeTruthy();
-                expect(result.decision.isExplicit).toBe(false);
+            for (const { input, expected } of variations) {
+                const result = await perfect(input);
+                expect(result.text).toBe(expected);
+                expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
             }
         });
     });
 
-    describe('Decision Types', () => {
-        test('should identify technical decisions', async () => {
-            const technical = [
-                'decided to upgrade database',
-                'choice: implement microservices',
-                'selected Docker over VMs',
-                'going with cloud deployment'
-            ];
-
-            for (const input of technical) {
-                const result = await parse(input);
-                expect(result.decision.type).toBe('technical');
-            }
+    describe('Position Tracking', () => {
+        test('should track position of changes at start of text', async () => {
+            const result = await perfect('decided to use React');
+            expect(result.corrections[0].position).toEqual({
+                start: 0,
+                end: 'decided to use React'.length
+            });
         });
 
-        test('should identify process decisions', async () => {
-            const process = [
-                'decided to improve workflow',
-                'choice: adopt agile methodology',
-                'selected scrum over kanban',
-                'going with new process'
-            ];
-
-            for (const input of process) {
-                const result = await parse(input);
-                expect(result.decision.type).toBe('process');
-            }
+        test('should track position of changes with leading text', async () => {
+            const result = await perfect('Meeting: decided to use React');
+            expect(result.corrections[0].position).toEqual({
+                start: 'Meeting: '.length,
+                end: 'Meeting: decided to use React'.length
+            });
         });
 
-        test('should identify resource decisions', async () => {
-            const resource = [
-                'decided to hire new developer',
-                'choice: outsource testing',
-                'selected internal team over contractors',
-                'going with team expansion'
-            ];
-
-            for (const input of resource) {
-                const result = await parse(input);
-                expect(result.decision.type).toBe('resource');
-            }
-        });
-
-        test('should identify business decisions', async () => {
-            const business = [
-                'decided to update roadmap',
-                'choice: revise strategy',
-                'selected new market focus',
-                'going with priority shift'
-            ];
-
-            for (const input of business) {
-                const result = await parse(input);
-                expect(result.decision.type).toBe('business');
-            }
+        test('should preserve surrounding text', async () => {
+            const result = await perfect('URGENT: decided to use React!');
+            expect(result.text).toBe('URGENT: decided to use React!');
         });
     });
 
-    describe('Context Words', () => {
-        test('should handle context words', async () => {
-            const contextual = [
-                'therefore, decided to use React',
-                'thus, going with TypeScript',
-                'hence, selected MongoDB over PostgreSQL',
-                'consequently, choice: adopt Docker'
-            ];
+    describe('Confidence Levels', () => {
+        test('should assign HIGH confidence to decided format', async () => {
+            const result = await perfect('decided to use React');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
 
-            for (const input of contextual) {
-                const result = await parse(input);
-                expect(result).not.toBeNull();
-                expect(result.decision.decision).toBeTruthy();
-            }
+        test('should assign HIGH confidence to choice format', async () => {
+            const result = await perfect('choice: use MongoDB');
+            expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+        });
+
+        test('should assign MEDIUM confidence to selected format', async () => {
+            const result = await perfect('selected React over Angular');
+            expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+        });
+
+        test('should assign MEDIUM confidence to going with format', async () => {
+            const result = await perfect('going with React');
+            expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
         });
     });
 
-    describe('Invalid Cases', () => {
+    describe('Error Handling', () => {
         test('should handle invalid formats', async () => {
             const invalid = [
                 'decided',
@@ -171,24 +184,39 @@ describe('Decision Parser', () => {
             ];
 
             for (const input of invalid) {
-                const result = await parse(input);
-                expect(result).toBeNull();
+                const result = await perfect(input);
+                expect(result).toEqual({
+                    text: input,
+                    corrections: []
+                });
             }
         });
 
         test('should handle decision too short', async () => {
-            const result = await parse('decided to a');
-            expect(result).toBeNull();
+            const text = 'decided to a';
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
 
         test('should handle decision too long', async () => {
-            const result = await parse(`decided to ${'a'.repeat(201)}`);
-            expect(result).toBeNull();
+            const text = `decided to ${'a'.repeat(201)}`;
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
 
         test('should handle rationale too long', async () => {
-            const result = await parse(`decided to use React because ${'a'.repeat(501)}`);
-            expect(result).toBeNull();
+            const text = `decided to use React because ${'a'.repeat(501)}`;
+            const result = await perfect(text);
+            expect(result).toEqual({
+                text,
+                corrections: []
+            });
         });
     });
 });

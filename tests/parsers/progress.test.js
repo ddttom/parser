@@ -1,82 +1,140 @@
-import { name, parse } from '../../src/services/parser/parsers/progress.js';
+import { name, perfect } from '../../src/services/parser/parsers/progress.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Progress Parser', () => {
   describe('Return Format', () => {
-    test('should return object with progress key', async () => {
-      const result = await parse('Task is 75% complete');
-      expect(result).toHaveProperty('progress');
+    test('should return object with text and corrections', async () => {
+      const result = await perfect('Task is 75% complete');
+      expect(result).toEqual(expect.objectContaining({
+        text: expect.any(String),
+        corrections: expect.any(Array)
+      }));
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    test('should return original text with empty corrections for no matches', async () => {
+      const text = '   ';
+      const result = await perfect(text);
+      expect(result).toEqual({
+        text,
+        corrections: []
+      });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('Task is 75% complete');
-      const expectedProps = {
-        percentage: expect.any(Number),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      };
-      expect(result.progress).toMatchObject(expectedProps);
+    test('should include all required correction properties', async () => {
+      const result = await perfect('Task is 75% complete');
+      expect(result.corrections[0]).toEqual(expect.objectContaining({
+        type: 'progress',
+        original: expect.any(String),
+        correction: expect.any(String),
+        position: expect.objectContaining({
+          start: expect.any(Number),
+          end: expect.any(Number)
+        }),
+        confidence: expect.any(String)
+      }));
     });
   });
 
   describe('Pattern Matching', () => {
-    test('should detect percentage patterns', async () => {
-      const result = await parse('Task is 50% complete');
-      expect(result.progress).toMatchObject({
-        percentage: 50
-      });
-    });
-
-    test('should handle various completion terms', async () => {
-      const terms = [
-        { input: '25% complete', percentage: 25 },
-        { input: '50% done', percentage: 50 },
-        { input: '75% finished', percentage: 75 }
+    test('should handle percentage patterns', async () => {
+      const variations = [
+        {
+          input: 'Task is 50% complete',
+          expected: 'Task is 50% complete'
+        }
       ];
 
-      for (const { input, percentage } of terms) {
-        const result = await parse(input);
-        expect(result.progress).toMatchObject({ percentage });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect progress in context', async () => {
-      const contexts = [
-        'Project is now 30% complete',
-        'Task progress: 45% done',
-        'Development is 60% finished',
-        'Implementation: 75% complete'
+    test('should handle various completion terms', async () => {
+      const variations = [
+        {
+          input: '25% complete',
+          expected: '25% complete'
+        },
+        {
+          input: '50% done',
+          expected: '50% complete'
+        },
+        {
+          input: '75% finished',
+          expected: '75% complete'
+        }
       ];
 
-      for (const input of contexts) {
-        const result = await parse(input);
-        expect(result.progress.percentage).toBeGreaterThan(0);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+      }
+    });
+
+    test('should handle progress in context', async () => {
+      const variations = [
+        {
+          input: 'Project is now 30% complete',
+          expected: 'Project is now 30% complete'
+        },
+        {
+          input: 'Task progress: 45% done',
+          expected: 'Task progress: 45% complete'
+        },
+        {
+          input: 'Development is 60% finished',
+          expected: 'Development is 60% complete'
+        },
+        {
+          input: 'Implementation: 75% complete',
+          expected: 'Implementation: 75% complete'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
   });
 
   describe('Percentage Validation', () => {
     test('should handle valid percentage range', async () => {
-      const percentages = [
-        { input: '0% complete', percentage: 0 },
-        { input: '25% complete', percentage: 25 },
-        { input: '50% complete', percentage: 50 },
-        { input: '75% complete', percentage: 75 },
-        { input: '100% complete', percentage: 100 }
+      const variations = [
+        {
+          input: '0% complete',
+          expected: '0% complete'
+        },
+        {
+          input: '25% complete',
+          expected: '25% complete'
+        },
+        {
+          input: '50% complete',
+          expected: '50% complete'
+        },
+        {
+          input: '75% complete',
+          expected: '75% complete'
+        },
+        {
+          input: '100% complete',
+          expected: '100% complete'
+        }
       ];
 
-      for (const { input, percentage } of percentages) {
-        const result = await parse(input);
-        expect(result.progress.percentage).toBe(percentage);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should reject invalid percentages', async () => {
+    test('should handle invalid percentages', async () => {
       const invalidPercentages = [
         '-10% complete',
         '101% complete',
@@ -85,8 +143,11 @@ describe('Progress Parser', () => {
       ];
 
       for (const input of invalidPercentages) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
   });
@@ -101,8 +162,11 @@ describe('Progress Parser', () => {
       ];
 
       for (const input of malformed) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -115,8 +179,11 @@ describe('Progress Parser', () => {
       ];
 
       for (const input of missing) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -129,8 +196,11 @@ describe('Progress Parser', () => {
       ];
 
       for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
   });

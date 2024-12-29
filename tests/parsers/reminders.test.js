@@ -1,157 +1,251 @@
-import { name, parse } from '../../src/services/parser/parsers/reminders.js';
+import { name, perfect } from '../../src/services/parser/parsers/reminders.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Reminders Parser', () => {
   describe('Return Format', () => {
-    test('should return object with reminder key', async () => {
-      const result = await parse('remind me in 30 minutes');
-      expect(result).toHaveProperty('reminder');
+    test('should return object with text and corrections', async () => {
+      const result = await perfect('remind me in 30 minutes');
+      expect(result).toEqual(expect.objectContaining({
+        text: expect.any(String),
+        corrections: expect.any(Array)
+      }));
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    test('should return original text with empty corrections for no matches', async () => {
+      const text = '   ';
+      const result = await perfect(text);
+      expect(result).toEqual({
+        text,
+        corrections: []
+      });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('remind me in 30 minutes');
-      expect(result.reminder).toEqual(expect.objectContaining({
-        type: expect.any(String),
-        minutes: expect.any(Number),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String),
-        isRelative: expect.any(Boolean)
+    test('should include all required correction properties', async () => {
+      const result = await perfect('remind me in 30 minutes');
+      expect(result.corrections[0]).toEqual(expect.objectContaining({
+        type: 'reminder',
+        original: expect.any(String),
+        correction: expect.any(String),
+        position: expect.objectContaining({
+          start: expect.any(Number),
+          end: expect.any(Number)
+        }),
+        confidence: expect.any(String)
       }));
     });
   });
 
   describe('Pattern Matching', () => {
-    test('should detect relative time reminders', async () => {
-      const result = await parse('in 30 minutes');
-      expect(result.reminder).toEqual(expect.objectContaining({
-        type: 'offset',
-        minutes: 30
-      }));
+    test('should handle relative time reminders', async () => {
+      const variations = [
+        {
+          input: 'in 30 minutes',
+          expected: 'in 30 minutes'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
+      }
     });
 
     test('should handle various time units', async () => {
-      const cases = [
-        { input: 'in 1 hour', minutes: 60 },
-        { input: 'in 2 days', minutes: 2880 },
-        { input: 'in 1 week', minutes: 10080 }
+      const variations = [
+        {
+          input: 'in 1 hour',
+          expected: 'in 1 hour'
+        },
+        {
+          input: 'in 2 days',
+          expected: 'in 2 days'
+        },
+        {
+          input: 'in 1 week',
+          expected: 'in 1 week'
+        }
       ];
 
-      for (const { input, minutes } of cases) {
-        const result = await parse(input);
-        expect(result.reminder).toEqual(expect.objectContaining({
-          type: 'offset',
-          minutes
-        }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
       }
     });
 
-    test('should detect before-event reminders', async () => {
+    test('should handle before-event reminders', async () => {
       const variations = [
-        '30 minutes before',
-        '1 hour before',
-        '2 days before',
-        '1 week before'
+        {
+          input: '30 minutes before',
+          expected: '30 minutes before'
+        },
+        {
+          input: '1 hour before',
+          expected: '1 hour before'
+        },
+        {
+          input: '2 days before',
+          expected: '2 days before'
+        },
+        {
+          input: '1 week before',
+          expected: '1 week before'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.reminder.type).toBe('before');
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect specific time reminders', async () => {
+    test('should handle specific time reminders', async () => {
       const variations = [
-        { input: 'remind me at 2:30pm', hour: 14, minutes: 30 },
-        { input: 'remind me at 9:00am', hour: 9, minutes: 0 },
-        { input: 'remind me at 12:00pm', hour: 12, minutes: 0 },
-        { input: 'remind me at 12:00am', hour: 0, minutes: 0 }
+        {
+          input: 'remind me at 2:30pm',
+          expected: 'remind me at 2:30pm'
+        },
+        {
+          input: 'remind me at 9:00am',
+          expected: 'remind me at 9:00am'
+        },
+        {
+          input: 'remind me at 12:00pm',
+          expected: 'remind me at 12:00pm'
+        },
+        {
+          input: 'remind me at 12:00am',
+          expected: 'remind me at 12:00am'
+        }
       ];
 
-      for (const { input, hour, minutes } of variations) {
-        const result = await parse(input);
-        expect(result.reminder).toEqual(expect.objectContaining({
-          type: 'time',
-          hour,
-          minutes
-        }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect date-based reminders', async () => {
+    test('should handle date-based reminders', async () => {
       const variations = [
-        'remind me on Monday',
-        'remind me on next Friday',
-        'remind me on December 25',
-        'remind me on next week'
+        {
+          input: 'remind me on Monday',
+          expected: 'remind me on Monday'
+        },
+        {
+          input: 'remind me on next Friday',
+          expected: 'remind me on next Friday'
+        },
+        {
+          input: 'remind me on December 25',
+          expected: 'remind me on December 25'
+        },
+        {
+          input: 'remind me on next week',
+          expected: 'remind me on next week'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.reminder.type).toBe('date');
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
       }
     });
 
-    test('should detect time word reminders', async () => {
+    test('should handle time word reminders', async () => {
       const variations = [
-        { input: 'remind me tomorrow', minutes: 1440 },
-        { input: 'remind me next week', minutes: 10080 },
-        { input: 'remind me next month', minutes: 43200 }
+        {
+          input: 'remind me tomorrow',
+          expected: 'remind me tomorrow'
+        },
+        {
+          input: 'remind me next week',
+          expected: 'remind me next week'
+        },
+        {
+          input: 'remind me next month',
+          expected: 'remind me next month'
+        }
       ];
 
-      for (const { input, minutes } of variations) {
-        const result = await parse(input);
-        expect(result.reminder).toEqual(expect.objectContaining({
-          type: 'offset',
-          minutes
-        }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.LOW);
       }
     });
   });
 
   describe('Time Format Handling', () => {
     test('should handle 12-hour format', async () => {
-      const cases = [
-        { input: 'remind me at 12:00am', hour: 0, minutes: 0 },
-        { input: 'remind me at 12:00pm', hour: 12, minutes: 0 },
-        { input: 'remind me at 1:00pm', hour: 13, minutes: 0 },
-        { input: 'remind me at 11:30pm', hour: 23, minutes: 30 }
+      const variations = [
+        {
+          input: 'remind me at 12:00am',
+          expected: 'remind me at 12:00am'
+        },
+        {
+          input: 'remind me at 12:00pm',
+          expected: 'remind me at 12:00pm'
+        },
+        {
+          input: 'remind me at 1:00pm',
+          expected: 'remind me at 1:00pm'
+        },
+        {
+          input: 'remind me at 11:30pm',
+          expected: 'remind me at 11:30pm'
+        }
       ];
 
-      for (const { input, hour, minutes } of cases) {
-        const result = await parse(input);
-        expect(result.reminder).toEqual(expect.objectContaining({
-          type: 'time',
-          hour,
-          minutes
-        }));
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
     test('should handle missing minutes', async () => {
-      const result = await parse('remind me at 3pm');
-      expect(result.reminder).toEqual(expect.objectContaining({
-        type: 'time',
-        hour: 15,
-        minutes: 0
-      }));
+      const variations = [
+        {
+          input: 'remind me at 3pm',
+          expected: 'remind me at 3:00pm'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+      }
     });
 
     test('should handle plural and singular units', async () => {
-      const cases = [
-        { input: 'in 1 hour', minutes: 60 },
-        { input: 'in 2 hours', minutes: 120 },
-        { input: 'in 1 day', minutes: 1440 },
-        { input: 'in 2 days', minutes: 2880 }
+      const variations = [
+        {
+          input: 'in 1 hour',
+          expected: 'in 1 hour'
+        },
+        {
+          input: 'in 2 hours',
+          expected: 'in 2 hours'
+        },
+        {
+          input: 'in 1 day',
+          expected: 'in 1 day'
+        },
+        {
+          input: 'in 2 days',
+          expected: 'in 2 days'
+        }
       ];
 
-      for (const { input, minutes } of cases) {
-        const result = await parse(input);
-        expect(result.reminder.minutes).toBe(minutes);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
       }
     });
   });
@@ -165,8 +259,11 @@ describe('Reminders Parser', () => {
       ];
 
       for (const input of invalidTimes) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -178,8 +275,11 @@ describe('Reminders Parser', () => {
       ];
 
       for (const input of invalidUnits) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -193,8 +293,11 @@ describe('Reminders Parser', () => {
       ];
 
       for (const input of malformed) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
   });

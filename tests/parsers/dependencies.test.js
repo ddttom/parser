@@ -1,144 +1,171 @@
-import { name, parse } from '../../src/services/parser/parsers/dependencies.js';
+import { name, perfect } from '../../src/services/parser/parsers/dependencies.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Dependencies Parser', () => {
   describe('Return Format', () => {
-    test('should return object with dependencies key', async () => {
-      const result = await parse('depends on task 123');
-      expect(result).toHaveProperty('dependencies');
+    test('should return object with text and corrections', async () => {
+      const result = await perfect('depends on task 123');
+      expect(result).toEqual(expect.objectContaining({
+        text: expect.any(String),
+        corrections: expect.any(Array)
+      }));
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    test('should return original text with empty corrections for no matches', async () => {
+      const text = '   ';
+      const result = await perfect(text);
+      expect(result).toEqual({
+        text,
+        corrections: []
+      });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('depends on task 123');
-      const expectedProps = {
-        type: expect.any(String),
-        id: expect.any(String),
-        relationship: expect.any(String),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      };
-      expect(result.dependencies).toMatchObject(expectedProps);
+    test('should include all required correction properties', async () => {
+      const result = await perfect('depends on task 123');
+      expect(result.corrections[0]).toEqual(expect.objectContaining({
+        type: 'dependencies',
+        original: expect.any(String),
+        correction: expect.any(String),
+        position: expect.objectContaining({
+          start: expect.any(Number),
+          end: expect.any(Number)
+        }),
+        confidence: expect.any(String)
+      }));
     });
   });
 
   describe('Pattern Matching', () => {
-    test('should detect natural dependencies', async () => {
+    test('should handle natural dependencies', async () => {
       const variations = [
-        'Task depends on task 123',
-        'This depends on 123',
-        'depends on task ABC-123'
+        {
+          input: 'Task depends on task 123',
+          expected: 'Task depends on task 123'
+        },
+        {
+          input: 'This depends on 123',
+          expected: 'This depends on 123'
+        },
+        {
+          input: 'depends on task ABC-123',
+          expected: 'depends on task ABC-123'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.dependencies.relationship).toBe('depends_on');
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect multiple dependencies', async () => {
+    test('should handle multiple dependencies', async () => {
       const variations = [
-        'after tasks 123 and 456',
-        'after task 123 and task 456',
-        'after 123 and 456'
+        {
+          input: 'after tasks 123 and 456',
+          expected: 'after tasks 123 and 456'
+        },
+        {
+          input: 'after task 123 and task 456',
+          expected: 'after task 123 and task 456'
+        },
+        {
+          input: 'after 123 and 456',
+          expected: 'after 123 and 456'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.dependencies.dependencies).toHaveLength(2);
-        expect(result.dependencies.dependencies[0].relationship).toBe('after');
-        expect(result.dependencies.dependencies[1].relationship).toBe('after');
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect blocking relationships', async () => {
+    test('should handle blocking relationships', async () => {
       const variations = [
-        'blocks task 789',
-        'blocks 789',
-        'blocks task ABC-789'
+        {
+          input: 'blocks task 789',
+          expected: 'blocks task 789'
+        },
+        {
+          input: 'blocks 789',
+          expected: 'blocks 789'
+        },
+        {
+          input: 'blocks task ABC-789',
+          expected: 'blocks task ABC-789'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.dependencies.relationship).toBe('blocks');
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect implicit dependencies', async () => {
+    test('should handle implicit dependencies', async () => {
       const variations = [
-        'after task 123',
-        'after 123',
-        'after task ABC-123'
+        {
+          input: 'after task 123',
+          expected: 'after task 123'
+        },
+        {
+          input: 'after 123',
+          expected: 'after 123'
+        },
+        {
+          input: 'after task ABC-123',
+          expected: 'after task ABC-123'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.dependencies.relationship).toBe('after');
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
       }
     });
   });
 
-  describe('Relationship Types', () => {
-    test('should handle all relationship types', async () => {
-      const relationships = [
-        { input: 'depends on task 123', expected: 'depends_on', pattern: 'natural_dependency' },
-        { input: 'blocks task 123', expected: 'blocks', pattern: 'relationship_dependency' },
-        { input: 'after task 123', expected: 'after', pattern: 'implicit_dependency' }
-      ];
-
-      for (const { input, expected, pattern } of relationships) {
-        const result = await parse(input);
-        expect(result.dependencies.relationship).toBe(expected);
-      }
+  describe('Position Tracking', () => {
+    test('should track position of changes at start of text', async () => {
+      const result = await perfect('depends on task 123');
+      expect(result.corrections[0].position).toEqual({
+        start: 0,
+        end: 'depends on task 123'.length
+      });
     });
 
-    test('should handle case-insensitive relationship types', async () => {
-      const variations = [
-        'DEPENDS ON task 123',
-        'Blocks task 123',
-        'AFTER task 123'
-      ];
+    test('should track position of changes with leading text', async () => {
+      const result = await perfect('Meeting: depends on task 123');
+      expect(result.corrections[0].position).toEqual({
+        start: 'Meeting: '.length,
+        end: 'Meeting: depends on task 123'.length
+      });
+    });
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result).not.toBeNull();
-        expect(result.dependencies.relationship).toBeDefined();
-      }
+    test('should preserve surrounding text', async () => {
+      const result = await perfect('URGENT: depends on task 123!');
+      expect(result.text).toBe('URGENT: depends on task 123!');
     });
   });
 
-  describe('Task ID Validation', () => {
-    test('should accept valid task IDs', async () => {
-      const validIds = [
-        'task123',
-        'ABC-123',
-        'feature_123',
-        'task-abc'
-      ];
-
-      for (const id of validIds) {
-        const result = await parse(`depends on task ${id}`);
-        expect(result).not.toBeNull();
-        expect(result.dependencies.id).toBe(id);
-      }
+  describe('Confidence Levels', () => {
+    test('should assign HIGH confidence to natural dependencies', async () => {
+      const result = await perfect('depends on task 123');
+      expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
     });
 
-    test('should reject invalid task IDs', async () => {
-      const invalidIds = [
-        'task!@#',
-        'abc.123',
-        '',
-        ' '
-      ];
+    test('should assign HIGH confidence to blocking relationships', async () => {
+      const result = await perfect('blocks task 123');
+      expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+    });
 
-      for (const id of invalidIds) {
-        const result = await parse(`depends on task ${id}`);
-        expect(result).toBeNull();
-      }
+    test('should assign MEDIUM confidence to implicit dependencies', async () => {
+      const result = await perfect('after task 123');
+      expect(result.corrections[0].confidence).toBe(Confidence.MEDIUM);
     });
   });
 
@@ -151,8 +178,11 @@ describe('Dependencies Parser', () => {
       ];
 
       for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -164,8 +194,11 @@ describe('Dependencies Parser', () => {
       ];
 
       for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -177,8 +210,11 @@ describe('Dependencies Parser', () => {
       ];
 
       for (const input of invalid) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
   });

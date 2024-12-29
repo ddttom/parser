@@ -1,102 +1,183 @@
-import { name, parse, validateRole } from '../../src/services/parser/parsers/role.js';
+import { name, perfect } from '../../src/services/parser/parsers/role.js';
+import { Confidence } from '../../src/services/parser/utils/confidence.js';
 
 describe('Role Parser', () => {
   describe('Return Format', () => {
-    test('should return object with role key', async () => {
-      const result = await parse('acting as developer');
-      expect(result).toHaveProperty('role');
+    test('should return object with text and corrections', async () => {
+      const result = await perfect('acting as developer');
+      expect(result).toEqual(expect.objectContaining({
+        text: expect.any(String),
+        corrections: expect.any(Array)
+      }));
     });
 
-    test('should return null for no matches', async () => {
-      const result = await parse('   ');
-      expect(result).toBeNull();
+    test('should return original text with empty corrections for no matches', async () => {
+      const text = '   ';
+      const result = await perfect(text);
+      expect(result).toEqual({
+        text,
+        corrections: []
+      });
     });
 
-    test('should include all required properties', async () => {
-      const result = await parse('acting as developer');
-      const expectedProps = {
-        role: expect.any(String),
-        originalName: expect.any(String),
-        confidence: expect.any(Number),
-        pattern: expect.any(String),
-        originalMatch: expect.any(String)
-      };
-      expect(result.role).toMatchObject(expectedProps);
+    test('should include all required correction properties', async () => {
+      const result = await perfect('acting as developer');
+      expect(result.corrections[0]).toEqual(expect.objectContaining({
+        type: 'role',
+        original: expect.any(String),
+        correction: expect.any(String),
+        position: expect.objectContaining({
+          start: expect.any(Number),
+          end: expect.any(Number)
+        }),
+        confidence: expect.any(String)
+      }));
     });
   });
 
   describe('Pattern Matching', () => {
-    test('should detect inferred roles', async () => {
-      const result = await parse('acting as developer');
-      expect(result.role).toMatchObject({
-        role: 'developer',
-        originalName: 'developer'
-      });
-    });
-
-    test('should handle various role patterns', async () => {
-      const patterns = [
-        'as developer',
-        'acting as developer',
-        'working as developer',
-        'assigned as developer',
-        'serving as developer'
+    test('should handle inferred roles', async () => {
+      const variations = [
+        {
+          input: 'acting as developer',
+          expected: 'as developer'
+        }
       ];
 
-      for (const input of patterns) {
-        const result = await parse(input);
-        expect(result.role).toMatchObject({
-          role: 'developer',
-          originalName: 'developer'
-        });
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
-    test('should detect roles in context', async () => {
-      const contexts = [
-        'John is acting as developer',
-        'Task assigned as developer',
-        'Project needs someone as developer',
-        'Team member working as developer'
+    test('should handle various role patterns', async () => {
+      const variations = [
+        {
+          input: 'as developer',
+          expected: 'as developer'
+        },
+        {
+          input: 'acting as developer',
+          expected: 'as developer'
+        },
+        {
+          input: 'working as developer',
+          expected: 'as developer'
+        },
+        {
+          input: 'assigned as developer',
+          expected: 'as developer'
+        },
+        {
+          input: 'serving as developer',
+          expected: 'as developer'
+        }
       ];
 
-      for (const input of contexts) {
-        const result = await parse(input);
-        expect(result.role.role).toBe('developer');
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
+      }
+    });
+
+    test('should handle roles in context', async () => {
+      const variations = [
+        {
+          input: 'John is acting as developer',
+          expected: 'John is as developer'
+        },
+        {
+          input: 'Task assigned as developer',
+          expected: 'Task as developer'
+        },
+        {
+          input: 'Project needs someone as developer',
+          expected: 'Project needs someone as developer'
+        },
+        {
+          input: 'Team member working as developer',
+          expected: 'Team member as developer'
+        }
+      ];
+
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
   });
 
   describe('Role Validation', () => {
-    test('should accept valid roles', async () => {
-      const validRoles = [
-        'developer',
-        'designer',
-        'manager',
-        'tester',
-        'analyst',
-        'admin',
-        'lead',
-        'coordinator',
-        'consultant'
+    test('should handle valid roles', async () => {
+      const variations = [
+        {
+          input: 'acting as developer',
+          expected: 'as developer'
+        },
+        {
+          input: 'acting as designer',
+          expected: 'as designer'
+        },
+        {
+          input: 'acting as manager',
+          expected: 'as manager'
+        },
+        {
+          input: 'acting as tester',
+          expected: 'as tester'
+        },
+        {
+          input: 'acting as analyst',
+          expected: 'as analyst'
+        },
+        {
+          input: 'acting as admin',
+          expected: 'as admin'
+        },
+        {
+          input: 'acting as lead',
+          expected: 'as lead'
+        },
+        {
+          input: 'acting as coordinator',
+          expected: 'as coordinator'
+        },
+        {
+          input: 'acting as consultant',
+          expected: 'as consultant'
+        }
       ];
 
-      for (const role of validRoles) {
-        const result = await parse(`acting as ${role}`);
-        expect(result.role.role).toBe(role);
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
 
     test('should handle case insensitivity', async () => {
       const variations = [
-        'acting as DEVELOPER',
-        'acting as Developer',
-        'acting as dEvElOpEr'
+        {
+          input: 'acting as DEVELOPER',
+          expected: 'as developer'
+        },
+        {
+          input: 'acting as Developer',
+          expected: 'as developer'
+        },
+        {
+          input: 'acting as dEvElOpEr',
+          expected: 'as developer'
+        }
       ];
 
-      for (const input of variations) {
-        const result = await parse(input);
-        expect(result.role.role).toBe('developer');
+      for (const { input, expected } of variations) {
+        const result = await perfect(input);
+        expect(result.text).toBe(expected);
+        expect(result.corrections[0].confidence).toBe(Confidence.HIGH);
       }
     });
   });
@@ -111,8 +192,11 @@ describe('Role Parser', () => {
       ];
 
       for (const input of invalidRoles) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
@@ -126,31 +210,32 @@ describe('Role Parser', () => {
       ];
 
       for (const input of malformed) {
-        const result = await parse(input);
-        expect(result).toBeNull();
+        const result = await perfect(input);
+        expect(result).toEqual({
+          text: input,
+          corrections: []
+        });
       }
     });
 
     test('should handle parser errors gracefully', async () => {
       // Save original function
-      const originalValidate = parse.validateRole;
+      const originalValidate = perfect.validateRole;
 
       // Replace with mock that throws
-      parse.validateRole = () => {
+      perfect.validateRole = () => {
         throw new Error('Validation error');
       };
 
       try {
-        const result = await parse('acting as developer');
+        const result = await perfect('acting as developer');
         expect(result).toEqual({
-          role: {
-            error: 'PARSER_ERROR',
-            message: 'Validation error'
-          }
+          text: 'acting as developer',
+          corrections: []
         });
       } finally {
         // Restore original function
-        parse.validateRole = originalValidate;
+        perfect.validateRole = originalValidate;
       }
     });
   });
