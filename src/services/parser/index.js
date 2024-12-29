@@ -219,5 +219,4 @@ class ParserService {
         return Confidence.LOW;
     }
 }
-
 export default new ParserService();
