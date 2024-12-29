@@ -27,44 +27,6 @@ const MINUTES_IN = {
 
 export const name = 'reminders';
 
-export async function parse(text) {
-    const validationError = validateParserInput(text, 'RemindersParser');
-    if (validationError) {
-        return validationError;
-    }
-
-    try {
-        for (const [type, pattern] of Object.entries(REMINDER_PATTERNS)) {
-            const matches = text.match(pattern);
-            if (matches) {
-                const value = await extractReminderValue(matches, type);
-                if (value) {
-                    const confidence = calculateConfidence(type);
-                    return {
-                        reminder: {
-                            ...value,
-                            pattern: type,
-                            confidence,
-                            originalMatch: matches[0],
-                            isRelative: type === 'relative'
-                        }
-                    };
-                }
-            }
-        }
-
-        return null;
-    } catch (error) {
-        logger.error('Error in reminders parser:', error);
-        return {
-            reminder: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
-    }
-}
-
 async function extractReminderValue(matches, type) {
     try {
         switch (type) {
@@ -144,5 +106,88 @@ function calculateConfidence(type) {
             return Confidence.MEDIUM;
         default:
             return Confidence.LOW;
+    }
+}
+
+function formatReminder(reminder) {
+    switch (reminder.type) {
+        case 'offset':
+            if (reminder.pattern === 'relative') {
+                const unit = Object.entries(MINUTES_IN).find(([_, mins]) => reminder.minutes % mins === 0)?.[0] || 'minute';
+                const amount = Math.floor(reminder.minutes / MINUTES_IN[unit]);
+                return `in ${amount} ${unit}${amount !== 1 ? 's' : ''}`;
+            } else if (reminder.pattern === 'timeword') {
+                return reminder.originalMatch;
+            } else {
+                const unit = Object.entries(MINUTES_IN).find(([_, mins]) => reminder.minutes % mins === 0)?.[0] || 'minute';
+                const amount = Math.floor(reminder.minutes / MINUTES_IN[unit]);
+                return `${amount} ${unit}${amount !== 1 ? 's' : ''} before`;
+            }
+        case 'time': {
+            const hour = reminder.hour % 12 || 12;
+            const meridian = reminder.hour < 12 ? 'am' : 'pm';
+            const minutes = reminder.minutes.toString().padStart(2, '0');
+            return `remind me at ${hour}:${minutes}${meridian}`;
+        }
+        case 'date':
+            return `remind me on ${reminder.value}`;
+        default:
+            return reminder.originalMatch;
+    }
+}
+
+export async function perfect(text) {
+    const validationError = validateParserInput(text, 'RemindersParser');
+    if (validationError) {
+        return validationError;
+    }
+
+    try {
+        for (const [type, pattern] of Object.entries(REMINDER_PATTERNS)) {
+            const matches = text.match(pattern);
+            if (matches) {
+                const value = await extractReminderValue(matches, type);
+                if (value) {
+                    const confidence = calculateConfidence(type);
+                    const reminderInfo = {
+                        ...value,
+                        pattern: type,
+                        confidence,
+                        originalMatch: matches[0],
+                        isRelative: type === 'relative'
+                    };
+
+                    const correction = {
+                        type: 'reminder',
+                        original: matches[0],
+                        correction: formatReminder(reminderInfo),
+                        position: {
+                            start: text.indexOf(matches[0]),
+                            end: text.indexOf(matches[0]) + matches[0].length
+                        },
+                        confidence: confidence === Confidence.HIGH ? 'HIGH' : 
+                                   confidence === Confidence.MEDIUM ? 'MEDIUM' : 'LOW'
+                    };
+
+                    // Apply correction
+                    const before = text.substring(0, correction.position.start);
+                    const after = text.substring(correction.position.end);
+                    const perfectedText = before + correction.correction + after;
+
+                    return {
+                        text: perfectedText,
+                        corrections: [correction]
+                    };
+                }
+            }
+        }
+
+        return {
+            text,
+            corrections: []
+        };
+    } catch (error) {
+        logger.error('Error in reminders parser:', error);
+        throw error;
     }
 }

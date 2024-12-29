@@ -53,7 +53,23 @@ function parseTimeComponent(timeStr) {
     return null;
 }
 
-export async function parse(text) {
+function formatTimeBlock(timeblock) {
+    const formatTime = (time) => {
+        const hours = time.hours % 12 || 12;
+        const minutes = time.minutes.toString().padStart(2, '0');
+        const meridian = time.hours < 12 ? 'am' : 'pm';
+        return `${hours}:${minutes}${meridian}`;
+    };
+
+    const start = formatTime(timeblock.start);
+    const end = formatTime(timeblock.end);
+    const type = timeblock.type !== 'general' ? ` for ${timeblock.type}` : '';
+    const description = timeblock.description ? ` (${timeblock.description})` : '';
+
+    return `${start} to ${end}${type}${description}`;
+}
+
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'TimeBlockParser');
     if (validationError) {
         return validationError;
@@ -65,8 +81,6 @@ export async function parse(text) {
             block: /^(?:block|schedule)\s+(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:-|to)\s*(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s*(?:for\s+)?([^,\n]+)?/i,
             period: /^(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\s+(?:deep work|focused|meeting|break)\s+(?:block|time)$/i
         };
-
-        let bestMatch = null;
 
         for (const [patternName, regex] of Object.entries(patterns)) {
             const match = text.match(regex);
@@ -135,24 +149,38 @@ export async function parse(text) {
                     }
                 }
 
-                if (matchData && (!bestMatch || 
-                    (matchData.confidence === Confidence.HIGH && bestMatch.timeblock.confidence !== Confidence.HIGH) ||
-                    (matchData.confidence === Confidence.MEDIUM && bestMatch.timeblock.confidence === Confidence.LOW))) {
-                    bestMatch = {
-                        timeblock: matchData
+                if (matchData) {
+                    const correction = {
+                        type: 'timeblock',
+                        original: matchData.originalText,
+                        correction: formatTimeBlock(matchData),
+                        position: {
+                            start: text.indexOf(matchData.originalText),
+                            end: text.indexOf(matchData.originalText) + matchData.originalText.length
+                        },
+                        confidence: matchData.confidence === Confidence.HIGH ? 'HIGH' : 
+                                   matchData.confidence === Confidence.MEDIUM ? 'MEDIUM' : 'LOW'
+                    };
+
+                    // Apply correction
+                    const before = text.substring(0, correction.position.start);
+                    const after = text.substring(correction.position.end);
+                    const perfectedText = before + correction.correction + after;
+
+                    return {
+                        text: perfectedText,
+                        corrections: [correction]
                     };
                 }
             }
         }
 
-        return bestMatch;
+        return {
+            text,
+            corrections: []
+        };
     } catch (error) {
         logger.error('Error in timeblock parser:', error);
-        return {
-            timeblock: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
+        throw error;
     }
 }

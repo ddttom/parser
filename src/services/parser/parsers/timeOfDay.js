@@ -24,7 +24,18 @@ function convertTo24Hour(hour, period) {
     return hour;
 }
 
-export async function parse(text) {
+function formatTimeOfDay(timeInfo) {
+    if (timeInfo.format === '12h') {
+        return `${timeInfo.hour % 12 || 12}:${timeInfo.minute.toString().padStart(2, '0')} ${timeInfo.period}`;
+    } else if (timeInfo.approximate) {
+        const period = timeInfo.period;
+        const range = NATURAL_PERIODS[period];
+        return `in the ${period} (${range.start}:00-${range.end}:00)`;
+    }
+    return timeInfo.originalMatch;
+}
+
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'TimeOfDayParser');
     if (validationError) {
         return validationError;
@@ -38,22 +49,41 @@ export async function parse(text) {
             const minute = parseInt(twelveHourMatch[2], 10);
             const period = twelveHourMatch[3].toUpperCase();
             
-            if (rawHour < 1 || rawHour > 12) return null;
-            if (!validateTime(rawHour, minute)) return null;
-            if (period !== 'AM' && period !== 'PM') return null;
+            if (rawHour < 1 || rawHour > 12) return { text, corrections: [] };
+            if (!validateTime(rawHour, minute)) return { text, corrections: [] };
+            if (period !== 'AM' && period !== 'PM') return { text, corrections: [] };
 
             const hour = convertTo24Hour(rawHour, period);
 
+            const timeInfo = {
+                hour,
+                minute,
+                format: '12h',
+                period,
+                pattern: '12h_time',
+                confidence: Confidence.HIGH,
+                originalMatch: twelveHourMatch[0]
+            };
+
+            const correction = {
+                type: 'timeofday',
+                original: timeInfo.originalMatch,
+                correction: formatTimeOfDay(timeInfo),
+                position: {
+                    start: text.indexOf(timeInfo.originalMatch),
+                    end: text.indexOf(timeInfo.originalMatch) + timeInfo.originalMatch.length
+                },
+                confidence: 'HIGH'
+            };
+
+            // Apply correction
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
+
             return {
-                timeofday: {
-                    hour,
-                    minute,
-                    format: '12h',
-                    period,
-                    pattern: '12h_time',
-                    confidence: Confidence.HIGH,
-                    originalMatch: twelveHourMatch[0]
-                }
+                text: perfectedText,
+                corrections: [correction]
             };
         }
 
@@ -62,26 +92,43 @@ export async function parse(text) {
         if (naturalMatch) {
             const period = naturalMatch[1].toLowerCase();
             if (period in NATURAL_PERIODS) {
+                const timeInfo = {
+                    period,
+                    approximate: true,
+                    pattern: 'natural_time',
+                    confidence: Confidence.MEDIUM,
+                    originalMatch: naturalMatch[0]
+                };
+
+                const correction = {
+                    type: 'timeofday',
+                    original: timeInfo.originalMatch,
+                    correction: formatTimeOfDay(timeInfo),
+                    position: {
+                        start: text.indexOf(timeInfo.originalMatch),
+                        end: text.indexOf(timeInfo.originalMatch) + timeInfo.originalMatch.length
+                    },
+                    confidence: 'MEDIUM'
+                };
+
+                // Apply correction
+                const before = text.substring(0, correction.position.start);
+                const after = text.substring(correction.position.end);
+                const perfectedText = before + correction.correction + after;
+
                 return {
-                    timeofday: {
-                        period,
-                        approximate: true,
-                        pattern: 'natural_time',
-                        confidence: Confidence.MEDIUM,
-                        originalMatch: naturalMatch[1]
-                    }
+                    text: perfectedText,
+                    corrections: [correction]
                 };
             }
         }
 
-        return null;
+        return {
+            text,
+            corrections: []
+        };
     } catch (error) {
         logger.error('Error in timeofday parser:', error);
-        return {
-            timeofday: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
+        throw error;
     }
 }

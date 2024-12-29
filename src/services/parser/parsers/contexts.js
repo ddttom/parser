@@ -4,7 +4,7 @@ import { validateParserInput } from '../utils/validation.js';
 
 const logger = createLogger('ContextsParser');
 
-export const name = 'context';
+export const name = 'contexts';
 
 // Context type mapping
 const contextTypes = {
@@ -16,7 +16,7 @@ const contextTypes = {
   evening: 'time'
 };
 
-export async function parse(text) {
+export async function perfect(text) {
   const validationError = validateParserInput(text, 'ContextsParser');
   if (validationError) {
     return validationError;
@@ -109,5 +109,45 @@ export async function parse(text) {
     }
   }
 
-  return bestMatch;
+  if (!bestMatch) {
+    return {
+      text,
+      corrections: []
+    };
+  }
+
+  const correction = {
+    type: 'context',
+    original: bestMatch.metadata.originalMatch,
+    correction: formatContext(bestMatch.value),
+    position: {
+      start: text.indexOf(bestMatch.metadata.originalMatch),
+      end: text.indexOf(bestMatch.metadata.originalMatch) + bestMatch.metadata.originalMatch.length
+    },
+    confidence: bestMatch.metadata.confidence === Confidence.HIGH ? 'HIGH' : 
+                bestMatch.metadata.confidence === Confidence.MEDIUM ? 'MEDIUM' : 'LOW'
+  };
+
+  // Apply correction
+  const before = text.substring(0, correction.position.start);
+  const after = text.substring(correction.position.end);
+  const perfectedText = before + correction.correction + after;
+
+  return {
+    text: perfectedText,
+    corrections: [correction]
+  };
+}
+
+function formatContext(value) {
+  if (Array.isArray(value.contexts)) {
+    // Multiple contexts
+    return value.contexts.map(ctx => `@${ctx.context}`).join(' ');
+  } else if (value.parameter) {
+    // Parameterized context
+    return `@${value.context}(${value.parameter})`;
+  } else {
+    // Single context
+    return `@${value.context}`;
+  }
 }

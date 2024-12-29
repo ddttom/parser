@@ -17,56 +17,47 @@ A staged processing pipeline that transforms informal text into well-formatted, 
 1. **Basic Text Structure**
    - Subject Parser: Standardizes subjects
    - Action Parser: Perfects verb forms
+   - Decision Parser: Formats decision statements
 
 2. **Time-Related**
    - Date Parser: Standardizes dates to absolute form
    - Time Parser: Converts to 24-hour format
    - TimeBlock Parser: Formats time ranges
    - TimeOfDay Parser: Clarifies periods
+   - Duration Parser: Standardizes duration formats
+   - Recurring Parser: Formats recurring time patterns
+   - Reminders Parser: Standardizes reminder formats
 
 3. **People and Places**
    - Participants Parser: Standardizes names
    - Attendees Parser: Formats attendee lists
    - Location Parser: Clarifies locations
    - Team Parser: Formats team references
+   - Contact Parser: Standardizes contact information
+   - Role Parser: Formats role assignments
 
 4. **Project Structure**
    - Project Parser: Standardizes project references
    - Sprint Parser: Formats sprint mentions
    - Milestone Parser: Clarifies milestones
+   - Dependencies Parser: Formats dependency relationships
+   - Links Parser: Standardizes link references
 
 5. **Task Attributes**
    - Priority Parser: Standardizes priorities
    - Status Parser: Formats status indicators
    - Complexity Parser: Clarifies complexity
    - Cost Parser: Formats monetary values
+   - Progress Parser: Standardizes progress indicators
+   - Task Parser: Formats task references
+   - Urgency Parser: Clarifies urgency levels
 
-6. **Metadata**
+6. **Context and Metadata**
    - Tags Parser: Formats tags
    - Categories Parser: Standardizes categories
    - Version Parser: Formats version numbers
-
-### Parser Interface
-
-Each parser implements the perfect() interface:
-
-```javascript
-async function perfect(text) {
-    return {
-        text: string,        // Improved text
-        corrections: [{      // Array of changes made
-            type: string,    // Type of correction
-            original: string,// Original text
-            correction: string, // New text
-            position: {      // Location in text
-                start: number,
-                end: number
-            },
-            confidence: 'HIGH' | 'MEDIUM' | 'LOW'
-        }]
-    };
-}
-```
+   - Context Parser: Formats preposition-based contexts
+   - Contexts Parser: Handles @ symbol and parameterized contexts
 
 ## Usage
 
@@ -113,7 +104,7 @@ Content-Type: application/json
 
 ### Using the Demo UI
 
-1. Open http://localhost:3000 in your browser
+1. Open <http://localhost:3000> in your browser
 2. Enter text in the input field
 3. Click "Perfect Text" or use Ctrl/Cmd + Enter
 4. View the results:
@@ -125,7 +116,7 @@ Content-Type: application/json
 ## Creating New Parsers
 
 1. Create a new file in src/services/parser/parsers/
-2. Implement the perfect() interface
+2. Implement the perfect() interface (see PRD for interface specification)
 3. Add parser to appropriate stage in src/services/parser/index.js
 
 Example:

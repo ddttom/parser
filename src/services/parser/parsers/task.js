@@ -11,7 +11,11 @@ export function validateTaskId(id) {
     return /^\d+$/.test(id);
 }
 
-export async function parse(text) {
+function formatTask(taskInfo) {
+    return `task #${taskInfo.taskId}`;
+}
+
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'TaskParser');
     if (validationError) {
         return validationError;
@@ -23,30 +27,47 @@ export async function parse(text) {
         if (inferredMatch) {
             const taskId = inferredMatch[1];
             // Call validateTaskId directly to allow error propagation
-            const isValid = parse.validateTaskId(taskId);
-            if (!isValid) return null;
+            const isValid = validateTaskId(taskId);
+            if (!isValid) return { text, corrections: [] };
+
+            const taskInfo = {
+                taskId: parseInt(taskId, 10),
+                pattern: 'inferred',
+                confidence: Confidence.MEDIUM,
+                originalMatch: inferredMatch[0]
+            };
+
+            const correction = {
+                type: 'task',
+                original: taskInfo.originalMatch,
+                correction: formatTask(taskInfo),
+                position: {
+                    start: text.indexOf(taskInfo.originalMatch),
+                    end: text.indexOf(taskInfo.originalMatch) + taskInfo.originalMatch.length
+                },
+                confidence: 'MEDIUM'
+            };
+
+            // Apply correction
+            const before = text.substring(0, correction.position.start);
+            const after = text.substring(correction.position.end);
+            const perfectedText = before + correction.correction + after;
 
             return {
-                task: {
-                    taskId: parseInt(taskId, 10),
-                    pattern: 'inferred',
-                    confidence: Confidence.MEDIUM,
-                    originalMatch: inferredMatch[0]
-                }
+                text: perfectedText,
+                corrections: [correction]
             };
         }
 
-        return null;
+        return {
+            text,
+            corrections: []
+        };
     } catch (error) {
         logger.error('Error in task parser:', error);
-        return {
-            task: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
+        throw error;
     }
 }
 
 // Make validateTaskId available for mocking in tests
-parse.validateTaskId = validateTaskId;
+perfect.validateTaskId = validateTaskId;

@@ -23,7 +23,11 @@ export function validateRole(role) {
     return VALID_ROLES.has(role.toLowerCase());
 }
 
-export async function parse(text) {
+function formatRole(roleInfo) {
+    return `as ${roleInfo.role}`;
+}
+
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'RoleParser');
     if (validationError) {
         return validationError;
@@ -34,57 +38,55 @@ export async function parse(text) {
             inferred: /\b(?:as|acting\s+as)\s+(\w+)\b/i
         };
 
-        let bestMatch = null;
-
         for (const [pattern, regex] of Object.entries(patterns)) {
             const match = text.match(regex);
             if (match) {
-                let confidence;
                 const role = match[1].toLowerCase();
 
                 // Call validateRole directly to allow error propagation
-                const isValid = parse.validateRole(role);
-                if (!isValid) {
-                    continue;
-                }
+                const isValid = validateRole(role);
+                if (!isValid) continue;
 
-                switch (pattern) {
-                    case 'inferred': {
-                        confidence = Confidence.HIGH;
-                        break;
-                    }
-                }
+                const roleInfo = {
+                    role,
+                    originalName: match[1],
+                    confidence: Confidence.HIGH,
+                    pattern,
+                    originalMatch: match[0]
+                };
 
-                // Update if current confidence is higher or equal priority pattern
-                const shouldUpdate = !bestMatch || 
-                    confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH ||
-                    confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW;
-                
-                if (shouldUpdate) {
-                    bestMatch = {
-                        role: {
-                            role,
-                            originalName: match[1],
-                            confidence,
-                            pattern,
-                            originalMatch: match[0]
-                        }
-                    };
-                }
+                const correction = {
+                    type: 'role',
+                    original: roleInfo.originalMatch,
+                    correction: formatRole(roleInfo),
+                    position: {
+                        start: text.indexOf(roleInfo.originalMatch),
+                        end: text.indexOf(roleInfo.originalMatch) + roleInfo.originalMatch.length
+                    },
+                    confidence: 'HIGH'
+                };
+
+                // Apply correction
+                const before = text.substring(0, correction.position.start);
+                const after = text.substring(correction.position.end);
+                const perfectedText = before + correction.correction + after;
+
+                return {
+                    text: perfectedText,
+                    corrections: [correction]
+                };
             }
         }
 
-        return bestMatch;
+        return {
+            text,
+            corrections: []
+        };
     } catch (error) {
         logger.error('Error in role parser:', error);
-        return {
-            role: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
+        throw error;
     }
 }
 
 // Make validateRole available for mocking in tests
-parse.validateRole = validateRole;
+perfect.validateRole = validateRole;

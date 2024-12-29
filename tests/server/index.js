@@ -29,10 +29,10 @@ app.post('/parse', async (req, res) => {
             });
         }
 
-        if (typeof text !== 'string' || text.length > 1000) {
+        if (typeof text !== 'string') {
             return res.status(400).json({
                 success: false,
-                error: 'Invalid input: text must be a string under 1000 characters'
+                error: 'Invalid input: text must be a string'
             });
         }
 
@@ -97,5 +97,42 @@ export function startServer(port = 3000) {
 
 // Only start server if this file is run directly
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    startServer(process.env.PORT || 3000);
+    (async () => {
+        try {
+            const server = await startServer(process.env.PORT || 3000);
+            
+            // Handle cleanup on exit
+            process.on('SIGINT', () => {
+                server.close(() => {
+                    console.log('Server shut down');
+                    process.exit(0);
+                });
+            });
+            
+            process.on('SIGTERM', () => {
+                server.close(() => {
+                    console.log('Server shut down');
+                    process.exit(0);
+                });
+            });
+
+            // Handle uncaught errors
+            process.on('uncaughtException', (error) => {
+                console.error('Uncaught exception:', error);
+                server.close(() => {
+                    process.exit(1);
+                });
+            });
+
+            process.on('unhandledRejection', (error) => {
+                console.error('Unhandled rejection:', error);
+                server.close(() => {
+                    process.exit(1);
+                });
+            });
+        } catch (error) {
+            console.error('Failed to start server:', error);
+            process.exit(1);
+        }
+    })();
 }

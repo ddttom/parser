@@ -54,7 +54,7 @@ function isValidInferredUrl(domain) {
   return parts.every(part => /^[a-z0-9][a-z0-9-]*[a-z0-9]$/i.test(part));
 }
 
-export async function parse(text) {
+export async function perfect(text) {
   const validationError = validateParserInput(text, 'LinksParser');
   if (validationError) {
     return validationError;
@@ -64,26 +64,36 @@ export async function parse(text) {
     // Try markdown pattern first
     const markdownMatch = text.match(/\[([^\]]*)\](?:\(([^)]*)\))?/i);
     if (markdownMatch) {
-      // If it looks like markdown but is invalid, return null
+      // If it looks like markdown but is invalid, return no corrections
       if (!markdownMatch[2] || !isValidMarkdownText(markdownMatch[1])) {
-        return null;
+        return { text, corrections: [] };
       }
 
-      // If URL is invalid, return null
+      // If URL is invalid, return no corrections
       if (!isValidUrl(markdownMatch[2])) {
-        return null;
+        return { text, corrections: [] };
       }
 
       // Valid markdown link
+      const correction = {
+        type: 'link',
+        original: markdownMatch[0],
+        correction: `[${markdownMatch[1]}](${markdownMatch[2]})`,
+        position: {
+          start: text.indexOf(markdownMatch[0]),
+          end: text.indexOf(markdownMatch[0]) + markdownMatch[0].length
+        },
+        confidence: 'HIGH'
+      };
+
+      // Apply correction
+      const before = text.substring(0, correction.position.start);
+      const after = text.substring(correction.position.end);
+      const perfectedText = before + correction.correction + after;
+
       return {
-        links: {
-          url: markdownMatch[2],
-          text: markdownMatch[1],
-          type: 'markdown',
-          confidence: Confidence.HIGH,
-          pattern: 'markdown_link',
-          originalMatch: markdownMatch[0]
-        }
+        text: perfectedText,
+        corrections: [correction]
       };
     }
 
@@ -92,51 +102,68 @@ export async function parse(text) {
     if (urlMatch) {
       const url = urlMatch[1];
       if (isValidUrl(url)) {
+        const correction = {
+          type: 'link',
+          original: urlMatch[0],
+          correction: url,
+          position: {
+            start: text.indexOf(urlMatch[0]),
+            end: text.indexOf(urlMatch[0]) + urlMatch[0].length
+          },
+          confidence: 'HIGH'
+        };
+
+        // Apply correction
+        const before = text.substring(0, correction.position.start);
+        const after = text.substring(correction.position.end);
+        const perfectedText = before + correction.correction + after;
+
         return {
-          links: {
-            url,
-            type: 'url',
-            confidence: Confidence.HIGH,
-            pattern: 'url',
-            originalMatch: urlMatch[0]
-          }
+          text: perfectedText,
+          corrections: [correction]
         };
       }
-      return null;
+      return { text, corrections: [] };
     }
 
     // Try inferred URLs last
     if (!text.includes('[') && !text.includes(']')) {
       // Don't match if it looks like an invalid URL pattern
       if (/https?:|\/\/|:\/|^https?$|^http$/.test(text)) {
-        return null;
+        return { text, corrections: [] };
       }
 
       const inferredMatch = text.match(/\b(?!https?:\/\/)(?!ftp:\/\/)([\w-]+\.(?:com|org|net|edu|gov|io)|(?:[\w-]+\.)+[\w-]+\.(?:com|org|net|edu|gov|io))\b/i);
       if (inferredMatch) {
         const domain = inferredMatch[1];
         if (isValidInferredUrl(domain)) {
+          const correction = {
+            type: 'link',
+            original: inferredMatch[0],
+            correction: `https://${domain}`,
+            position: {
+              start: text.indexOf(inferredMatch[0]),
+              end: text.indexOf(inferredMatch[0]) + inferredMatch[0].length
+            },
+            confidence: 'LOW'
+          };
+
+          // Apply correction
+          const before = text.substring(0, correction.position.start);
+          const after = text.substring(correction.position.end);
+          const perfectedText = before + correction.correction + after;
+
           return {
-            links: {
-              url: `https://${domain}`,
-              type: 'url',
-              confidence: Confidence.LOW,
-              pattern: 'inferred_url',
-              originalMatch: inferredMatch[0]
-            }
+            text: perfectedText,
+            corrections: [correction]
           };
         }
       }
     }
 
-    return null;
+    return { text, corrections: [] };
   } catch (error) {
     logger.error('Error in links parser:', error);
-    return {
-      links: {
-        error: 'PARSER_ERROR',
-        message: error.message
-      }
-    };
+    throw error;
   }
 }

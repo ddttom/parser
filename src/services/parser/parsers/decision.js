@@ -81,7 +81,26 @@ function calculateConfidence(pattern, text) {
     return getBaseConfidence(pattern);
 }
 
-export async function parse(text) {
+function formatDecision(decisionInfo) {
+    let result = '';
+    if (decisionInfo.pattern === 'selected') {
+        result = `selected ${decisionInfo.decision} over ${decisionInfo.alternative}`;
+    } else if (decisionInfo.pattern === 'choice') {
+        result = `choice: ${decisionInfo.decision}`;
+    } else if (decisionInfo.pattern === 'going') {
+        result = `going with ${decisionInfo.decision}`;
+    } else {
+        result = `decided to ${decisionInfo.decision}`;
+    }
+
+    if (decisionInfo.rationale) {
+        result += ` because ${decisionInfo.rationale}`;
+    }
+
+    return result;
+}
+
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'DecisionParser');
     if (validationError) {
         return validationError;
@@ -95,8 +114,6 @@ export async function parse(text) {
             selected: /(?:^(?:therefore|thus|hence|consequently)\s*,?\s*)?(?:^|\b)(?:selected\s+)([^,\.]+?)\s+over\s+([^,\.]+?)(?:\s+because(?:\s+of)?\s+([^,\.]+))?(?=[,\.]|$)/i,
             going: /(?:^(?:therefore|thus|hence|consequently)\s*,?\s*)?(?:^|\b)(?:going\s+with\s+)([^,\.]+?)(?:\s+because(?:\s+of)?\s+([^,\.]+))?(?=[,\.]|$)/i
         };
-
-        let bestMatch = null;
 
         // Sort patterns by confidence priority: HIGH > MEDIUM > LOW
         const orderedPatterns = Object.entries(patterns).sort((a, b) => {
@@ -135,36 +152,47 @@ export async function parse(text) {
                 const type = inferDecisionType(decision);
                 const confidence = calculateConfidence(pattern, text);
 
-                // Compare confidence levels - HIGH > MEDIUM > LOW
-                const shouldUpdate = !bestMatch || 
-                    confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH ||
-                    confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW;
-                
-                if (shouldUpdate) {
-                    bestMatch = {
-                        decision: {
-                            decision,
-                            type,
-                            rationale: rationale || null,
-                            ...(alternative && { alternative }),
-                            isExplicit: pattern !== 'going',
-                            confidence,
-                            pattern,
-                            originalMatch: match[0]
-                        }
-                    };
-                }
+                const decisionInfo = {
+                    decision,
+                    type,
+                    rationale: rationale || null,
+                    ...(alternative && { alternative }),
+                    isExplicit: pattern !== 'going',
+                    confidence,
+                    pattern,
+                    originalMatch: match[0]
+                };
+
+                const correction = {
+                    type: 'decision',
+                    original: decisionInfo.originalMatch,
+                    correction: formatDecision(decisionInfo),
+                    position: {
+                        start: text.indexOf(decisionInfo.originalMatch),
+                        end: text.indexOf(decisionInfo.originalMatch) + decisionInfo.originalMatch.length
+                    },
+                    confidence: confidence === Confidence.HIGH ? 'HIGH' : 
+                               confidence === Confidence.MEDIUM ? 'MEDIUM' : 'LOW'
+                };
+
+                // Apply correction
+                const before = text.substring(0, correction.position.start);
+                const after = text.substring(correction.position.end);
+                const perfectedText = before + correction.correction + after;
+
+                return {
+                    text: perfectedText,
+                    corrections: [correction]
+                };
             }
         }
 
-        return bestMatch;
+        return {
+            text,
+            corrections: []
+        };
     } catch (error) {
         logger.error('Error in decision parser:', error);
-        return {
-            decision: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
+        throw error;
     }
 }

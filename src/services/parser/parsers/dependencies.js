@@ -12,7 +12,7 @@ const RELATIONSHIP_TYPES = {
   'after': 'after'
 };
 
-export async function parse(text) {
+export async function perfect(text) {
   const validationError = validateParserInput(text, 'DependenciesParser');
   if (validationError) {
     return validationError;
@@ -98,8 +98,8 @@ export async function parse(text) {
 
       // Compare confidence levels - HIGH > MEDIUM > LOW
       const shouldUpdate = !bestMatch || 
-          confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH ||
-          confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW;
+          confidence === Confidence.HIGH && bestMatch.dependencies.confidence !== Confidence.HIGH ||
+          confidence === Confidence.MEDIUM && bestMatch.dependencies.confidence === Confidence.LOW;
       
       if (shouldUpdate) {
         bestMatch = {
@@ -114,5 +114,45 @@ export async function parse(text) {
     }
   }
 
-  return bestMatch;
+  if (!bestMatch) {
+    return {
+      text,
+      corrections: []
+    };
+  }
+
+  const { dependencies } = bestMatch;
+  const correction = {
+    type: 'dependencies',
+    original: dependencies.originalMatch,
+    correction: formatDependency(dependencies),
+    position: {
+      start: text.indexOf(dependencies.originalMatch),
+      end: text.indexOf(dependencies.originalMatch) + dependencies.originalMatch.length
+    },
+    confidence: dependencies.confidence === Confidence.HIGH ? 'HIGH' : 
+                dependencies.confidence === Confidence.MEDIUM ? 'MEDIUM' : 'LOW'
+  };
+
+  // Apply correction
+  const before = text.substring(0, correction.position.start);
+  const after = text.substring(correction.position.end);
+  const perfectedText = before + correction.correction + after;
+
+  return {
+    text: perfectedText,
+    corrections: [correction]
+  };
+}
+
+function formatDependency(dependency) {
+  if (Array.isArray(dependency.dependencies)) {
+    // Multiple dependencies
+    const deps = dependency.dependencies.map(d => d.id).join(' and ');
+    return `after ${deps}`;
+  } else {
+    // Single dependency
+    const relationship = Object.entries(RELATIONSHIP_TYPES).find(([_, value]) => value === dependency.relationship)?.[0] || 'depends on';
+    return `${relationship} ${dependency.id}`;
+  }
 }

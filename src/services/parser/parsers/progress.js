@@ -10,53 +10,65 @@ function isValidPercentage(value) {
   return value >= 0 && value <= 100;
 }
 
-export async function parse(text) {
+function formatProgress(progressInfo) {
+  return `${progressInfo.percentage}% complete`;
+}
+
+export async function perfect(text) {
   const validationError = validateParserInput(text, 'ProgressParser');
   if (validationError) {
     return validationError;
   }
 
-  const patterns = {
-    inferred: /(\d+)%\s*(?:complete|done|finished)/i
-  };
+  try {
+    const patterns = {
+      inferred: /(\d+)%\s*(?:complete|done|finished)/i
+    };
 
-  let bestMatch = null;
-  let highestConfidence = Confidence.LOW;
+    for (const [pattern, regex] of Object.entries(patterns)) {
+      const match = text.match(regex);
+      if (match) {
+        const percentage = parseInt(match[1], 10);
+        if (!isValidPercentage(percentage)) {
+          continue;
+        }
 
-  for (const [pattern, regex] of Object.entries(patterns)) {
-    const match = text.match(regex);
-    if (match) {
-      let confidence;
-      let value;
+        const progressInfo = {
+          percentage,
+          confidence: Confidence.HIGH,
+          pattern,
+          originalMatch: match[0]
+        };
 
-      const percentage = parseInt(match[1], 10);
-      if (!isValidPercentage(percentage)) {
-        continue;
-      }
+        const correction = {
+          type: 'progress',
+          original: progressInfo.originalMatch,
+          correction: formatProgress(progressInfo),
+          position: {
+            start: text.indexOf(progressInfo.originalMatch),
+            end: text.indexOf(progressInfo.originalMatch) + progressInfo.originalMatch.length
+          },
+          confidence: 'HIGH'
+        };
 
-      confidence = Confidence.HIGH;
-      value = {
-        percentage
-      };
+        // Apply correction
+        const before = text.substring(0, correction.position.start);
+        const after = text.substring(correction.position.end);
+        const perfectedText = before + correction.correction + after;
 
-      // Update if current confidence is higher or equal priority pattern
-      const shouldUpdate = !bestMatch || 
-          (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
-          (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW);
-      
-      if (shouldUpdate) {
-        highestConfidence = confidence;
-        bestMatch = {
-          progress: {
-            ...value,
-            confidence,
-            pattern,
-            originalMatch: match[0]
-          }
+        return {
+          text: perfectedText,
+          corrections: [correction]
         };
       }
     }
-  }
 
-  return bestMatch;
+    return {
+      text,
+      corrections: []
+    };
+  } catch (error) {
+    logger.error('Error in progress parser:', error);
+    throw error;
+  }
 }

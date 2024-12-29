@@ -37,7 +37,14 @@ function validateUrgencyLevel(level) {
     return level && typeof level === 'string' && level.toLowerCase() in URGENCY_LEVELS;
 }
 
-export async function parse(text) {
+function formatUrgency(urgencyInfo) {
+    if (urgencyInfo.timeBased) {
+        return urgencyInfo.originalMatch.toLowerCase();
+    }
+    return `${urgencyInfo.level} priority`;
+}
+
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'UrgencyParser');
     if (validationError) {
         return validationError;
@@ -48,15 +55,34 @@ export async function parse(text) {
         for (const pattern of TIME_URGENCY_PATTERNS) {
             const timeMatch = text.match(pattern);
             if (timeMatch) {
+                const urgencyInfo = {
+                    level: 'high',
+                    score: URGENCY_LEVELS.high,
+                    timeBased: true,
+                    pattern: 'time_urgency',
+                    confidence: Confidence.HIGH,
+                    originalMatch: timeMatch[0]
+                };
+
+                const correction = {
+                    type: 'urgency',
+                    original: urgencyInfo.originalMatch,
+                    correction: formatUrgency(urgencyInfo),
+                    position: {
+                        start: text.indexOf(urgencyInfo.originalMatch),
+                        end: text.indexOf(urgencyInfo.originalMatch) + urgencyInfo.originalMatch.length
+                    },
+                    confidence: 'HIGH'
+                };
+
+                // Apply correction
+                const before = text.substring(0, correction.position.start);
+                const after = text.substring(correction.position.end);
+                const perfectedText = before + correction.correction + after;
+
                 return {
-                    urgency: {
-                        level: 'high',
-                        score: URGENCY_LEVELS.high,
-                        timeBased: true,
-                        pattern: 'time_urgency',
-                        confidence: Confidence.HIGH,
-                        originalMatch: timeMatch[0]
-                    }
+                    text: perfectedText,
+                    corrections: [correction]
                 };
             }
         }
@@ -65,27 +91,44 @@ export async function parse(text) {
         for (const [keyword, level] of Object.entries(URGENCY_KEYWORDS)) {
             const keywordMatch = text.match(new RegExp(`\\b${keyword}\\b`, 'i'));
             if (keywordMatch) {
+                const urgencyInfo = {
+                    level,
+                    score: URGENCY_LEVELS[level],
+                    keyword: keyword.toLowerCase(),
+                    pattern: 'keyword_urgency',
+                    confidence: Confidence.MEDIUM,
+                    originalMatch: keywordMatch[0]
+                };
+
+                const correction = {
+                    type: 'urgency',
+                    original: urgencyInfo.originalMatch,
+                    correction: formatUrgency(urgencyInfo),
+                    position: {
+                        start: text.indexOf(urgencyInfo.originalMatch),
+                        end: text.indexOf(urgencyInfo.originalMatch) + urgencyInfo.originalMatch.length
+                    },
+                    confidence: 'MEDIUM'
+                };
+
+                // Apply correction
+                const before = text.substring(0, correction.position.start);
+                const after = text.substring(correction.position.end);
+                const perfectedText = before + correction.correction + after;
+
                 return {
-                    urgency: {
-                        level,
-                        score: URGENCY_LEVELS[level],
-                        keyword: keyword.toLowerCase(),
-                        pattern: 'keyword_urgency',
-                        confidence: Confidence.MEDIUM,
-                        originalMatch: keywordMatch[0]
-                    }
+                    text: perfectedText,
+                    corrections: [correction]
                 };
             }
         }
 
-        return null;
+        return {
+            text,
+            corrections: []
+        };
     } catch (error) {
         logger.error('Error in urgency parser:', error);
-        return {
-            urgency: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
+        throw error;
     }
 }

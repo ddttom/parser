@@ -6,7 +6,7 @@ const logger = createLogger('ContextParser');
 
 export const name = 'context';
 
-export async function parse(text) {
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'ContextParser');
     if (validationError) {
         return validationError;
@@ -26,36 +26,63 @@ export async function parse(text) {
         for (const [type, pattern] of Object.entries(patterns)) {
             const match = text.match(pattern);
             if (match) {
-                const context = match[1].trim();
-                if (context) {
-                    return {
+                const contextStr = match[1].trim();
+                if (contextStr) {
+                    const contextType = inferContextType(contextStr);
+                    const confidence = calculateConfidence(type, contextStr);
+                    
+                    const correction = {
                         type: 'context',
-                        value: {
-                            context,
-                            type: inferContextType(context)
+                        original: match[0],
+                        correction: formatContext({ context: contextStr, type: contextType }),
+                        position: {
+                            start: text.indexOf(match[0]),
+                            end: text.indexOf(match[0]) + match[0].length
                         },
-                        metadata: {
-                            confidence: calculateConfidence(type, context, match),
-                            pattern: type,
-                            originalMatch: match[0]
-                        }
+                        confidence: confidence === Confidence.HIGH ? 'HIGH' : 
+                                   confidence === Confidence.MEDIUM ? 'MEDIUM' : 'LOW'
+                    };
+
+                    // Apply correction
+                    const before = text.substring(0, correction.position.start);
+                    const after = text.substring(correction.position.end);
+                    const perfectedText = before + correction.correction + after;
+
+                    return {
+                        text: perfectedText,
+                        corrections: [correction]
                     };
                 }
             }
         }
         
-        return null;
+        return {
+            text,
+            corrections: []
+        };
     } catch (error) {
         logger.error('Error in context parser:', {
             error: error.message,
             stack: error.stack,
             input: text
         });
-        return {
-            type: 'error',
-            error: 'PARSER_ERROR',
-            message: error.message
-        };
+        throw error;
+    }
+}
+
+function formatContext(contextInfo) {
+    const { context, type } = contextInfo;
+    switch (type) {
+        case 'location':
+            return `at ${context}`;
+        case 'time':
+            return `during ${context}`;
+        case 'tool':
+            return `using ${context}`;
+        case 'activity':
+            return `during ${context}`;
+        default:
+            return `in ${context}`;
     }
 }
 

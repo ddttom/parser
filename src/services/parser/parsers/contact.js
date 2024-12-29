@@ -6,7 +6,7 @@ const logger = createLogger('ContactParser');
 
 export const name = 'contact';
 
-export async function parse(text) {
+export async function perfect(text) {
   const validationError = validateParserInput(text, 'ContactParser');
   if (validationError) {
     return validationError;
@@ -88,8 +88,8 @@ export async function parse(text) {
 
       // Update if current confidence is higher or equal priority pattern
       const shouldUpdate = value && (!bestMatch || 
-          (confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH) ||
-          (confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW));
+          (confidence === Confidence.HIGH && bestMatch.contact.confidence !== Confidence.HIGH) ||
+          (confidence === Confidence.MEDIUM && bestMatch.contact.confidence === Confidence.LOW));
       
       if (shouldUpdate) {
         highestConfidence = confidence;
@@ -105,5 +105,46 @@ export async function parse(text) {
     }
   }
 
-  return bestMatch;
+  if (!bestMatch) {
+    return {
+      text,
+      corrections: []
+    };
+  }
+
+  const { contact } = bestMatch;
+  const correction = {
+    type: 'contact',
+    original: contact.originalMatch,
+    correction: formatContact(contact),
+    position: {
+      start: text.indexOf(contact.originalMatch),
+      end: text.indexOf(contact.originalMatch) + contact.originalMatch.length
+    },
+    confidence: contact.confidence === Confidence.HIGH ? 'HIGH' : 
+                contact.confidence === Confidence.MEDIUM ? 'MEDIUM' : 'LOW'
+  };
+
+  // Apply correction
+  const before = text.substring(0, correction.position.start);
+  const after = text.substring(correction.position.end);
+  const perfectedText = before + correction.correction + after;
+
+  return {
+    text: perfectedText,
+    corrections: [correction]
+  };
+}
+
+function formatContact(contact) {
+  switch (contact.type) {
+    case 'email':
+      return `${contact.name} <${contact.value}>`;
+    case 'phone':
+      return contact.formatted;
+    case 'reference':
+      return contact.name;
+    default:
+      return contact.value || '';
+  }
 }

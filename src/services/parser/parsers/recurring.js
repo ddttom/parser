@@ -24,50 +24,6 @@ const WEEKDAYS = {
 
 export const name = 'recurring';
 
-export async function parse(text) {
-    const validationError = validateParserInput(text, 'RecurringParser');
-    if (validationError) {
-        return validationError;
-    }
-
-    try {
-        // Check patterns in priority order
-        for (const [type, pattern] of RECURRING_PATTERNS) {
-            if (type === 'endCount' || type === 'endDate') continue;
-
-            const matches = text.match(pattern);
-            if (matches) {
-                const value = await extractRecurringValue(matches, type);
-                if (value) {
-                    const endCondition = await extractEndCondition(text);
-                    const confidence = calculateConfidence(type);
-
-                    return {
-                        recurring: {
-                            ...value,
-                            end: endCondition,
-                            pattern: type,
-                            confidence,
-                            originalMatch: matches[0],
-                            includesEndCondition: !!endCondition
-                        }
-                    };
-                }
-            }
-        }
-
-        return null;
-    } catch (error) {
-        logger.error('Error in recurring parser:', error);
-        return {
-            recurring: {
-                error: 'PARSER_ERROR',
-                message: error.message
-            }
-        };
-    }
-}
-
 async function extractRecurringValue(matches, type) {
     switch (type) {
         case 'daily':
@@ -152,5 +108,92 @@ function calculateConfidence(type) {
             return Confidence.MEDIUM;
         default:
             return Confidence.LOW;
+    }
+}
+
+function formatRecurring(recurring) {
+    const { type, interval, day, excludeWeekends, end } = recurring;
+    let result = '';
+
+    // Format the recurring part
+    if (type === 'specific' && day) {
+        result = `every ${day}`;
+    } else if (type === 'business') {
+        result = 'every business day';
+    } else {
+        result = `every ${interval === 1 ? '' : interval + ' '}${type}${interval === 1 ? '' : 's'}`;
+    }
+
+    // Add end condition if present
+    if (end) {
+        if (end.type === 'count') {
+            result += ` for ${end.value} times`;
+        } else if (end.type === 'until') {
+            result += ` until ${end.value}`;
+        }
+    }
+
+    return result;
+}
+
+export async function perfect(text) {
+    const validationError = validateParserInput(text, 'RecurringParser');
+    if (validationError) {
+        return validationError;
+    }
+
+    try {
+        // Check patterns in priority order
+        for (const [type, pattern] of RECURRING_PATTERNS) {
+            if (type === 'endCount' || type === 'endDate') continue;
+
+            const matches = text.match(pattern);
+            if (matches) {
+                const value = await extractRecurringValue(matches, type);
+                if (value) {
+                    const endCondition = await extractEndCondition(text);
+                    const confidence = calculateConfidence(type);
+
+                    const recurringInfo = {
+                        ...value,
+                        end: endCondition,
+                        pattern: type,
+                        confidence,
+                        originalMatch: matches[0],
+                        includesEndCondition: !!endCondition
+                    };
+
+                    const correction = {
+                        type: 'recurring',
+                        original: matches[0],
+                        correction: formatRecurring(recurringInfo),
+                        position: {
+                            start: text.indexOf(matches[0]),
+                            end: text.indexOf(matches[0]) + matches[0].length
+                        },
+                        confidence: confidence === Confidence.HIGH ? 'HIGH' : 
+                                   confidence === Confidence.MEDIUM ? 'MEDIUM' : 'LOW'
+                    };
+
+                    // Apply correction
+                    const before = text.substring(0, correction.position.start);
+                    const after = text.substring(correction.position.end);
+                    const perfectedText = before + correction.correction + after;
+
+                    return {
+                        text: perfectedText,
+                        corrections: [correction]
+                    };
+                }
+            }
+        }
+
+        return {
+            text,
+            corrections: []
+        };
+    } catch (error) {
+        logger.error('Error in recurring parser:', error);
+        throw error;
     }
 }

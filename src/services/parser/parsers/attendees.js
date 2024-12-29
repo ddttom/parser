@@ -5,7 +5,7 @@ const logger = createLogger('AttendeesParser');
 
 export const name = 'attendees';
 
-export async function parse(text) {
+export async function perfect(text) {
     const validationError = validateParserInput(text, 'AttendeesParser');
     if (validationError) {
         return validationError;
@@ -112,5 +112,48 @@ export async function parse(text) {
         }
     }
 
-    return bestMatch;
+    if (!bestMatch) {
+        return {
+            text,
+            corrections: []
+        };
+    }
+
+    const { attendees } = bestMatch;
+    const correction = {
+        type: 'attendees',
+        original: attendees.originalMatch,
+        correction: formatAttendees(attendees.attendees),
+        position: {
+            start: text.indexOf(attendees.originalMatch),
+            end: text.indexOf(attendees.originalMatch) + attendees.originalMatch.length
+        },
+        confidence: attendees.confidence >= 0.9 ? 'HIGH' : attendees.confidence >= 0.8 ? 'MEDIUM' : 'LOW'
+    };
+
+    // Apply correction
+    const before = text.substring(0, correction.position.start);
+    const after = text.substring(correction.position.end);
+    const perfectedText = before + correction.correction + after;
+
+    return {
+        text: perfectedText,
+        corrections: [correction]
+    };
+}
+
+function formatAttendees(attendeesList) {
+    if (Array.isArray(attendeesList)) {
+        // Handle array of strings
+        if (typeof attendeesList[0] === 'string') {
+            return attendeesList.length === 1 
+                ? attendeesList[0]
+                : attendeesList.length === 2 
+                    ? `${attendeesList[0]} and ${attendeesList[1]}`
+                    : attendeesList.slice(0, -1).join(', ') + ', and ' + attendeesList[attendeesList.length - 1];
+        }
+        // Handle array of objects with name and role
+        return attendeesList.map(a => `${a.name} (${a.role})`).join(', ');
+    }
+    return '';
 }

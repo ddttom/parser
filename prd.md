@@ -85,44 +85,22 @@ Quality is instead assured through:
 This project requires strict ES Module usage with these specific rules:
 
 - All imports/exports MUST use explicit .js extensions
-- Example: `import { parse } from './parsers/date.js';`
 - No CommonJS (require) syntax allowed
 - No dynamic imports except where specifically approved
 
 #### Module Structure Requirements
 
-```javascript
-// Correct module export format
-export const name = 'parserName';
-export async function parse(text) { ... }
-
-// Correct module import format
-import { name, parse } from './parserName.js';
-import { validateInput } from '../utils/validation.js';
-
-// No CommonJS - This is not allowed:
-// const module = require('./module')
-```
+Each module must follow strict export/import patterns and maintain clear separation of concerns. Implementation examples are provided in the README.md file.
 
 #### Directory Organization
 
-```bash
-src/services/parser/
-├── parsers/           # Each parser in its own module
-│   ├── date.js       # export { name, parse }
-│   ├── time.js       # export { name, parse }
-│   └── ...
-├── utils/            # Utility modules
-│   ├── validation.js # export { validate }
-│   └── ...
-└── index.js          # Main module exports
-```
+The project must maintain a clear directory structure that separates parsers, utilities, and core services. Implementation details are provided in the README.md file.
 
 #### Import/Export Rules
 
 1. Every parser module must export:
    - name (string constant)
-   - parse function (async)
+   - perfect function (async)
    - any helper functions needed by other modules
 
 2. Utility modules must:
@@ -135,117 +113,52 @@ src/services/parser/
    - Maintain flat export structure
    - Avoid circular dependencies
 
+### Processing Pipeline Requirements
+
+The system must implement a staged processing pipeline that:
+
+1. Processes text through distinct stages in a specific order
+2. Allows parsers to be grouped by functionality
+3. Prevents parser conflicts through clear stage boundaries
+4. Maintains high performance through efficient stage processing
+5. Supports excluding specific parsers via configuration
+6. Tracks performance metrics per stage
+7. Provides detailed change tracking for each stage
+8. Handles parser failures gracefully without affecting other stages
+
+The specific stages and parsers are documented in the README.md file.
+
 ### Parser Requirements
 
-#### Parser Interface
+Each parser in the system must:
 
-Each parser must implement:
-
-```javascript
-// parser.js
-export async function perfect(text) {
-    return {
-        text: string,        // Improved text
-        corrections: [{      // Array of changes made
-            type: string,    // Type of correction
-            original: string,// Original text
-            correction: string, // New text
-            position: {      // Location in text
-                start: number,
-                end: number
-            },
-            confidence: 'HIGH' | 'MEDIUM' | 'LOW'
-        }],
-        confidence: 'HIGH' | 'MEDIUM' | 'LOW'
-    };
-}
-```
-
-### Processing Pipeline
-
-Text flows through six distinct stages:
-
-1. Basic Text Structure
-   - Subject Parser: Standardize subjects
-   - Action Parser: Perfect verb forms
-
-2. Time-Related
-   - Date Parser: Standardize dates
-   - Time Parser: Convert to 24h format
-   - TimeBlock Parser: Format time ranges
-   - TimeOfDay Parser: Clarify periods
-
-3. People and Places
-   - Participants Parser: Standardize names
-   - Attendees Parser: Format attendee lists
-   - Location Parser: Clarify locations
-   - Team Parser: Format team references
-
-4. Project Structure
-   - Project Parser: Standardize project references
-   - Sprint Parser: Format sprint mentions
-   - Milestone Parser: Clarify milestones
-
-5. Task Attributes
-   - Priority Parser: Standardize priorities
-   - Status Parser: Format status indicators
-   - Complexity Parser: Clarify complexity
-   - Cost Parser: Format monetary values
-
-6. Metadata
-   - Tags Parser: Format tags
-   - Categories Parser: Standardize categories
-   - Version Parser: Format version numbers
+1. Implement the standard parser interface (documented in README.md)
+2. Handle its own validation and error recovery
+3. Provide confidence levels for all corrections
+4. Track position information for changes
+5. Maintain original meaning of text
+6. Be independent and not rely on other parsers
+7. Follow consistent naming and formatting rules
+8. Include comprehensive test coverage
 
 ### API Requirements
 
-#### REST Endpoint
+The system must provide a REST API that:
 
-```javascript
-POST /parse
-Content-Type: application/json
+1. Accepts text input in a standard format
+2. Supports configuration options for parser exclusion
+3. Returns detailed results including:
+   - Original and perfected text
+   - Stage-by-stage processing information
+   - Performance metrics
+   - Confidence levels
+   - Error details when applicable
+4. Handles errors gracefully with clear error messages
+5. Follows REST best practices
+6. Provides proper content type headers
+7. Implements appropriate status codes
 
-{
-    "text": string,
-    "options"?: {
-        "exclude"?: string[]  // Optional parser exclusions
-    }
-}
-```
-
-#### Response Format
-
-```javascript
-{
-    "success": boolean,
-    "result"?: {
-        "original": string,
-        "perfected": string,
-        "stages": [{
-            "stage": number,
-            "parsers": string[],
-            "duration": number,
-            "changes": [{
-                "parser": string,
-                "corrections": [{
-                    "type": string,
-                    "original": string,
-                    "correction": string,
-                    "position": {
-                        "start": number,
-                        "end": number
-                    },
-                    "confidence": string
-                }]
-            }]
-        }]
-    },
-    "error"?: {
-        "type": string,
-        "message": string
-    }
-}
-```
+Implementation examples are provided in the README.md file.
 
 ## Performance Requirements
 

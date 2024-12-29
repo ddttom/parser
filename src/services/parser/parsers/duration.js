@@ -10,7 +10,7 @@ function isValidDuration(hours, minutes) {
   return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60;
 }
 
-export async function parse(text) {
+export async function perfect(text) {
   const validationError = validateParserInput(text, 'DurationParser');
   if (validationError) {
     return validationError;
@@ -101,8 +101,8 @@ export async function parse(text) {
 
       // Compare confidence levels - HIGH > MEDIUM > LOW
       const shouldUpdate = !bestMatch || 
-          confidence === Confidence.HIGH && bestMatch.metadata.confidence !== Confidence.HIGH ||
-          confidence === Confidence.MEDIUM && bestMatch.metadata.confidence === Confidence.LOW;
+          confidence === Confidence.HIGH && bestMatch.duration.confidence !== Confidence.HIGH ||
+          confidence === Confidence.MEDIUM && bestMatch.duration.confidence === Confidence.LOW;
       
       if (shouldUpdate) {
         bestMatch = {
@@ -117,5 +117,44 @@ export async function parse(text) {
     }
   }
 
-  return bestMatch;
+  if (!bestMatch) {
+    return {
+      text,
+      corrections: []
+    };
+  }
+
+  const { duration } = bestMatch;
+  const correction = {
+    type: 'duration',
+    original: duration.originalMatch,
+    correction: formatDuration(duration),
+    position: {
+      start: text.indexOf(duration.originalMatch),
+      end: text.indexOf(duration.originalMatch) + duration.originalMatch.length
+    },
+    confidence: duration.confidence === Confidence.HIGH ? 'HIGH' : 
+                duration.confidence === Confidence.MEDIUM ? 'MEDIUM' : 'LOW'
+  };
+
+  // Apply correction
+  const before = text.substring(0, correction.position.start);
+  const after = text.substring(correction.position.end);
+  const perfectedText = before + correction.correction + after;
+
+  return {
+    text: perfectedText,
+    corrections: [correction]
+  };
+}
+
+function formatDuration(duration) {
+  const { hours, minutes } = duration;
+  if (hours === 0) {
+    return `${minutes}m`;
+  } else if (minutes === 0) {
+    return `${hours}h`;
+  } else {
+    return `${hours}h ${minutes}m`;
+  }
 }
